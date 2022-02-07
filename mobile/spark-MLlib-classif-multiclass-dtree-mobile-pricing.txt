@@ -1,0 +1,170 @@
+---- Feature extraction & Data Munging --------------
+
+val df = spark.read.format("csv").option("header","true").load("mobile/mobile_pricing_train.csv")
+
+scala> df.printSchema
+root
+ |-- battery_power: string (nullable = true)
+ |-- blue: string (nullable = true)
+ |-- clock_speed: string (nullable = true)
+ |-- dual_sim: string (nullable = true)
+ |-- fc: string (nullable = true)
+ |-- four_g: string (nullable = true)
+ |-- int_memory: string (nullable = true)
+ |-- m_dep: string (nullable = true)
+ |-- mobile_wt: string (nullable = true)
+ |-- n_cores: string (nullable = true)
+ |-- pc: string (nullable = true)
+ |-- px_height: string (nullable = true)
+ |-- px_width: string (nullable = true)
+ |-- ram: string (nullable = true)
+ |-- sc_h: string (nullable = true)
+ |-- sc_w: string (nullable = true)
+ |-- talk_time: string (nullable = true)
+ |-- three_g: string (nullable = true)
+ |-- touch_screen: string (nullable = true)
+ |-- wifi: string (nullable = true)
+ |-- price_range: string (nullable = true)
+
+scala> df.show(10)
++-------------+----+-----------+--------+---+------+----------+-----+---------+-------+---+---------+--------+----+----+----+---------+-------+------------+----+-----------+
+|battery_power|blue|clock_speed|dual_sim| fc|four_g|int_memory|m_dep|mobile_wt|n_cores| pc|px_height|px_width| ram|sc_h|sc_w|talk_time|three_g|touch_screen|wifi|price_range|
++-------------+----+-----------+--------+---+------+----------+-----+---------+-------+---+---------+--------+----+----+----+---------+-------+------------+----+-----------+
+|          842|   0|        2.2|       0|  1|     0|         7|  0.6|      188|      2|  2|       20|     756|2549|   9|   7|       19|      0|           0|   1|          1|
+|         1021|   1|        0.5|       1|  0|     1|        53|  0.7|      136|      3|  6|      905|    1988|2631|  17|   3|        7|      1|           1|   0|          2|
+|          563|   1|        0.5|       1|  2|     1|        41|  0.9|      145|      5|  6|     1263|    1716|2603|  11|   2|        9|      1|           1|   0|          2|
+|          615|   1|        2.5|       0|  0|     0|        10|  0.8|      131|      6|  9|     1216|    1786|2769|  16|   8|       11|      1|           0|   0|          2|
+|         1821|   1|        1.2|       0| 13|     1|        44|  0.6|      141|      2| 14|     1208|    1212|1411|   8|   2|       15|      1|           1|   0|          1|
+|         1859|   0|        0.5|       1|  3|     0|        22|  0.7|      164|      1|  7|     1004|    1654|1067|  17|   1|       10|      1|           0|   0|          1|
+|         1821|   0|        1.7|       0|  4|     1|        10|  0.8|      139|      8| 10|      381|    1018|3220|  13|   8|       18|      1|           0|   1|          3|
+|         1954|   0|        0.5|       1|  0|     0|        24|  0.8|      187|      4|  0|      512|    1149| 700|  16|   3|        5|      1|           1|   1|          0|
+|         1445|   1|        0.5|       0|  0|     0|        53|  0.7|      174|      7| 14|      386|     836|1099|  17|   1|       20|      1|           0|   0|          0|
+|          509|   1|        0.6|       1|  2|     1|         9|  0.1|       93|      5| 15|     1137|    1224| 513|  19|  10|       12|      1|           0|   0|          0|
++-------------+----+-----------+--------+---+------+----------+-----+---------+-------+---+---------+--------+----+----+----+---------+-------+------------+----+-----------+
+
+val rdd1 = df.rdd.map( x => x.toSeq.toArray)
+
+val rdd = rdd1.map( x => x.map( y => y.toString.toDouble))
+
+rdd.take(5)
+res3: Array[Array[Double]] = Array(Array(842.0, 0.0, 2.2, 0.0, 1.0, 0.0, 7.0, 0.6, 188.0, 2.0, 2.0, 20.0, 756.0, 2549.0, 9.0, 7.0, 19.0, 0.0, 0.0, 1.0, 1.0), Array(1021.0, 1.0, 0.5, 1.0, 0.0, 1.0, 53.0, 0.7, 136.0, 3.0, 6.0, 905.0, 1988.0, 2631.0, 17.0, 3.0, 7.0, 1.0, 1.0, 0.0, 2.0), Array(563.0, 1.0, 0.5, 1.0, 2.0, 1.0, 41.0, 0.9, 145.0, 5.0, 6.0, 1263.0, 1716.0, 2603.0, 11.0, 2.0, 9.0, 1.0, 1.0, 0.0, 2.0), Array(615.0, 1.0, 2.5, 0.0, 0.0, 0.0, 10.0, 0.8, 131.0, 6.0, 9.0, 1216.0, 1786.0, 2769.0, 16.0, 8.0, 11.0, 1.0, 0.0, 0.0, 2.0), Array(1821.0, 1.0, 1.2, 0.0, 13.0, 1.0, 44.0, 0.6, 141.0, 2.0, 14.0, 1208.0, 1212.0, 1411.0, 8.0, 2.0, 15.0, 1.0, 1.0, 0.0, 1.0))
+
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
+
+val data = rdd.map( x => {
+  val arr_size = x.size - 1
+  val l = x(arr_size)
+  val f = Vectors.dense(x.slice(0, arr_size))
+  LabeledPoint(l,f)
+})
+
+val sets = data.randomSplit(Array(0.8,0.2))
+val trainSet = sets(0)
+val testSet = sets(1)
+
+trainSet.cache
+
+---- MLlib MultiClass logistic regression --------------
+
+import org.apache.spark.mllib.classification.{LogisticRegressionModel, LogisticRegressionWithLBFGS}
+val numIterations = 100
+val model = new LogisticRegressionWithLBFGS().setNumClasses(4).run(trainSet)
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res27: Array[(Double, Double)] = Array((2.0,1.0), (2.0,3.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (3.0,3.0), (3.0,3.0), (2.0,1.0), (2.0,3.0), (3.0,3.0), (3.0,3.0), (1.0,1.0), (3.0,3.0), (2.0,2.0), (0.0,0.0), (0.0,1.0), (1.0,2.0), (0.0,0.0), (1.0,1.0), (2.0,3.0))
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 302
+validPredicts.count                            // 413
+val accuracy = metrics.accuracy   // 0.7312348668280871
+
+metrics.confusionMatrix
+res30: org.apache.spark.mllib.linalg.Matrix =
+80.0  14.0  0.0   0.0
+12.0  68.0  21.0  1.0
+0.0   16.0  66.0  22.0
+0.0   0.0   25.0  88.0
+
+---- Analyzing statistics for standardization ---------------------
+
+import org.apache.spark.mllib.linalg.Matrix
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+
+val vectors = data.map{ case LabeledPoint(x,y) => y }
+val matrix = new RowMatrix(vectors)
+val matrixSummary = matrix.computeColumnSummaryStatistics()
+
+matrixSummary.max
+res31: org.apache.spark.mllib.linalg.Vector = [1998.0,1.0,3.0,1.0,19.0,1.0,64.0,1.0,200.0,8.0,20.0,1960.0,1998.0,3998.0,19.0,18.0,20.0,1.0,1.0,1.0]
+
+matrixSummary.min
+res32: org.apache.spark.mllib.linalg.Vector = [501.0,0.0,0.5,0.0,0.0,0.0,2.0,0.1,80.0,1.0,0.0,0.0,500.0,256.0,5.0,0.0,2.0,0.0,0.0,0.0]
+
+matrixSummary.mean
+res33: org.apache.spark.mllib.linalg.Vector = [1238.5185000000013,0.495,1.5222500000000012,0.5095,4.309500000000002,0.5215,32.04650000000006,0.5017500000000009,140.24900000000034,4.520500000000002,9.916499999999997,645.1080000000014,1251.515500000002,2124.2129999999984,12.306499999999978,5.76700000000001,11.011000000000008,0.7615,0.503,0.507]
+
+matrixSummary.variance
+res34: org.apache.spark.mllib.linalg.Vector = [193088.35983766877,0.2501000500250125,0.6658628689344657,0.25003476738369185,18.84813381690848,0.2496625812906453,329.2669712356179,0.08318352926463232,1253.1355667833914,5.234196848424216,36.775915707854,196941.40804002012,186796.36194072035,1176643.6064342165,17.75143346673334,18.978200100050042,29.854806403201607,0.18170860430215108,0.25011605802901454,0.2500760380190095]
+
+---- Standardizing the features --------------
+
+import org.apache.spark.mllib.feature.StandardScaler
+val scaler = new StandardScaler(true, false).fit(trainSet.map(x => x.features))
+val trainScaled = trainSet.map(x => LabeledPoint(x.label,scaler.transform(x.features)))
+trainScaled.cache
+
+---- MLlib Multiclass logistic regression --------------
+
+import org.apache.spark.mllib.classification.{LogisticRegressionModel, LogisticRegressionWithLBFGS}
+val numIterations = 100
+val model = new LogisticRegressionWithLBFGS().setNumClasses(4).run(trainScaled)
+
+val validPredicts = testSet.map(x => (model.predict(scaler.transform(x.features)),x.label))
+
+validPredicts.take(20)
+res36: Array[(Double, Double)] = Array((0.0,1.0), (3.0,3.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (3.0,3.0), (3.0,3.0), (1.0,1.0), (3.0,3.0), (3.0,3.0), (3.0,3.0), (0.0,1.0), (3.0,3.0), (3.0,2.0), (0.0,0.0), (0.0,1.0), (3.0,2.0), (0.0,0.0), (0.0,1.0), (3.0,3.0))
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 255
+validPredicts.count                            // 413
+val accuracy = metrics.accuracy   // 0.6174334140435835
+
+metrics.confusionMatrix
+res39: org.apache.spark.mllib.linalg.Matrix =
+94.0  0.0   0.0   0.0
+79.0  21.0  1.0   1.0
+1.0   1.0   27.0  75.0
+0.0   0.0   0.0   113.0
+
+---- MLlib Decision Tree regression --------------
+
+import org.apache.spark.mllib.tree.DecisionTree
+import org.apache.spark.mllib.tree.model.DecisionTreeModel
+
+val categoricalFeaturesInfo = Map[Int, Int](1 -> 2, 3 -> 2, 5 -> 2, 17 -> 2, 18 -> 2, 19 -> 2)
+categoricalFeaturesInfo: scala.collection.immutable.Map[Int,Int] = Map(5 -> 2, 1 -> 2, 17 -> 2, 3 -> 2, 18 -> 2, 19 -> 2)
+
+val model = DecisionTree.trainClassifier(trainSet, 4, categoricalFeaturesInfo, "gini", 30, 32)
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res40: Array[(Double, Double)] = Array((2.0,1.0), (3.0,3.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (3.0,3.0), (2.0,3.0), (1.0,1.0), (3.0,3.0), (3.0,3.0), (3.0,3.0), (1.0,1.0), (3.0,3.0), (2.0,2.0), (0.0,0.0), (0.0,1.0), (2.0,2.0), (0.0,0.0), (1.0,1.0), (2.0,3.0))
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 336
+validPredicts.count                            // 413
+val accuracy = metrics.accuracy   // 0.8135593220338984
+
+metrics.confusionMatrix
+res43: org.apache.spark.mllib.linalg.Matrix =
+89.0  4.0   1.0   0.0
+16.0  76.0  10.0  0.0
+0.0   12.0  74.0  18.0
+0.0   0.0   16.0  97.0

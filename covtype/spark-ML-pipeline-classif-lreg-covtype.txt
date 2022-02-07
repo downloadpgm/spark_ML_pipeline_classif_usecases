@@ -1,0 +1,97 @@
+
+import org.apache.spark.sql.Row
+
+val rdd = sc.textFile("covtype.csv").map( x => x.split(","))
+
+val rdd1 = rdd.map( x => x.toSeq).map( x => {
+ val size = x.size
+ val arr_wild = x.slice(9,13).map( x => x.toString.toDouble )
+ val zip_wild = arr_wild.zipWithIndex
+ val wild_area = zip_wild.map{ case(x,y) => x*y }.reduce(_+_)
+ 
+ val arr_soil = x.slice(13,size-2).map( x => x.toString.toDouble )
+ val zip_soil = arr_soil.zipWithIndex
+ val soil_type = zip_soil.map{ case(x,y) => x*y }.reduce(_+_)
+ Row(x(0).toDouble,x(1).toDouble,x(2).toDouble,x(3).toDouble,x(4).toDouble,x(5).toDouble,x(6).toDouble,x(7).toDouble,x(8).toDouble,x(9).toDouble,wild_area,soil_type,x(size-1).toDouble) })
+
+import org.apache.spark.sql.types._
+
+val schemaCov = new StructType().
+add("Elevation", DoubleType).
+add("Aspect", DoubleType).
+add("Slope", DoubleType).
+add("Hrz_Dist_Hydrology", DoubleType).
+add("Vrt_Dist_Hydrology", DoubleType).
+add("Hrz_Dist_Roadways", DoubleType).
+add("Hillshade_9am", DoubleType).
+add("Hillshade_Noon", DoubleType).
+add("Hillshade_3pm", DoubleType).
+add("Hrz_Dist_Fire_Points", DoubleType).
+add("Wilderness_Area", DoubleType).
+add("Soil_Type", DoubleType).
+add("Cover_Type", DoubleType)
+
+val df = spark.createDataFrame(rdd1,schemaCov).withColumn("label", 'Cover_Type - 1)
+
+import org.apache.spark.ml.feature.{StringIndexer, OneHotEncoder, VectorAssembler}
+val dfrawIndexer11 = new OneHotEncoder().setInputCol("Wilderness_Area").setOutputCol("WildernessVect")
+val dfrawIndexer21 = new OneHotEncoder().setInputCol("Soil_Type").setOutputCol("SoilVect")
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("Elevation","Aspect","Slope","Hrz_Dist_Hydrology","Vrt_Dist_Hydrology","Hrz_Dist_Roadways","Hillshade_9am","Hillshade_Noon","Hillshade_3pm","Hrz_Dist_Fire_Points","WildernessVect","SoilVect"))
+
+import org.apache.spark.ml.feature.StandardScaler
+val stdScaler = new StandardScaler().
+setWithStd(true).
+setWithMean(true).
+setInputCol("features").
+setOutputCol("scaledFeatures")
+
+import org.apache.spark.ml.classification.{LogisticRegression, OneVsRest}
+val lr = new LogisticRegression
+lr.setRegParam(0.01).setMaxIter(500).setFitIntercept(true).setFamily("binomial").setFeaturesCol("scaledFeatures")
+
+val ovr = new OneVsRest().setClassifier(lr)
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(dfrawIndexer11,dfrawIndexer21,va,stdScaler,ovr))
+
+val Array(trainingData, testData) = df.randomSplit(Array(0.7,0.3),11L)
+
+val model = pipeline.fit(trainingData)
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+val evaluator = new MulticlassClassificationEvaluator().setMetricName("accuracy")
+
+evaluator.evaluate(pred)
+res2: Double = 0.7043191842813771
+
+-------------------
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().addGrid(lr.regParam, Array(0.1, 0.01)).addGrid(lr.fitIntercept, Array(true)).addGrid(lr.maxIter, Array(100,200,300)).build()
+
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new MulticlassClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val model = cv.fit(trainingData)
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.OneVsRestModel
+val lrmodel = bestmodel.stages(4).asInstanceOf[OneVsRestModel]
+
+val pred = bestmodel.transform(testData)
+
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+val evaluator = new MulticlassClassificationEvaluator().setMetricName("accuracy")
+
+evaluator.evaluate(pred)

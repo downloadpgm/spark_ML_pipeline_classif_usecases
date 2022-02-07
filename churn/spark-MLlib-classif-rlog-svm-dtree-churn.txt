@@ -1,0 +1,231 @@
+---- Feature extraction & Data Munging --------------
+
+val rdd = sc.textFile("churn/Churn_Modelling.csv").filter( x => ! x.contains("RowNumber"))
+
+val rdd1 = rdd.map( x => x.split(",")).map( x => x.slice(3,x.size))
+
+rdd1.take(5)
+res2: Array[Array[String]] = Array(Array(619, France, Female, 42, 2, 0, 1, 1, 1, 101348.88, 1), Array(608, Spain, Female, 41, 1, 83807.86, 1, 0, 1, 112542.58, 0), Array(502, France, Female, 42, 8, 159660.8, 3, 1, 0, 113931.57, 1), Array(699, France, Female, 39, 1, 0, 2, 0, 0, 93826.63, 0), Array(850, Spain, Female, 43, 2, 125510.82, 1, 1, 1, 79084.1, 0))
+
+val categ_country = rdd1.map(x => x(1)).distinct.zipWithIndex.collect.toMap
+categ_country: scala.collection.immutable.Map[String,Long] = Map(France -> 0, Spain -> 1, Germany -> 2)
+
+val categ_gender = rdd1.map(x => x(2)).distinct.zipWithIndex.collect.toMap
+categ_gender: scala.collection.immutable.Map[String,Long] = Map(Male -> 0, Female -> 1)
+
+---- Conversion to 1-to-k binary encoding vectors 
+
+def oneHotEncColumns(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int):org.apache.spark.rdd.RDD[Array[Double]] = {
+  val categories = rddx.map(r => r(idx)).distinct.zipWithIndex.collect.toMap
+  val numCategories = categories.size
+  val vetcateg = rddx.map(r => {
+      val categoryIdx = categories(r(idx)).toInt
+      val categoryFeatures = Array.ofDim[Double](numCategories)
+      categoryFeatures(categoryIdx) = 1.0
+      categoryFeatures
+  })
+  vetcateg
+}
+
+def mergeArray(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int*):org.apache.spark.rdd.RDD[Array[Double]] = {
+  var i = 0
+  var arr1 = oneHotEncColumns(rddx,idx(i))
+  for (j <- 1 until idx.size) {
+    var arr2 = oneHotEncColumns(rddx,idx(j))
+    var flt1 = arr1.zip(arr2).map(x => (x._1.toList ++ x._2.toList).toArray)
+    arr1 = flt1
+  }
+  arr1
+}
+
+val concat = mergeArray(rdd1,1,2)
+
+val rdd2 = rdd1.map( x => {
+  val y = Array(x(0),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10))
+  y.map( z => z.toDouble)
+})
+
+val vect = concat.zip(rdd2).map(x => (x._1.toList ++ x._2.toList).toArray)
+
+val rdd2_dt = rdd1.map( x => {
+  val y = Array(x(0),categ_country(x(1)),categ_gender(x(2)),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10))
+  y.map( z => z.toString.toDouble)
+})
+
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
+
+val data = vect.zip(rdd2_dt).map( x => {
+   val x1 = x._1
+   val l1 = x1(x1.size - 1)
+   val f1 = x1.slice(0,x1.size - 1)
+   
+   val x2 = x._2
+   val l2 = x2(x2.size - 1)
+   val f2 = x2.slice(0,x2.size - 1)
+   
+   (LabeledPoint(l1,Vectors.dense(f1)),LabeledPoint(l2,Vectors.dense(f2)))
+ })
+ 
+val sets = data.randomSplit(Array(0.8,0.2))
+val trainSet = sets(0).map( x => x._1)
+val testSet = sets(1).map( x => x._1)
+
+trainSet.cache
+
+---- MLlib logistic regression --------------
+
+import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
+val numIterations = 100
+val model = LogisticRegressionWithSGD.train(trainSet, numIterations)
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res13: Array[(Double, Double)] = Array((0.0,1.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 1624
+validPredicts.count                            // 2044
+model.getClass.getSimpleName
+metrics.areaUnderPR   // 0.2054794520547945
+metrics.areaUnderROC  // 0.5
+
+---- MLlib SVM regression --------------
+
+import org.apache.spark.mllib.classification.SVMWithSGD
+val numIterations = 100
+val model = SVMWithSGD.train(trainSet, numIterations)
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res19: Array[(Double, Double)] = Array((0.0,1.0), (1.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0), (1.0,0.0), (1.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (1.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 1272
+validPredicts.count                            // 2044
+model.getClass.getSimpleName
+metrics.areaUnderPR   // 0.23029737922566285
+metrics.areaUnderROC  // 0.5363711001642035
+
+---- Analyzing statistics for standardization ---------------------
+
+import org.apache.spark.mllib.linalg.Matrix
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+
+val vectors = trainSet.map{ case LabeledPoint(x,y) => y }
+val matrix = new RowMatrix(vectors)
+val matrixSummary = matrix.computeColumnSummaryStatistics()
+
+matrixSummary.max
+res26: org.apache.spark.mllib.linalg.Vector = [1.0,1.0,1.0,1.0,1.0,850.0,92.0,10.0,250898.09,4.0,1.0,1.0,199992.48]
+
+matrixSummary.min
+res27: org.apache.spark.mllib.linalg.Vector = [0.0,0.0,0.0,0.0,0.0,350.0,18.0,0.0,0.0,1.0,0.0,0.0,11.58]
+
+matrixSummary.mean
+res28: org.apache.spark.mllib.linalg.Vector = [0.5018853695324283,0.24522373051784815,0.25289089994972347,0.5444947209653092,0.4555052790346908,650.3612368024109,38.970588235294116,5.031422825540482,76800.48831070877,1.5228758169934626,0.7044997486173957,0.5187280040221217,100277.98718451483]
+
+matrixSummary.variance
+res29: org.apache.spark.mllib.linalg.Vector = [0.25002787171049823,0.18511231951724427,0.18896084340680785,0.24805139770940043,0.24805139770940043,9404.219962970483,111.77713609642477,8.419377032509724,3.8894285466663036E9,0.3337318166319536,0.20820602250150813,0.2496806445506856,3.305986531756714E9]
+
+----- Standardizing features ------------------------------
+
+import org.apache.spark.mllib.feature.StandardScaler
+val vectors = trainSet.map(lp => lp.features)
+val scaler = new StandardScaler(withMean = true, withStd = true).fit(vectors)
+val trainScaled = trainSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.features)))
+
+----- with MLlib logistic regression ----------------------
+
+import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
+val numIterations = 100
+val model = LogisticRegressionWithSGD.train(trainScaled, numIterations)
+
+val validPredicts = testSet.map(x => (model.predict(scaler.transform(x.features)),x.label))
+
+validPredicts.take(20)
+res30: Array[(Double, Double)] = Array((0.0,1.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0), (1.0,0.0), (1.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0), (1.0,0.0), (1.0,1.0), (0.0,0.0), (1.0,0.0), (1.0,0.0), (1.0,0.0), (1.0,0.0))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 1324
+validPredicts.count                            // 2044
+model.getClass.getSimpleName
+metrics.areaUnderPR    // 0.3284798286002993
+metrics.areaUnderROC   // 0.6980090311986863
+
+----- with MLlib SVM regression ----------------------
+
+import org.apache.spark.mllib.classification.SVMWithSGD
+val numIterations = 100
+val model = SVMWithSGD.train(trainScaled, numIterations)
+
+val validPredicts = testSet.map(x => (model.predict(scaler.transform(x.features)),x.label))
+
+validPredicts.take(20)
+res41: Array[(Double, Double)] = Array((0.0,1.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (1.0,0.0), (0.0,0.0), (1.0,0.0), (1.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0), (1.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (1.0,0.0))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 1342
+validPredicts.count                            // 2044
+model.getClass.getSimpleName
+metrics.areaUnderPR    // 0.331136029665572
+metrics.areaUnderROC   // 0.6973727422003284
+
+----- with MLlib Decision tree regression ----------------------
+
+val trainSet = sets(0).map( x => x._2)
+val testSet = sets(1).map( x => x._2)
+
+trainSet.cache
+
+import org.apache.spark.mllib.tree.DecisionTree
+import org.apache.spark.mllib.tree.model.DecisionTreeModel
+
+val categoricalFeaturesInfo = Map[Int, Int]( 1->3, 2->2)
+
+val model = DecisionTree.trainClassifier(trainSet, 2, categoricalFeaturesInfo, "gini", 30, 32)
+
+model.toDebugString
+res43: String =
+"DecisionTreeModel classifier of depth 22 with 2621 nodes
+  If (feature 3 <= 44.5)
+   If (feature 6 <= 2.5)
+    If (feature 6 <= 1.5)
+     If (feature 3 <= 39.5)
+      If (feature 1 in {0.0,1.0})
+       If (feature 5 <= 59795.509999999995)
+        If (feature 3 <= 30.5)
+         If (feature 8 <= 0.5)
+          If (feature 4 <= 1.5)
+           Predict: 0.0
+          Else (feature 4 > 1.5)
+           If (feature 9 <= 193879.555)
+            If (feature 0 <= 708.5)
+             If (feature 0 <= 699.5)
+              If (feature 4 <= 6.5)
+               If (feature 3 <= 28.5)
+                If (feature 0 <= 548.5)
+                 If (feature 0 <= 534.5)
+                  Predict: 0.0
+                 Else (feature 0 > 534.5)
+                  Predict: 1.0
+                El...
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+scala> validPredicts.take(20)
+res44: Array[(Double, Double)] = Array((0.0,1.0), (0.0,0.0), (0.0,1.0), (1.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 1616
+validPredicts.count                            // 2044
+model.getClass.getSimpleName
+metrics.areaUnderPR    // 0.4241836354963203
+metrics.areaUnderROC   // 0.694355500821018

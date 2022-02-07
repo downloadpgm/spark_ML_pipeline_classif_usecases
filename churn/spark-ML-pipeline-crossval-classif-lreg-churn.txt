@@ -1,0 +1,120 @@
+
+import org.apache.spark.sql.types._
+
+val schemaChurn = new StructType().add("RowNumber", IntegerType).
+add("CustomerId", IntegerType).
+add("Surname", StringType).
+add("CreditScore", IntegerType).
+add("Geography", StringType).
+add("Gender", StringType).
+add("Age", IntegerType).
+add("Tenure", IntegerType).
+add("Balance", DoubleType).
+add("NumOfProducts", IntegerType).
+add("HasCrCard", IntegerType).
+add("IsActiveMember", IntegerType).
+add("EstimatedSalary", DoubleType).
+add("Exited", IntegerType)
+
+val df = spark.read.format("csv").schema(schemaChurn).option("header","true").load("Churn_Modelling.csv")
+
+val dfraw = df.drop("RowNumber","CustomerId","Surname").withColumn("label", $"Exited")
+
+import org.apache.spark.ml.feature.{StringIndexer, OneHotEncoder, VectorAssembler}
+val dfrawIndexer1 = new StringIndexer().setInputCol("Geography").setOutputCol("GeographyCat")
+val dfrawIndexer2 = new StringIndexer().setInputCol("Gender").setOutputCol("GenderCat")
+
+val dfrawIndexer11 = new OneHotEncoder().setInputCol("GeographyCat").setOutputCol("GeographyVect")
+val dfrawIndexer21 = new OneHotEncoder().setInputCol("GenderCat").setOutputCol("GenderVect")
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("CreditScore","GeographyVect","GenderVect","Age","Tenure","Balance","NumOfProducts","HasCrCard","IsActiveMember","EstimatedSalary"))
+
+import org.apache.spark.ml.feature.StandardScaler
+val stdScaler = new StandardScaler().
+setWithStd(true).
+setWithMean(true).
+setInputCol("features").
+setOutputCol("scaledFeatures")
+
+import org.apache.spark.ml.classification.LogisticRegression
+val lr = new LogisticRegression
+lr.setRegParam(0.01).setMaxIter(500).setFitIntercept(true).setFeaturesCol("scaledFeatures")
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(dfrawIndexer1,dfrawIndexer2,dfrawIndexer11,dfrawIndexer21,va,stdScaler,lr))
+
+val Array(trainingData, testData) = dfraw.randomSplit(Array(0.7,0.3),11L)
+
+val model = pipeline.fit(trainingData)
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res1: Double = 0.7588551798048759
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+
+val lrmodel = model.stages(6).asInstanceOf[LogisticRegressionModel]
+
+println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+LR Model coefficients:
+-0.04687018669513266
+-0.03235338277593241
+0.30310830705423825
+-0.24368790140026417
+0.7160853652899726
+-0.06519910614543586
+0.15529435849765294
+-0.034514927609777195
+-0.015782223254386666
+-0.4822332145289691
+0.012215544968639276
+
+-------------------
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().addGrid(lr.regParam, Array(0.1, 0.01, 0.001)).addGrid(lr.fitIntercept).addGrid(lr.maxIter, Array(100,300,500)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new BinaryClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val model = cv.fit(trainingData)
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+val lrmodel = bestmodel.stages(6).asInstanceOf[LogisticRegressionModel]
+
+println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+LR Model coefficients:
+-0.030498312695674903
+-0.01456384032395634
+0.22696223179459063
+-0.1568590565638549
+0.5038700620804204
+-0.035506603964238624
+0.08440960723102982
+-0.02531456694898304
+-0.006440939052766413
+-0.2891502956076117
+0.009595551306131505
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res3: Double = 0.7603320830060596
+
+
+

@@ -1,0 +1,329 @@
+---- Feature extraction & Data Munging --------------
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("obesity/ObesityDataSet_raw_and_data_sinthetic.csv")
+
+df.printSchema
+root
+ |-- Gender: string (nullable = true)
+ |-- Age: double (nullable = true)
+ |-- Height: double (nullable = true)
+ |-- Weight: double (nullable = true)
+ |-- family_history_with_overweight: string (nullable = true)
+ |-- FAVC: string (nullable = true)
+ |-- FCVC: double (nullable = true)
+ |-- NCP: double (nullable = true)
+ |-- CAEC: string (nullable = true)
+ |-- SMOKE: string (nullable = true)
+ |-- CH2O: double (nullable = true)
+ |-- SCC: string (nullable = true)
+ |-- FAF: double (nullable = true)
+ |-- TUE: double (nullable = true)
+ |-- CALC: string (nullable = true)
+ |-- MTRANS: string (nullable = true)
+ |-- NObeyesdad: string (nullable = true)
+ 
+df.show(10)
++------+----+------+------+------------------------------+----+----+---+---------+-----+----+---+---+---+----------+--------------------+-------------------+
+|Gender| Age|Height|Weight|family_history_with_overweight|FAVC|FCVC|NCP|     CAEC|SMOKE|CH2O|SCC|FAF|TUE|      CALC|              MTRANS|         NObeyesdad|
++------+----+------+------+------------------------------+----+----+---+---------+-----+----+---+---+---+----------+--------------------+-------------------+
+|Female|21.0|  1.62|  64.0|                           yes|  no| 2.0|3.0|Sometimes|   no| 2.0| no|0.0|1.0|        no|Public_Transporta...|      Normal_Weight|
+|Female|21.0|  1.52|  56.0|                           yes|  no| 3.0|3.0|Sometimes|  yes| 3.0|yes|3.0|0.0| Sometimes|Public_Transporta...|      Normal_Weight|
+|  Male|23.0|   1.8|  77.0|                           yes|  no| 2.0|3.0|Sometimes|   no| 2.0| no|2.0|1.0|Frequently|Public_Transporta...|      Normal_Weight|
+|  Male|27.0|   1.8|  87.0|                            no|  no| 3.0|3.0|Sometimes|   no| 2.0| no|2.0|0.0|Frequently|             Walking| Overweight_Level_I|
+|  Male|22.0|  1.78|  89.8|                            no|  no| 2.0|1.0|Sometimes|   no| 2.0| no|0.0|0.0| Sometimes|Public_Transporta...|Overweight_Level_II|
+|  Male|29.0|  1.62|  53.0|                            no| yes| 2.0|3.0|Sometimes|   no| 2.0| no|0.0|0.0| Sometimes|          Automobile|      Normal_Weight|
+|Female|23.0|   1.5|  55.0|                           yes| yes| 3.0|3.0|Sometimes|   no| 2.0| no|1.0|0.0| Sometimes|           Motorbike|      Normal_Weight|
+|  Male|22.0|  1.64|  53.0|                            no|  no| 2.0|3.0|Sometimes|   no| 2.0| no|3.0|0.0| Sometimes|Public_Transporta...|      Normal_Weight|
+|  Male|24.0|  1.78|  64.0|                           yes| yes| 3.0|3.0|Sometimes|   no| 2.0| no|1.0|1.0|Frequently|Public_Transporta...|      Normal_Weight|
+|  Male|22.0|  1.72|  68.0|                           yes| yes| 2.0|3.0|Sometimes|   no| 2.0| no|1.0|1.0|        no|Public_Transporta...|      Normal_Weight|
++------+----+------+------+------------------------------+----+----+---+---------+-----+----+---+---+---+----------+--------------------+-------------------+
+
+scala> df.select("NObeyesdad").distinct.show
++-------------------+
+|         NObeyesdad|
++-------------------+
+|   Obesity_Type_III|
+| Overweight_Level_I|
+|    Obesity_Type_II|
+|Insufficient_Weight|
+|Overweight_Level_II|
+|      Normal_Weight|
+|     Obesity_Type_I|
++-------------------+
+
+scala> df.select("MTRANS").distinct.show
++--------------------+
+|              MTRANS|
++--------------------+
+|                Bike|
+|             Walking|
+|          Automobile|
+|           Motorbike|
+|Public_Transporta...|
++--------------------+
+
+scala> df.select("CALC").distinct.show
++----------+
+|      CALC|
++----------+
+| Sometimes|
+|Frequently|
+|        no|
+|    Always|
++----------+
+
+scala> df.select("CAEC").distinct.show
++----------+
+|      CAEC|
++----------+
+| Sometimes|
+|Frequently|
+|        no|
+|    Always|
++----------+
+
+scala> df.select("Gender").distinct.show
++------+
+|Gender|
++------+
+|Female|
+|  Male|
++------+
+
+val categ_yesno = Map("no" -> 0, "yes" -> 1)
+categ_yesno: scala.collection.immutable.Map[String,Int] = Map(no -> 0, yes -> 1)
+
+val categ_frequency = Map("no" -> 0, "Sometimes" -> 1, "Frequently" -> 2, "Always" -> 3)
+categ_frequency: scala.collection.immutable.Map[String,Int] = Map(no -> 0, Sometimes -> 1, Frequently -> 2, Always -> 3)
+
+val categ_obslevel = Map("Insufficient_Weight" -> 0, "Normal_Weight" -> 1, "Obesity_Type_I" -> 2, "Obesity_Type_II" -> 3, "Obesity_Type_III" -> 4, "Overweight_Level_I" -> 5, "Overweight_Level_II" -> 6)
+categ_obslevel: scala.collection.immutable.Map[String,Int] = Map(Obesity_Type_II -> 3, Insufficient_Weight -> 0, Overweight_Level_II -> 6, Normal_Weight -> 1, Obesity_Type_I -> 2, Obesity_Type_III -> 4, Overweight_Level_I -> 5)
+
+val categ_gender = Map("Female" -> 0, "Male" -> 1)
+categ_gender: scala.collection.immutable.Map[String,Int] = Map(Female -> 0, Male -> 1)
+
+val rdd = df.rdd.map( x => x.toSeq.toArray)
+
+val rdd1 = rdd.map( x => x.map( y => y.toString ))
+
+rdd1.take(5)
+res1: Array[Array[String]] = Array(Array(Female, 21.0, 1.62, 64.0, yes, no, 2.0, 3.0, Sometimes, no, 2.0, no, 0.0, 1.0, no, Public_Transportation, Normal_Weight), Array(Female, 21.0, 1.52, 56.0, yes, no, 3.0, 3.0, Sometimes, yes, 3.0, yes, 3.0, 0.0, Sometimes, Public_Transportation, Normal_Weight), Array(Male, 23.0, 1.8, 77.0, yes, no, 2.0, 3.0, Sometimes, no, 2.0, no, 2.0, 1.0, Frequently, Public_Transportation, Normal_Weight), Array(Male, 27.0, 1.8, 87.0, no, no, 3.0, 3.0, Sometimes, no, 2.0, no, 2.0, 0.0, Frequently, Walking, Overweight_Level_I), Array(Male, 22.0, 1.78, 89.8, no, no, 2.0, 1.0, Sometimes, no, 2.0, no, 0.0, 0.0, Sometimes, Public_Transportation, Overweight_Level_II))
+
+---- Conversion to 1-to-k binary encoding vectors 
+
+def oneHotEncColumns(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int):org.apache.spark.rdd.RDD[Array[Double]] = {
+  val categories = rddx.map(r => r(idx)).distinct.zipWithIndex.collect.toMap
+  val numCategories = categories.size
+  val vetcateg = rddx.map(r => {
+      val categoryIdx = categories(r(idx)).toInt
+      val categoryFeatures = Array.ofDim[Double](numCategories)
+      categoryFeatures(categoryIdx) = 1.0
+      categoryFeatures
+  })
+  vetcateg
+}
+
+def mergeArray(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int*):org.apache.spark.rdd.RDD[Array[Double]] = {
+  var i = 0
+  var arr1 = oneHotEncColumns(rddx,idx(i))
+  for (j <- 1 until idx.size) {
+    var arr2 = oneHotEncColumns(rddx,idx(j))
+    var flt1 = arr1.zip(arr2).map(x => (x._1.toList ++ x._2.toList).toArray)
+    arr1 = flt1
+  }
+  arr1
+}
+
+val concat = mergeArray(rdd1,15)
+
+concat.first
+res6: Array[Double] = Array(0.0, 0.0, 0.0, 0.0, 1.0)
+
+val rdd2 = rdd1.map( x => {
+  val y = Array(categ_obslevel(x(16)),categ_gender(x(0)),x(1),x(2),x(3),categ_yesno(x(4)),categ_yesno(x(5)),x(6),x(7),categ_frequency(x(8)),categ_yesno(x(9)),x(10),categ_yesno(x(11)),x(12),x(13),categ_frequency(x(14)))
+  y.map( z => z.toString.toDouble)
+  })
+	 
+rdd2.take(5)
+res5: Array[Array[Double]] = Array(Array(0.0, 21.0, 1.62, 64.0, 1.0, 0.0, 2.0, 3.0, 1.0, 0.0, 2.0, 0.0, 0.0, 1.0, 0.0, 1.0), Array(0.0, 21.0, 1.52, 56.0, 1.0, 0.0, 3.0, 3.0, 1.0, 1.0, 3.0, 1.0, 3.0, 0.0, 1.0, 1.0), Array(1.0, 23.0, 1.8, 77.0, 1.0, 0.0, 2.0, 3.0, 1.0, 0.0, 2.0, 0.0, 2.0, 1.0, 2.0, 1.0), Array(1.0, 27.0, 1.8, 87.0, 0.0, 0.0, 3.0, 3.0, 1.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 5.0), Array(1.0, 22.0, 1.78, 89.8, 0.0, 0.0, 2.0, 1.0, 1.0, 0.0, 2.0, 0.0, 0.0, 0.0, 1.0, 6.0))
+
+val vect = rdd2.zip(concat).map(x => (x._1.toList ++ x._2.toList).toArray)
+
+vect.first
+res7: Array[Double] = Array(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 21.0, 1.62, 64.0, 1.0, 0.0, 2.0, 3.0, 1.0, 0.0, 2.0, 0.0, 0.0, 1.0, 0.0, 1.0)
+
+val categ_transp = rdd1.map( x => x(15)).distinct.zipWithIndex.collect.toMap
+categ_transp: scala.collection.immutable.Map[String,Long] = Map(Bike -> 2, Automobile -> 3, Walking -> 1, Public_Transportation -> 4, Motorbike -> 0)
+
+val rdd2_dt = rdd1.map( x => {
+  val y = Array(categ_obslevel(x(16)),categ_gender(x(0)),x(1),x(2),x(3),categ_yesno(x(4)),categ_yesno(x(5)),x(6),x(7),categ_frequency(x(8)),categ_yesno(x(9)),x(10),categ_yesno(x(11)),x(12),x(13),categ_frequency(x(14)),categ_transp(x(15)))
+  y.map( z => z.toString.toDouble)
+  })
+  
+rdd2_dt.take(5)
+res2: Array[Array[Double]] = Array(Array(1.0, 0.0, 21.0, 1.62, 64.0, 1.0, 0.0, 2.0, 3.0, 1.0, 0.0, 2.0, 0.0, 0.0, 1.0, 0.0, 4.0), Array(1.0, 0.0, 21.0, 1.52, 56.0, 1.0, 0.0, 3.0, 3.0, 1.0, 1.0, 3.0, 1.0, 3.0, 0.0, 1.0, 4.0), Array(1.0, 1.0, 23.0, 1.8, 77.0, 1.0, 0.0, 2.0, 3.0, 1.0, 0.0, 2.0, 0.0, 2.0, 1.0, 2.0, 4.0), Array(5.0, 1.0, 27.0, 1.8, 87.0, 0.0, 0.0, 3.0, 3.0, 1.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 1.0), Array(6.0, 1.0, 22.0, 1.78, 89.8, 0.0, 0.0, 2.0, 1.0, 1.0, 0.0, 2.0, 0.0, 0.0, 0.0, 1.0, 4.0))
+
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
+
+val data = vect.zip(rdd2_dt).map( x => {
+   val x1 = x._1
+   val l1 = x1(0)
+   val f1 = x1.slice(1,x1.size)
+   
+   val x2 = x._2
+   val l2 = x2(0)
+   val f2 = x2.slice(1,x2.size)
+   
+   (LabeledPoint(l1,Vectors.dense(f1)),LabeledPoint(l2,Vectors.dense(f2)))
+ })
+ 
+val sets = data.randomSplit(Array(0.8,0.2))
+val trainSet = sets(0).map( x => x._1)
+val testSet = sets(1).map( x => x._1)
+
+trainSet.cache
+
+---- MLlib Multiclass logistic regression --------------
+
+import org.apache.spark.mllib.classification.{LogisticRegressionModel, LogisticRegressionWithLBFGS}
+val numIterations = 100
+val model = new LogisticRegressionWithLBFGS().setNumClasses(7).run(trainSet)
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res26: Array[(Double, Double)] = Array((1.0,1.0), (6.0,1.0), (2.0,2.0), (0.0,1.0), (2.0,2.0), (0.0,1.0), (1.0,1.0), (5.0,1.0), (5.0,1.0), (0.0,1.0), (5.0,1.0), (1.0,1.0), (5.0,5.0), (6.0,6.0), (6.0,6.0), (6.0,2.0), (6.0,6.0), (0.0,3.0), (1.0,1.0), (0.0,1.0))
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 335
+validPredicts.count                            // 425
+val accuracy = metrics.accuracy   // 0.788235294117647
+
+metrics.confusionMatrix
+res29: org.apache.spark.mllib.linalg.Matrix =
+40.0  19.0  0.0   0.0   0.0   0.0   0.0
+23.0  16.0  0.0   0.0   0.0   10.0  2.0
+0.0   0.0   66.0  5.0   0.0   1.0   2.0
+1.0   0.0   1.0   64.0  0.0   0.0   0.0
+0.0   0.0   0.0   0.0   67.0  0.0   0.0
+4.0   2.0   0.0   0.0   0.0   36.0  5.0
+1.0   2.0   6.0   0.0   0.0   6.0   46.0
+
+
+---- Analyzing statistics for standardization ---------------------
+
+import org.apache.spark.mllib.linalg.Matrix
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+
+val vectors = trainSet.map{ case LabeledPoint(x,y) => y }
+val matrix = new RowMatrix(vectors)
+val matrixSummary = matrix.computeColumnSummaryStatistics()
+
+matrixSummary.max
+res30: org.apache.spark.mllib.linalg.Vector = [1.0,55.137881,1.947406,173.0,1.0,1.0,3.0,4.0,3.0,1.0,3.0,1.0,3.0,2.0,3.0,1.0,1.0,1.0,1.0,1.0]
+
+matrixSummary.min
+res31: org.apache.spark.mllib.linalg.Vector = [0.0,15.0,1.456346,39.0,0.0,0.0,1.0,1.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+
+matrixSummary.mean
+res32: org.apache.spark.mllib.linalg.Vector = [0.505338078291815,24.315622775207594,1.7027039940688016,86.51312923428229,0.8185053380782918,0.8754448398576512,2.416038842230127,2.6936422562277573,1.1381969157769878,0.020166073546856466,2.012419110913405,0.042704626334519574,1.0094075521945443,0.6573686595492284,0.7325029655990519,0.005338078291814947,0.028469750889679714,0.004151838671411625,0.2188612099644128,0.7431791221826809]
+
+matrixSummary.variance
+res33: org.apache.spark.mllib.linalg.Vector = [0.2501198559616461,39.712905886257026,0.008677325671109732,675.2214294349506,0.14864251243439602,0.10910588508611677,0.287883452208947,0.6024424266927134,0.22124636120116414,0.0197711296732385,0.38315927872779487,0.040905202910335066,0.7396651892454043,0.37834807191623315,0.2637144436113787,0.0053127342999250236,0.027675639143795474,0.004137054676142503,0.1710624412600188,0.1909771868873002]
+
+---- Apply standardization to dataset -------------------------------
+
+import org.apache.spark.mllib.feature.StandardScaler
+val scaler = new StandardScaler(true, false).fit(trainSet.map(x => x.features))
+ 
+val trainScaled = trainSet.map(x => LabeledPoint(x.label,scaler.transform(x.features)))
+
+---- MLlib Multiclass logistic regression --------------
+
+import org.apache.spark.mllib.classification.{LogisticRegressionModel, LogisticRegressionWithLBFGS}
+val numIterations = 100
+val model = new LogisticRegressionWithLBFGS().setNumClasses(7).run(trainScaled)
+
+val validPredicts = testSet.map(x => (model.predict(scaler.transform(x.features)),x.label))
+
+validPredicts.take(20)
+res35: Array[(Double, Double)] = Array((1.0,1.0), (1.0,1.0), (2.0,2.0), (0.0,1.0), (2.0,2.0), (0.0,1.0), (1.0,1.0), (0.0,1.0), (1.0,1.0), (0.0,1.0), (5.0,1.0), (1.0,1.0), (0.0,5.0), (6.0,6.0), (6.0,6.0), (6.0,2.0), (6.0,6.0), (4.0,3.0), (0.0,1.0), (1.0,1.0))
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 360
+validPredicts.count                            // 425
+val accuracy = metrics.accuracy   // 0.8470588235294118
+
+metrics.confusionMatrix
+res38: org.apache.spark.mllib.linalg.Matrix =
+50.0  9.0   0.0   0.0   0.0   0.0   0.0
+26.0  19.0  0.0   0.0   0.0   6.0   0.0
+0.0   0.0   70.0  1.0   0.0   0.0   3.0
+0.0   0.0   0.0   65.0  1.0   0.0   0.0
+0.0   0.0   0.0   0.0   67.0  0.0   0.0
+5.0   4.0   0.0   0.0   0.0   35.0  3.0
+0.0   1.0   2.0   0.0   0.0   4.0   54.0
+
+---- MLlib Decision Tree regression --------------
+
+val trainSet = sets(0).map( x => x._2)
+val testSet = sets(1).map( x => x._2)
+
+trainSet.cache
+
+import org.apache.spark.mllib.tree.DecisionTree
+import org.apache.spark.mllib.tree.model.DecisionTreeModel
+
+val categoricalFeaturesInfo = Map[Int, Int]( 0->2, 4->2, 5->2, 8->4, 9->2, 11->2, 14->4, 15->5)
+
+val model = DecisionTree.trainClassifier(trainSet, 7, categoricalFeaturesInfo, "gini", 30, 32)
+
+scala> model.toDebugString
+res40: String =
+"DecisionTreeModel classifier of depth 13 with 247 nodes
+  If (feature 3 <= 99.041739)
+   If (feature 3 <= 60.0589965)
+    If (feature 2 <= 1.6685539999999999)
+     If (feature 3 <= 49.809922)
+      If (feature 6 <= 2.0002329999999997)
+       If (feature 3 <= 44.2761605)
+        If (feature 2 <= 1.530124)
+         If (feature 1 <= 19.0028625)
+          Predict: 0.0
+         Else (feature 1 > 19.0028625)
+          Predict: 1.0
+        Else (feature 2 > 1.530124)
+         Predict: 0.0
+       Else (feature 3 > 44.2761605)
+        If (feature 2 <= 1.5999995)
+         Predict: 1.0
+        Else (feature 2 > 1.5999995)
+         If (feature 1 <= 21.014595999999997)
+          Predict: 1.0
+         Else (feature 1 > 21.014595999999997)
+          Predict: 0.0
+      Else (feature 6 ...
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res41: Array[(Double, Double)] = Array((6.0,1.0), (6.0,1.0), (2.0,2.0), (1.0,1.0), (2.0,2.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (5.0,1.0), (1.0,1.0), (1.0,5.0), (6.0,6.0), (6.0,6.0), (2.0,2.0), (6.0,6.0), (2.0,3.0), (1.0,1.0), (1.0,1.0))
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 392
+validPredicts.count                            // 425
+val accuracy = metrics.accuracy   // 0.9223529411764706
+
+metrics.confusionMatrix
+res44: org.apache.spark.mllib.linalg.Matrix =
+59.0  0.0   0.0   0.0   0.0   0.0   0.0
+0.0   43.0  0.0   0.0   0.0   5.0   3.0
+0.0   0.0   68.0  2.0   0.0   1.0   3.0
+0.0   0.0   3.0   63.0  0.0   0.0   0.0
+0.0   0.0   0.0   0.0   67.0  0.0   0.0
+0.0   3.0   0.0   0.0   0.0   40.0  4.0
+0.0   0.0   6.0   0.0   0.0   3.0   52.0
+
