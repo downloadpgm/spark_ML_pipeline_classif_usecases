@@ -16,7 +16,7 @@ add("IsActiveMember", IntegerType).
 add("EstimatedSalary", DoubleType).
 add("Exited", IntegerType)
 
-val df = spark.read.format("csv").schema(schemaChurn).option("header","true").load("Churn_Modelling.csv")
+val df = spark.read.format("csv").schema(schemaChurn).option("header","true").load("churn/Churn_Modelling.csv")
 
 val dfraw = df.drop("RowNumber","CustomerId","Surname").withColumn("label", $"Exited")
 
