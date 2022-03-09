@@ -7,23 +7,17 @@ val rdd1 = rdd.map( x => x.split(",")).map( x => x.slice(3,x.size))
 rdd1.take(5)
 res2: Array[Array[String]] = Array(Array(619, France, Female, 42, 2, 0, 1, 1, 1, 101348.88, 1), Array(608, Spain, Female, 41, 1, 83807.86, 1, 0, 1, 112542.58, 0), Array(502, France, Female, 42, 8, 159660.8, 3, 1, 0, 113931.57, 1), Array(699, France, Female, 39, 1, 0, 2, 0, 0, 93826.63, 0), Array(850, Spain, Female, 43, 2, 125510.82, 1, 1, 1, 79084.1, 0))
 
-val categ_country = rdd1.map(x => x(1)).distinct.zipWithIndex.collectAsMap
-categ_country: scala.collection.immutable.Map[String,Long] = Map(France -> 0, Spain -> 1, Germany -> 2)
-
-val categ_gender = rdd1.map(x => x(2)).distinct.zipWithIndex.collectAsMap
-categ_gender: scala.collection.immutable.Map[String,Long] = Map(Male -> 0, Female -> 1)
-
 ---- Conversion to 1-to-k binary encoding vectors 
 
 def oneHotEncColumns(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int):org.apache.spark.rdd.RDD[Array[Double]] = {
   val categories = rddx.map(r => r(idx)).distinct.zipWithIndex.collectAsMap
   val numCategories = categories.size
   val vetcateg = rddx.map(r => {
-      val categoryIdx = categories(r(idx)).toInt
-      val categoryFeatures = Array.ofDim[Double](numCategories)
-      categoryFeatures(categoryIdx) = 1.0
-      categoryFeatures
-  })
+    val categoryIdx = categories(r(idx)).toInt
+	val categoryFeatures = if (numCategories > 2) Array.ofDim[Double](numCategories) else Array.ofDim[Double](1)
+	if (numCategories > 2) categoryFeatures(categoryIdx) = 1.0 else categoryFeatures(0) = categoryIdx
+    categoryFeatures
+	})
   vetcateg
 }
 
@@ -38,14 +32,23 @@ def mergeArray(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int*):org.apa
   arr1
 }
 
-val concat = mergeArray(rdd1,1)
+val concat = mergeArray(rdd1,1,2)
+
+concat.take(2)
+res2: Array[Array[Double]] = Array(Array(1.0, 0.0, 0.0, 0.0), Array(0.0, 1.0, 0.0, 0.0))
 
 val rdd2 = rdd1.map( x => {
-  val y = Array(x(0),categ_gender(x(2)).toString,x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10))
+  val y = Array(x(0),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10))
   y.map( z => z.toDouble)
 })
 
 val vect = concat.zip(rdd2).map(x => (x._1.toList ++ x._2.toList).toArray)
+
+val categ_country = rdd1.map(x => x(1)).distinct.zipWithIndex.collectAsMap
+categ_country: scala.collection.immutable.Map[String,Long] = Map(France -> 0, Spain -> 1, Germany -> 2)
+
+val categ_gender = rdd1.map(x => x(2)).distinct.zipWithIndex.collectAsMap
+categ_gender: scala.collection.immutable.Map[String,Long] = Map(Male -> 0, Female -> 1)
 
 val rdd2_dt = rdd1.map( x => {
   val y = Array(x(0),categ_country(x(1)),categ_gender(x(2)),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10))
@@ -95,7 +98,7 @@ def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[Labele
   }
 }
 
-iterateLRwSGD(Array(100,300,500),Array(1, 0.1, 0.01, 0.001), trainSet, testSet)
+iterateLRwSGD(Array(100,300,500),Array(0.1, 0.01, 0.001), trainSet, testSet)
 iter, step -> pred / total, AuPR, AuROC
 100, 0.100 -> 2318 / 2922, 0.2067, 0.5000
 100, 0.010 -> 2318 / 2922, 0.2067, 0.5000
@@ -113,7 +116,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.classification.SVMWithSGD
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 
-def iterateLRwSGD(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
   println("iter -> pred / total, AuPR, AuROC") 
   for(numIter <- iterNums) {
 	val lr = SVMWithSGD.train(train, numIter)
@@ -123,7 +126,7 @@ def iterateLRwSGD(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[Labeled
   }
 }
 
-iterateLRwSGD(Array(100,300,500), trainSet, testSet)
+iterateSVM(Array(100,300,500), trainSet, testSet)
 iter -> pred / total, AuPR, AuROC
 100 -> 2318 / 2922, 0.2067, 0.5000
 300 -> 605 / 2922, 0.2068, 0.5002
@@ -198,7 +201,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.classification.SVMWithSGD
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 
-def iterateLRwSGD(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
   println("iter -> pred / total, AuPR, AuROC") 
   for(numIter <- iterNums) {
 	val lr = SVMWithSGD.train(train, numIter)
@@ -208,7 +211,7 @@ def iterateLRwSGD(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[Labeled
   }
 }
 
-scala> iterateLRwSGD(Array(100,300,500), trainScaled, testScaled)
+scala> iterateSVM(Array(100,300,500), trainScaled, testScaled)
 iter -> pred / total, AuPR, AuROC
 100 -> 1935 / 2922, 0.3397, 0.7069
 300 -> 1935 / 2922, 0.3397, 0.7069
@@ -237,7 +240,7 @@ import org.apache.spark.mllib.tree.model.DecisionTreeModel
 
 val categoricalFeaturesInfo = Map[Int, Int]( 1->3 , 2->2 )
 
-def iterateLRwSGD(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+def iterateDTC(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
   println("impurity, depth, bin -> accuracy") 
   for(impurity <- Array("gini", "entropy"); numDepth <- depthNums; numBin <- binNums ) {
     val model = DecisionTree.trainClassifier(train, 2, categoricalFeaturesInfo, impurity, numDepth, numBin)
@@ -247,11 +250,11 @@ def iterateLRwSGD(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoi
   }
 }
 
-iterateLRwSGD(Array(10,20,30), Array(32,48,64), trainSet, testSet)
+iterateDTC(Array(10,20,30), Array(32,48,64), trainSet, testSet)
 impurity, depth, bin -> pred / total, AuPR, AuROC
 gini, 10, 32 -> 2416 / 2922, 0.4989, 0.6938
 gini, 10, 48 -> 2406 / 2922, 0.4898, 0.6940
-gini, 10, 64 -> 2424 / 2922, 0.5065, 0.7028
+gini, 10, 64 -> 2424 / 2922, 0.5065, 0.7028 *
 gini, 20, 32 -> 2268 / 2922, 0.4019, 0.6820
 gini, 20, 48 -> 2277 / 2922, 0.4049, 0.6803
 gini, 20, 64 -> 2298 / 2922, 0.4168, 0.6854
@@ -267,3 +270,33 @@ entropy, 20, 64 -> 2337 / 2922, 0.4432, 0.7012
 entropy, 30, 32 -> 2327 / 2922, 0.4358, 0.6960
 entropy, 30, 48 -> 2326 / 2922, 0.4319, 0.6872
 entropy, 30, 64 -> 2334 / 2922, 0.4413, 0.7006
+
+
+val model = DecisionTree.trainClassifier(trainSet, 2, categoricalFeaturesInfo, "gini", 10, 64)
+
+model.toDebugString
+res9: String =
+"DecisionTreeModel classifier of depth 10 with 581 nodes
+  If (feature 3 <= 42.5)
+   If (feature 6 <= 2.5)
+    If (feature 6 <= 1.5)
+     If (feature 8 <= 0.5)
+      If (feature 3 <= 38.5)
+       If (feature 1 in {0.0,1.0})
+        If (feature 5 <= 57348.325)
+         If (feature 0 <= 686.5)
+          If (feature 5 <= 6229.595)
+           Predict: 0.0
+          Else (feature 5 > 6229.595)
+           If (feature 0 <= 629.5)
+            Predict: 0.0
+           Else (feature 0 > 629.5)
+            Predict: 1.0
+         Else (feature 0 > 686.5)
+          If (feature 9 <= 121340.76000000001)
+           If (feature 9 <= 38261.36)
+            Predict: 1.0
+           Else (feature 9 > 38261.36)
+            Predict: 0.0
+          Else (feature 9 > 121340.76000000001)
+           If...

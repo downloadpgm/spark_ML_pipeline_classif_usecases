@@ -1,4 +1,4 @@
-val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("HR-Employee-Attrition.csv")
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("attrition/HR-Employee-Attrition.csv")
 
 scala> df.printSchema
 root
@@ -164,3 +164,74 @@ LR Model coefficients:
 -0.10498116428892218
 2.520822911131947
 
+-------------------
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().addGrid(lr.regParam, Array(0.1, 0.01, 0.001)).addGrid(lr.fitIntercept).addGrid(lr.maxIter, Array(100,300,500)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new BinaryClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val model = cv.fit(trainingData)
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+val lrmodel = bestmodel.stages(17).asInstanceOf[LogisticRegressionModel]
+
+println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+LR Model coefficients:
+0.007218037857699571
+0.06520401848799404
+-0.040644025936269056
+0.02078498120868721
+-0.035228665942990865
+-0.01047455810555779
+0.026967946434023074
+0.043957216188943
+-0.02201261749151514
+0.015165691020066699
+0.00358077604850664
+-0.021182522089179062
+0.07936671810474917
+-0.048529677638407466
+-0.047966336194893024
+-0.028273712770712427
+0.04355576735259142
+-0.04314684476633159
+-0.019985100630890713
+0.0919342683181454
+-0.17960117816935736
+-0.00497961374056746
+-0.058266229325347606
+0.06669751485311398
+-0.08844231332735218
+-0.09111819493575597
+-0.07852315918857321
+-0.053912094417945255
+0.06237937213845692
+-0.013894297475712039
+-0.018364835248208502
+-0.06929290230888219
+-0.06067069772592699
+-0.051138426134070714
+-0.07054524471567254
+0.005020014172696
+-0.054642344115084854
+0.05907328002895634
+-0.070821133734378
+1.236441942680971
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res2: Double = 1.0

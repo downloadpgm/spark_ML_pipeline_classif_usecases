@@ -109,7 +109,7 @@ import org.apache.spark.mllib.tree.model.DecisionTreeModel
 
 val categoricalFeaturesInfo = Map[Int, Int]()  
 
-def iterateLRwSGD(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+def iterateDTC(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
   println("impurity, depth, bin -> pred / total, accuracy") 
   for(impurity <- Array("gini", "entropy"); numDepth <- depthNums; numBin <- binNums ) {
     val model = DecisionTree.trainClassifier(train, 7, categoricalFeaturesInfo, impurity, numDepth, numBin)
@@ -120,7 +120,7 @@ def iterateLRwSGD(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoi
 }
 
 
-iterateLRwSGD(Array(10,20,30), Array(32,48,64), trainSet, testSet)
+iterateDTC(Array(10,20,30), Array(32,48,64), trainSet, testSet)
 impurity, depth, bin -> accuracy
 gini, 10, 32 ->  135220 / 174570, 0.7746
 gini, 10, 48 ->  135457 / 174570, 0.7759
