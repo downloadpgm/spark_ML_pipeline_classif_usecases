@@ -146,7 +146,7 @@ matrixSummary.max
 res26: org.apache.spark.mllib.linalg.Vector = [1.0,1.0,1.0,1.0,1.0,850.0,92.0,10.0,250898.09,4.0,1.0,1.0,199992.48]
 
 matrixSummary.min
-res27: org.apache.spark.mllib.linalg.Vector = [0.0,0.0,0.0,0.0,0.0,350.0,18.0,0.0,0.0,1.0,0.0,0.0,11.58]
+res3: org.apache.spark.mllib.linalg.Vector = [0.0,0.0,0.0,0.0,350.0,18.0,0.0,0.0,1.0,0.0,0.0,90.07]
 
 matrixSummary.mean
 res28: org.apache.spark.mllib.linalg.Vector = [0.5018853695324283,0.24522373051784815,0.25289089994972347,0.5444947209653092,0.4555052790346908,650.3612368024109,38.970588235294116,5.031422825540482,76800.48831070877,1.5228758169934626,0.7044997486173957,0.5187280040221217,100277.98718451483]
@@ -241,7 +241,7 @@ import org.apache.spark.mllib.tree.model.DecisionTreeModel
 val categoricalFeaturesInfo = Map[Int, Int]( 1->3 , 2->2 )
 
 def iterateDTC(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
-  println("impurity, depth, bin -> accuracy") 
+  println("impurity, depth, bin -> pred / total, AuPR, AuROC") 
   for(impurity <- Array("gini", "entropy"); numDepth <- depthNums; numBin <- binNums ) {
     val model = DecisionTree.trainClassifier(train, 2, categoricalFeaturesInfo, impurity, numDepth, numBin)
     val validPredicts = test.map(x => (model.predict(x.features),x.label))
@@ -300,3 +300,15 @@ res9: String =
             Predict: 0.0
           Else (feature 9 > 121340.76000000001)
            If...
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res8: Array[(Double, Double)] = Array((1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0))
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 2424
+validPredicts.count                            // 2922
+model.getClass.getSimpleName
+metrics.areaUnderPR   // 0.5064752783626146
+metrics.areaUnderROC  // 0.702825283271146

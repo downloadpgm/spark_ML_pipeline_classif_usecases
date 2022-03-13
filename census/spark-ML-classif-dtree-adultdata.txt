@@ -1,0 +1,80 @@
+import org.apache.spark._
+import org.apache.spark.sql._
+import spark.sqlContext.implicits._
+import org.apache.spark.sql.types._
+
+val census_data = sc.textFile("adultdata/adult.data").map(row => row.split(","))
+
+val adultschema = StructType(Array(
+ StructField("age",LongType,true),
+// StructField("workclass",StringType,true),
+// StructField("fnlwgt",LongType,true),
+ StructField("education",StringType,true),
+// StructField("marital_status",StringType,true),
+// StructField("occupation",StringType,true),
+// StructField("relationship",StringType,true),
+// StructField("race",StringType,true),
+ StructField("sex",StringType,true),
+// StructField("capital_gain",LongType,true),
+// StructField("capital_loss",LongType,true),
+ StructField("hours_per_week",LongType,true),
+// StructField("native_country",StringType,true),
+ StructField("income",StringType,true)
+))
+
+val dfraw = census_data.map(cols => Row(cols(0).trim.toLong,cols(3),cols(9),
+                                        cols(12).trim.toLong,cols(14)))
+										
+val dfpen = spark.createDataFrame(dfraw,adultschema)
+
+import org.apache.spark.ml.feature._
+
+def indexStringColumns(df:DataFrame, cols:Array[String]):DataFrame = {
+   var newdf = df
+   for(col <- cols) {
+     val si = new StringIndexer().setInputCol(col).setOutputCol(col+"-num")
+     val sm:StringIndexerModel = si.fit(newdf)
+     newdf = sm.transform(newdf).drop(col)
+     newdf = newdf.withColumnRenamed(col+"-num", col)
+   }
+   newdf
+}
+
+val dfnumeric = indexStringColumns(dfpen, Array("education", "sex", "income"))
+
+val dfpen = dfnumeric.withColumnRenamed("income","label")
+
+import org.apache.spark.ml.feature.VectorAssembler
+val va = new VectorAssembler().setOutputCol("features")
+va.setInputCols(dfpen.columns.diff(Array("label")))
+val penlpoints = va.transform(dfpen).select("features", "label")
+
+
+val pendtsets = penlpoints.randomSplit(Array(0.8, 0.2))
+val pendttrain = pendtsets(0).cache()
+val pendtvalid = pendtsets(1).cache()
+
+import org.apache.spark.ml.classification.DecisionTreeClassifier
+val dt = new DecisionTreeClassifier()
+dt.setMaxDepth(20)
+val dtmodel = dt.fit(pendttrain)
+
+import org.apache.spark.ml.classification.MulticlassMetrics
+val dtpredicts = dtmodel.transform(pendtvalid)
+val dtresrdd = dtpredicts.select("prediction", "label").rdd.map(row => (row.getDouble(0), row.getDouble(1)))
+val dtmm = new MulticlassMetrics(dtresrdd)
+dtmm.precision
+res0: Double = 0.951442968392121
+dtmm.confusionMatrix
+res1: org.apache.spark.mllib.linalg.Matrix =
+192.0 0.0 0.0 9.0 2.0 0.0 2.0 0.0 0.0 0.0
+0.0 225.0 0.0 1.0 0.0 1.0 0.0 0.0 3.0 2.0
+0.0 1.0 217.0 1.0 0.0 1.0 0.0 1.0 1.0 0.0
+9.0 1.0 0.0 205.0 5.0 1.0 3.0 1.0 1.0 0.0
+2.0 0.0 1.0 1.0 221.0 0.0 2.0 3.0 0.0 0.0
+0.0 1.0 0.0 1.0 0.0 201.0 0.0 0.0 0.0 1.0
+2.0 1.0 0.0 2.0 1.0 0.0 207.0 0.0 2.0 3.0
+0.0 0.0 3.0 1.0 1.0 0.0 1.0 213.0 1.0 2.0
+0.0 0.0 0.0 2.0 0.0 2.0 2.0 4.0 198.0 6.0
+0.0 1.0 0.0 0.0 1.0 0.0 3.0 3.0 4.0 198.0
+
