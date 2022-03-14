@@ -1,0 +1,157 @@
+import org.apache.spark.sql.types._
+
+val schemaAnswer = new StructType().
+add("row", DoubleType).
+add("id", DoubleType).
+add("gender", StringType).
+add("cust_type", StringType).
+add("age", DoubleType).
+add("travel_type", StringType).
+add("class", StringType).
+add("flight_distance", DoubleType).
+add("inflight_wifi", DoubleType).
+add("deprt_arrv_time_conv", DoubleType).
+add("ease_online_booking", DoubleType).
+add("gate_location", DoubleType).
+add("food_and_drink", DoubleType).
+add("online_boarding", DoubleType).
+add("seat_comfort", DoubleType).
+add("inflight_entertain", DoubleType).
+add("onboard_service", DoubleType).
+add("legroom_service", DoubleType).
+add("baggage_handling", DoubleType).
+add("checkin_service", DoubleType).
+add("inflight_service", DoubleType).
+add("cleanliness", DoubleType).
+add("deprt_delay_minutes", DoubleType).
+add("arrv_delay_minutes", DoubleType).
+add("satisfaction", StringType)
+
+val df = spark.read.format("csv").schema(schemaAnswer).option("header","true").load("airline_satisfaction.csv").drop("row","id")
+
+val df1 = df.na.fill(0, Seq("arrv_delay_minutes"))
+
+import org.apache.spark.ml.feature.{StringIndexer, OneHotEncoder, VectorAssembler}
+
+val dfrawIndexer1 = new StringIndexer().setInputCol("gender").setOutputCol("gender_cat")
+val dfrawIndexer2 = new StringIndexer().setInputCol("cust_type").setOutputCol("cust_type_cat")
+val dfrawIndexer3 = new StringIndexer().setInputCol("travel_type").setOutputCol("travel_type_cat")
+val dfrawIndexer4 = new StringIndexer().setInputCol("class").setOutputCol("class_cat")
+val dfrawIndexer5 = new StringIndexer().setInputCol("satisfaction").setOutputCol("label")
+
+val dfrawIndexer11 = new OneHotEncoder().setInputCol("gender_cat").setOutputCol("gender_vect")
+val dfrawIndexer21 = new OneHotEncoder().setInputCol("cust_type_cat").setOutputCol("cust_type_vect")
+val dfrawIndexer31 = new OneHotEncoder().setInputCol("travel_type_cat").setOutputCol("travel_type_vect")
+val dfrawIndexer41 = new OneHotEncoder().setInputCol("class_cat").setOutputCol("class_vect")
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("gender_vect","cust_type_vect","age","travel_type_vect","class_vect","class_vect","flight_distance","inflight_wifi","deprt_arrv_time_conv","ease_online_booking","gate_location","food_and_drink","online_boarding","seat_comfort","inflight_entertain","onboard_service","legroom_service","baggage_handling","checkin_service","inflight_service","cleanliness","deprt_delay_minutes","arrv_delay_minutes"))
+
+import org.apache.spark.ml.classification.LogisticRegression
+val lr = new LogisticRegression
+lr.setRegParam(0.01).setMaxIter(500).setFitIntercept(true)
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(dfrawIndexer1,dfrawIndexer2,dfrawIndexer3,dfrawIndexer4,dfrawIndexer5,dfrawIndexer11,dfrawIndexer21,dfrawIndexer31,dfrawIndexer41,va,lr))
+
+val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
+
+val model = pipeline.fit(trainingData)
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res50: Double = 0.9266840605045447
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+
+val lrmodel = model.stages(10).asInstanceOf[LogisticRegressionModel]
+
+println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+LR Model coefficients:
+-0.03705169790982573
+1.6252137302474792
+-0.00376802491523374
+2.179553911579835
+0.388924480032073
+-0.04610387682679138
+0.388924480032073
+-0.04610387682679138
+3.474717463509254E-5
+0.335352867017258
+-0.12445390954220653
+-0.07541642964444342
+0.004811770904544997
+-0.013505296327838541
+0.5385053618051067
+0.07202161208215657
+0.10774910903773828
+0.2568200996195964
+0.23190012554535205
+0.11052844313452195
+0.27421592003904266
+0.09960709738274422
+0.17754464489196914
+-3.167879792079513E-5
+-0.004068172499914349
+
+
+-------------------
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().addGrid(lr.regParam, Array(0.1, 0.01, 0.001)).addGrid(lr.fitIntercept).addGrid(lr.maxIter, Array(100,300,500)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new BinaryClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val model = cv.fit(trainingData)
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+val lrmodel = bestmodel.stages(10).asInstanceOf[LogisticRegressionModel]
+
+println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+LR Model coefficients:
+-0.03555978718160897
+1.988116159079216
+-0.006852125980852038
+2.639487468310412
+0.41114934863279506
+0.037971068459674275
+0.41114934863279506
+0.037971068459674275
+-2.8062348864477328E-6
+0.38193661840120247
+-0.12866174094609117
+-0.12954174911230812
+0.024013360301584227
+-0.02087063088551432
+0.6091799557178308
+0.054789008277454775
+0.06513748104474663
+0.3002604700918645
+0.25385216691145746
+0.12479198504570321
+0.31820295769410517
+0.11516239704534939
+0.2195201977115614
+0.0034704588257326273
+-0.008121229199103481
+
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res8: Double = 0.9270349571363963

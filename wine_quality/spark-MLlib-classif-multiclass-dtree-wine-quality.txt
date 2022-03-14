@@ -1,0 +1,174 @@
+---- Feature extraction & Data Munging --------------
+
+val rdd1 = sc.textFile("wine_quality/winequality-red.csv").filter( x => ! x.contains("fixed acidity"))
+ 
+val rdd = rdd1.map(x => x.split(";")).map(x => x.map(y => y.toDouble))
+
+rdd.map( x => x(x.size -1)).distinct.take(10)
+res0: Array[Double] = Array(5.0, 6.0, 7.0, 3.0, 8.0, 4.0)
+
+rdd.take(5)
+res0: Array[Array[Double]] = Array(Array(7.4, 0.7, 0.0, 1.9, 0.076, 11.0, 34.0, 0.9978, 3.51, 0.56, 9.4, 5.0), Array(7.8, 0.88, 0.0, 2.6, 0.098, 25.0, 67.0, 0.9968, 3.2, 0.68, 9.8, 5.0), Array(7.8, 0.76, 0.04, 2.3, 0.092, 15.0, 54.0, 0.997, 3.26, 0.65, 9.8, 5.0), Array(11.2, 0.28, 0.56, 1.9, 0.075, 17.0, 60.0, 0.998, 3.16, 0.58, 9.8, 6.0), Array(7.4, 0.7, 0.0, 1.9, 0.076, 11.0, 34.0, 0.9978, 3.51, 0.56, 9.4, 5.0))
+
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
+
+val data = rdd.map( x => {
+  val arr_size = x.size - 1
+  val l = x(arr_size).toInt
+  val f = x.slice(0,arr_size)
+  LabeledPoint(l,Vectors.dense(f))
+})
+
+data.cache
+
+val sets = data.randomSplit(Array(0.7,0.3), 11L)
+val trainSet = sets(0)
+val testSet = sets(1)
+
+trainSet.cache
+
+---- MLlib MultiClass logistic regression --------------
+
+import org.apache.spark.mllib.classification.{LogisticRegressionModel, LogisticRegressionWithLBFGS}
+val numIterations = 100
+val model = new LogisticRegressionWithLBFGS().setNumClasses(9).run(trainSet)
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res6: Array[(Double, Double)] = Array((5.0,5.0), (5.0,5.0), (5.0,5.0), (5.0,5.0), (6.0,5.0), (6.0,6.0), (5.0,5.0), (6.0,6.0), (6.0,7.0), (5.0,4.0), (5.0,6.0), (5.0,5.0), (5.0,5.0), (5.0,5.0), (5.0,5.0), (5.0,5.0), (6.0,6.0), (5.0,5.0), (5.0,6.0), (5.0,6.0))
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 190
+validPredicts.count                            // 306
+val accuracy = metrics.accuracy   // 0.6209150326797386
+
+metrics.confusionMatrix
+res4: org.apache.spark.mllib.linalg.Matrix =
+res9: org.apache.spark.mllib.linalg.Matrix =
+0.0  0.0  3.0    0.0   0.0   0.0
+0.0  0.0  9.0    1.0   0.0   0.0
+0.0  0.0  109.0  31.0  0.0   0.0
+0.0  0.0  34.0   66.0  10.0  0.0
+0.0  0.0  1.0    25.0  15.0  0.0
+0.0  0.0  0.0    0.0   2.0   0.0
+
+---- Analyzing statistics for standardization ---------------------
+
+import org.apache.spark.mllib.linalg.Matrix
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+
+val vectors = data.map{ case LabeledPoint(x,y) => y }
+val matrix = new RowMatrix(vectors)
+val matrixSummary = matrix.computeColumnSummaryStatistics()
+
+matrixSummary.max
+res10: org.apache.spark.mllib.linalg.Vector = [15.9,1.58,1.0,15.5,0.611,72.0,289.0,1.00369,4.01,2.0,14.9]
+
+matrixSummary.min
+res11: org.apache.spark.mllib.linalg.Vector = [4.6,0.12,0.0,0.9,0.012,1.0,6.0,0.99007,2.74,0.33,8.4]
+
+matrixSummary.mean
+res12: org.apache.spark.mllib.linalg.Vector = [8.319637273295799,0.5278205128205145,0.27097560975609764,2.538805503439649,0.08746654158849286,15.874921826141357,46.46779237023142,0.9967466791744843,3.3111131957473443,0.6581488430268921,10.422983114446522]
+
+matrixSummary.variance
+res13: org.apache.spark.mllib.linalg.Vector = [3.0314163889978145,0.03206237765155158,0.03794748313440572,1.9878971329859645,0.0022151426533009895,109.41488383305862,1082.102372532582,3.562029453327622E-6,0.023835180545412823,0.028732616129762,1.135647395000471]
+
+---- Standardizing the features --------------
+
+import org.apache.spark.mllib.feature.StandardScaler
+val scaler = new StandardScaler(true, false).fit(trainSet.map(x => x.features))
+val trainScaled = trainSet.map(x => LabeledPoint(x.label,scaler.transform(x.features)))
+trainScaled.cache
+
+---- MLlib Multiclass logistic regression --------------
+
+import org.apache.spark.mllib.classification.{LogisticRegressionModel, LogisticRegressionWithLBFGS}
+val numIterations = 100
+val model = new LogisticRegressionWithLBFGS().setNumClasses(9).run(trainScaled)
+
+val validPredicts = testSet.map(x => (model.predict(scaler.transform(x.features)),x.label))
+
+validPredicts.take(20)
+res15: Array[(Double, Double)] = Array((5.0,5.0), (5.0,5.0), (5.0,5.0), (5.0,5.0), (5.0,5.0), (6.0,6.0), (5.0,5.0), (6.0,6.0), (6.0,7.0), (5.0,4.0), (5.0,6.0), (5.0,5.0), (5.0,5.0), (5.0,5.0), (5.0,5.0), (5.0,5.0), (7.0,6.0), (5.0,5.0), (5.0,6.0), (5.0,6.0))
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 168
+validPredicts.count                            // 306
+val accuracy = metrics.accuracy   // 0.5490196078431373
+
+metrics.confusionMatrix
+res18: org.apache.spark.mllib.linalg.Matrix =
+0.0  0.0  3.0    0.0   0.0   0.0
+0.0  2.0  7.0    1.0   0.0   0.0
+0.0  6.0  111.0  19.0  3.0   1.0
+1.0  2.0  36.0   33.0  36.0  2.0
+0.0  0.0  2.0    17.0  22.0  0.0
+0.0  0.0  0.0    1.0   1.0   0.0
+
+---- MLlib Decision Tree regression --------------
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.tree.DecisionTree
+import org.apache.spark.mllib.tree.model.DecisionTreeModel
+
+val categoricalFeaturesInfo = Map[Int, Int]()  
+
+def iterateDTC(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("impurity, depth, bin -> pred / total, accuracy") 
+  for(impurity <- Array("gini", "entropy"); numDepth <- depthNums; numBin <- binNums ) {
+    val model = DecisionTree.trainClassifier(train, 9, categoricalFeaturesInfo, impurity, numDepth, numBin)
+    val validPredicts = test.map(x => (model.predict(x.features),x.label))
+    val metrics = new MulticlassMetrics(validPredicts)
+    println("%s, %d, %d ->  %d / %d, %.4f".format(impurity, numDepth, numBin, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.accuracy))
+  }
+}
+
+iterateDTC(Array(10,20,30), Array(32,48,64), trainSet, testSet)
+impurity, depth, bin -> pred / total, accuracy
+gini, 10, 32 ->  279 / 485, 0.5753
+gini, 10, 48 ->  287 / 485, 0.5918
+gini, 10, 64 ->  299 / 485, 0.6165
+gini, 20, 32 ->  296 / 485, 0.6103
+gini, 20, 48 ->  280 / 485, 0.5773
+gini, 20, 64 ->  299 / 485, 0.6165
+gini, 30, 32 ->  296 / 485, 0.6103
+gini, 30, 48 ->  280 / 485, 0.5773
+gini, 30, 64 ->  299 / 485, 0.6165
+entropy, 10, 32 ->  292 / 485, 0.6021
+entropy, 10, 48 ->  294 / 485, 0.6062
+entropy, 10, 64 ->  300 / 485, 0.6186
+entropy, 20, 32 ->  296 / 485, 0.6103
+entropy, 20, 48 ->  300 / 485, 0.6186 *
+entropy, 20, 64 ->  298 / 485, 0.6144
+entropy, 30, 32 ->  296 / 485, 0.6103
+entropy, 30, 48 ->  300 / 485, 0.6186
+entropy, 30, 64 ->  298 / 485, 0.6144
+
+
+val model = DecisionTree.trainClassifier(trainSet, 9, categoricalFeaturesInfo, "entropy", 20, 48)
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res7: Array[(Double, Double)] = Array((5.0,5.0), (5.0,6.0), (5.0,5.0), (5.0,5.0), (5.0,5.0), (5.0,5.0), (6.0,5.0), (5.0,5.0), (5.0,5.0), (5.0,6.0), (5.0,5.0), (5.0,4.0), (7.0,6.0), (5.0,5.0), (6.0,5.0), (5.0,6.0), (5.0,6.0), (6.0,7.0), (6.0,5.0), (6.0,5.0))
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 300
+validPredicts.count                            // 485
+val accuracy = metrics.accuracy   // 0.6185567010309279
+
+metrics.confusionMatrix
+res10: org.apache.spark.mllib.linalg.Matrix =
+0.0  1.0  2.0    0.0    0.0   0.0
+1.0  0.0  6.0    9.0    1.0   0.0
+1.0  7.0  155.0  42.0   4.0   0.0
+1.0  7.0  57.0   121.0  16.0  0.0
+0.0  0.0  7.0    17.0   23.0  5.0
+0.0  0.0  0.0    1.0    0.0   1.0
+
+
