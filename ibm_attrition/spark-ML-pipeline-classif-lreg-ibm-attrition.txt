@@ -168,7 +168,10 @@ LR Model coefficients:
 
 import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
 
-val paramGrid = new ParamGridBuilder().addGrid(lr.regParam, Array(0.1, 0.01, 0.001)).addGrid(lr.fitIntercept).addGrid(lr.maxIter, Array(100,300,500)).build()
+val paramGrid = new ParamGridBuilder().
+addGrid(lr.regParam, Array(0.1, 0.01, 0.001)).
+addGrid(lr.fitIntercept).
+addGrid(lr.maxIter, Array(100,300,500)).build()
 
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 
@@ -186,7 +189,22 @@ val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
 import org.apache.spark.ml.classification.LogisticRegressionModel
 val lrmodel = bestmodel.stages(17).asInstanceOf[LogisticRegressionModel]
 
-println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+scala> lrmodel.getRegParam
+res3: Double = 0.1
+
+scala> lrmodel.getMaxIter
+res4: Int = 100
+
+scala> lrmodel.getThreshold
+res5: Double = 0.5
+
+scala> lrmodel.getFitIntercept
+res6: Boolean = true
+
+scala> lrmodel.getStandardization
+res7: Boolean = true
+
+scala> println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
 LR Model coefficients:
 0.007218037857699571
 0.06520401848799404
@@ -230,8 +248,10 @@ LR Model coefficients:
 1.236441942680971
 
 val pred = bestmodel.transform(testData)
+pred: org.apache.spark.sql.DataFrame = [BusinessTravel: string, Department: string ... 44 more fields]
 
 val bceval = new BinaryClassificationEvaluator()
+bceval: org.apache.spark.ml.evaluation.BinaryClassificationEvaluator = binEval_f590b3feb906
 
 bceval.evaluate(pred)
-res2: Double = 1.0
+res9: Double = 1.0

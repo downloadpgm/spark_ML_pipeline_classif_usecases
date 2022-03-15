@@ -1,0 +1,153 @@
+
+val df = spark.read.format("csv").option("header","true").option("sep",";").load("divorce/divorce.csv")
+
+df.printSchema
+root
+ |-- Atr1: string (nullable = true)
+ |-- Atr2: string (nullable = true)
+ |-- Atr3: string (nullable = true)
+ |-- Atr4: string (nullable = true)
+ |-- Atr5: string (nullable = true)
+ |-- Atr6: string (nullable = true)
+ |-- Atr7: string (nullable = true)
+ |-- Atr8: string (nullable = true)
+ |-- Atr9: string (nullable = true)
+ |-- Atr10: string (nullable = true)
+ |-- Atr11: string (nullable = true)
+ |-- Atr12: string (nullable = true)
+ |-- Atr13: string (nullable = true)
+ |-- Atr14: string (nullable = true)
+ |-- Atr15: string (nullable = true)
+ |-- Atr16: string (nullable = true)
+ |-- Atr17: string (nullable = true)
+ |-- Atr18: string (nullable = true)
+ |-- Atr19: string (nullable = true)
+ |-- Atr20: string (nullable = true)
+ |-- Atr21: string (nullable = true)
+ |-- Atr22: string (nullable = true)
+ |-- Atr23: string (nullable = true)
+ |-- Atr24: string (nullable = true)
+ |-- Atr25: string (nullable = true)
+ |-- Atr26: string (nullable = true)
+ |-- Atr27: string (nullable = true)
+ |-- Atr28: string (nullable = true)
+ |-- Atr29: string (nullable = true)
+ |-- Atr30: string (nullable = true)
+ |-- Atr31: string (nullable = true)
+ |-- Atr32: string (nullable = true)
+ |-- Atr33: string (nullable = true)
+ |-- Atr34: string (nullable = true)
+ |-- Atr35: string (nullable = true)
+ |-- Atr36: string (nullable = true)
+ |-- Atr37: string (nullable = true)
+ |-- Atr38: string (nullable = true)
+ |-- Atr39: string (nullable = true)
+ |-- Atr40: string (nullable = true)
+ |-- Atr41: string (nullable = true)
+ |-- Atr42: string (nullable = true)
+ |-- Atr43: string (nullable = true)
+ |-- Atr44: string (nullable = true)
+ |-- Atr45: string (nullable = true)
+ |-- Atr46: string (nullable = true)
+ |-- Atr47: string (nullable = true)
+ |-- Atr48: string (nullable = true)
+ |-- Atr49: string (nullable = true)
+ |-- Atr50: string (nullable = true)
+ |-- Atr51: string (nullable = true)
+ |-- Atr52: string (nullable = true)
+ |-- Atr53: string (nullable = true)
+ |-- Atr54: string (nullable = true)
+ |-- Class: string (nullable = true)
+
+val rdd = df.rdd.map( x => x.toSeq.toArray)
+
+val rdd1 = rdd.map( x => x.map( y => y.toString.toDouble))
+
+rdd1.first
+res2: Array[Double] = Array(2.0, 2.0, 4.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 2.0, 1.0, 2.0, 0.0, 1.0, 2.0, 1.0, 3.0, 3.0, 2.0, 1.0, 1.0, 2.0, 3.0, 2.0, 1.0, 3.0, 3.0, 3.0, 2.0, 3.0, 2.0, 1.0, 1.0)
+
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
+
+val data = rdd1.map(x => {
+   val arr_size = x.size - 1
+   val l = x(arr_size)
+   val f = x.slice(0, arr_size)
+   LabeledPoint(l, Vectors.dense(f))
+ })
+ 
+val sets = data.randomSplit(Array(0.7,0.3), 11L)
+val trainSet = sets(0)
+val testSet = sets(1)
+
+trainSet.cache
+
+---- MLlib logistic regression --------------
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+
+def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("iter, step -> pred / total, AuPR, AuROC") 
+  for(numIter <- iterNums; step <- stepSizes) {
+    val model = new LogisticRegressionWithSGD
+	model.optimizer.setNumIterations(numIter).setStepSize(step)
+	val lr = model.run(train)
+    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
+    val metrics = new BinaryClassificationMetrics(validPredicts)
+    println("%d, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+  }
+}
+
+iterateLRwSGD(Array(100,300,500),Array(0.1, 0.01, 0.001), trainSet, testSet)
+iter, step -> pred / total, AuPR, AuROC
+100, 0.100 -> 47 / 48, 0.9887, 0.9783 *
+100, 0.010 -> 41 / 48, 0.7667, 0.8600
+100, 0.001 -> 23 / 48, 0.4792, 0.5000
+300, 0.100 -> 47 / 48, 0.9887, 0.9783
+300, 0.010 -> 41 / 48, 0.7667, 0.8600
+300, 0.001 -> 23 / 48, 0.4792, 0.5000
+500, 0.100 -> 47 / 48, 0.9887, 0.9783
+500, 0.010 -> 41 / 48, 0.7667, 0.8600
+500, 0.001 -> 23 / 48, 0.4792, 0.5000
+
+---- MLlib SVM regression --------------
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.classification.SVMWithSGD
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+
+def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("iter -> pred / total, AuPR, AuROC") 
+  for(numIter <- iterNums) {
+	val lr = SVMWithSGD.train(train, numIter)
+    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
+    val metrics = new BinaryClassificationMetrics(validPredicts)
+    println("%d -> %d / %d, %.4f, %.4f".format(numIter, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+  }
+}
+
+iterateSVM(Array(100,300,500), trainSet, testSet)
+iter -> pred / total, AuPR, AuROC
+100 -> 48 / 48, 1.0000, 1.0000
+300 -> 48 / 48, 1.0000, 1.0000
+500 -> 48 / 48, 1.0000, 1.0000
+
+---- MLlib Naive Bayes regression --------------
+
+import org.apache.spark.mllib.classification.NaiveBayes
+val model = NaiveBayes.train(trainSet)
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res5: Array[(Double, Double)] = Array((1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0), (1.0,1.0))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 48
+validPredicts.count                            // 48
+model.getClass.getSimpleName
+metrics.areaUnderPR   //  1.0
+metrics.areaUnderROC  //  1.0

@@ -27,7 +27,7 @@ add("deprt_delay_minutes", DoubleType).
 add("arrv_delay_minutes", DoubleType).
 add("satisfaction", StringType)
 
-val df = spark.read.format("csv").schema(schemaAnswer).option("header","true").load("airline_satisfaction.csv").drop("row","id")
+val df = spark.read.format("csv").schema(schemaAnswer).load("airline/airline_satisfaction_train.csv").drop("row","id")
 
 val df1 = df.na.fill(0, Seq("arrv_delay_minutes"))
 
@@ -102,7 +102,10 @@ LR Model coefficients:
 
 import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
 
-val paramGrid = new ParamGridBuilder().addGrid(lr.regParam, Array(0.1, 0.01, 0.001)).addGrid(lr.fitIntercept).addGrid(lr.maxIter, Array(100,300,500)).build()
+val paramGrid = new ParamGridBuilder().
+addGrid(lr.regParam, Array(0.1, 0.01, 0.001)).
+addGrid(lr.fitIntercept).
+addGrid(lr.maxIter, Array(100,300,500)).build()
 
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 
@@ -120,33 +123,48 @@ val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
 import org.apache.spark.ml.classification.LogisticRegressionModel
 val lrmodel = bestmodel.stages(10).asInstanceOf[LogisticRegressionModel]
 
+lrmodel.getRegParam
+res1: Double = 0.001
+
+lrmodel.getMaxIter
+res2: Int = 300
+
+lrmodel.getThreshold
+res3: Double = 0.5
+
+lrmodel.getFitIntercept
+res4: Boolean = true
+
+lrmodel.getStandardization
+res5: Boolean = true
+
 println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
 LR Model coefficients:
--0.03555978718160897
-1.988116159079216
--0.006852125980852038
-2.639487468310412
-0.41114934863279506
-0.037971068459674275
-0.41114934863279506
-0.037971068459674275
--2.8062348864477328E-6
-0.38193661840120247
--0.12866174094609117
--0.12954174911230812
-0.024013360301584227
--0.02087063088551432
-0.6091799557178308
-0.054789008277454775
-0.06513748104474663
-0.3002604700918645
-0.25385216691145746
-0.12479198504570321
-0.31820295769410517
-0.11516239704534939
-0.2195201977115614
-0.0034704588257326273
--0.008121229199103481
+-0.050329707861038
+1.9967533029222329
+-0.007792272916656942
+2.6627568063835154
+0.43635437686172973
+0.05443510236777008
+0.43635437686172973
+0.05443510236777008
+-1.681240165444391E-5
+0.40067400849260265
+-0.12478020467298455
+-0.13163199152915497
+0.02176443449214916
+-0.013960251547311283
+0.6087313118282898
+0.0663373956617141
+0.06012612036059292
+0.29755686543555215
+0.24582714401959885
+0.14101398461166784
+0.3176794652605801
+0.1262364046652996
+0.2169571995974317
+0.002152587400246859
+-0.006604826877716541
 
 
 val pred = bestmodel.transform(testData)
@@ -154,4 +172,4 @@ val pred = bestmodel.transform(testData)
 val bceval = new BinaryClassificationEvaluator()
 
 bceval.evaluate(pred)
-res8: Double = 0.9270349571363963
+res8: Double = 0.9241564099504398

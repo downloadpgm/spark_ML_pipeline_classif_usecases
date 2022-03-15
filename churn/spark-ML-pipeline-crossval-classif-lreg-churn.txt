@@ -77,7 +77,10 @@ LR Model coefficients:
 
 import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
 
-val paramGrid = new ParamGridBuilder().addGrid(lr.regParam, Array(0.1, 0.01, 0.001)).addGrid(lr.fitIntercept).addGrid(lr.maxIter, Array(100,300,500)).build()
+val paramGrid = new ParamGridBuilder().
+addGrid(lr.regParam, Array(0.1, 0.01, 0.001)).
+addGrid(lr.fitIntercept).
+addGrid(lr.maxIter, Array(100,300,500)).build()
 
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 
@@ -94,6 +97,21 @@ val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
 
 import org.apache.spark.ml.classification.LogisticRegressionModel
 val lrmodel = bestmodel.stages(6).asInstanceOf[LogisticRegressionModel]
+
+lrmodel.getRegParam
+res1: Double = 0.01
+
+lrmodel.getMaxIter
+res2: Int = 100
+
+lrmodel.getThreshold
+res3: Double = 0.5
+
+lrmodel.getFitIntercept
+res4: Boolean = false
+
+lrmodel.getStandardization
+res5: Boolean = true
 
 println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
 LR Model coefficients:

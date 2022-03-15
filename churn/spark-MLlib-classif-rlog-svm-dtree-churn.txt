@@ -185,7 +185,7 @@ def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[Labele
 iterateLRwSGD(Array(100,300,500),Array(0.1, 0.01, 0.001), trainScaled, testScaled)
 iter, step -> pred / total, AuPR, AuROC
 100, 0.100 -> 1902 / 2922, 0.3289, 0.6937
-100, 0.010 -> 1903 / 2922, 0.3259, 0.6878
+100, 0.010 -> 1903 / 2922, 0.3259, 0.6878 *
 100, 0.001 -> 1903 / 2922, 0.3256, 0.6872
 300, 0.100 -> 1902 / 2922, 0.3289, 0.6937
 300, 0.010 -> 1903 / 2922, 0.3259, 0.6878
@@ -305,6 +305,7 @@ val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
 
 validPredicts.take(20)
 res8: Array[(Double, Double)] = Array((1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0))
+
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 val metrics = new BinaryClassificationMetrics(validPredicts)
 validPredicts.filter(x => x._1 == x._2).count  // 2424
