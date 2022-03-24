@@ -8,13 +8,13 @@ rdd.cache
 
 -- remove nonword characters (such as punctuation).
 val nonWordSplit = rdd.flatMap(x => x(0).split("""\W+""").map(_.toLowerCase))
-nonWordSplit.sample(true, 0.3, 42).take(100).mkString(",")
+nonWordSplit.sample(true, 0.3, 42).take(20).mkString(",")
 nonWordSplit.distinct.count   // 130126
 
 -- filter out numbers and tokens that are words mixed with numbers
 val regex = """[^0-9]*""".r
 val filterNumbers = nonWordSplit.filter(token => regex.pattern.matcher(token).matches)
-filterNumbers.sample(false, 0.3, 42).take(100).mkString("\n")
+filterNumbers.sample(false, 0.3, 42).take(20).mkString("\n")
 filterNumbers.distinct.count   // 84912
 
 -- list highest occurrence of words to get an idea which stop words to be removed
@@ -59,7 +59,7 @@ def tokenize(line: String): Seq[String] = {
 rdd.flatMap(x => tokenize(x(0))).distinct.count
 res27: Long = 51799
 
-val sets = rdd.randomSplit(Array(0.7,0.3))
+val sets = rdd.randomSplit(Array(0.7,0.3), 11L)
 val trainSet = sets(0)
 val testSet = sets(1)
 

@@ -1,0 +1,3 @@
+wget https://github.com/downloadpgm/spark_big_datasets/raw/main/fake_news/Fake.csv.zip
+
+wget https://github.com/downloadpgm/spark_big_datasets/raw/main/fake_news/True.csv.zip
