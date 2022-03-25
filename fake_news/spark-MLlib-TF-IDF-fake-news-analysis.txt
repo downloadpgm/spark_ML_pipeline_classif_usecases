@@ -173,6 +173,8 @@ iter, step -> pred / total, AuPR, AuROC
 
 ---- MLlib SVM regression --------------
 
+import org.apache.spark.mllib.classification.SVMWithSGD
+
 def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
   println("iter -> pred / total, AuPR, AuROC") 
   for(numIter <- iterNums) {
