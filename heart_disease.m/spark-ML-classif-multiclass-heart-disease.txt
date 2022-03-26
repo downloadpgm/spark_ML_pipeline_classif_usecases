@@ -1,0 +1,134 @@
+val df = spark.read.format("csv").option("inferSchema","true").load("spark/data/heart_disease/processed.cleveland.data").toDF("age","sex","cp","trestbps","chol","fbs","restecg","thalach","exang","oldpeak","slope","ca","thal","num")
+df: org.apache.spark.sql.DataFrame = [age: double, sex: double ... 12 more fields]
+
+scala> df.printSchema
+root
+ |-- age: double (nullable = true)
+ |-- sex: double (nullable = true)
+ |-- cp: double (nullable = true)
+ |-- trestbps: double (nullable = true)
+ |-- chol: double (nullable = true)
+ |-- fbs: double (nullable = true)
+ |-- restecg: double (nullable = true)
+ |-- thalach: double (nullable = true)
+ |-- exang: double (nullable = true)
+ |-- oldpeak: double (nullable = true)
+ |-- slope: double (nullable = true)
+ |-- ca: string (nullable = true)
+ |-- thal: string (nullable = true)
+ |-- num: integer (nullable = true)
+ 
+df.describe().show
++-------+-----------------+-------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+------------------+------------------+------------------+------------------+
+|summary|              age|                sex|                cp|          trestbps|              chol|               fbs|           restecg|           thalach|              exang|           oldpeak|             slope|                ca|              thal|               num|
++-------+-----------------+-------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+------------------+------------------+------------------+------------------+
+|  count|              303|                303|               303|               303|               303|               303|               303|               303|                303|               303|               303|               303|               303|               303|
+|   mean|54.43894389438944| 0.6798679867986799|3.1584158415841586|131.68976897689768|246.69306930693068|0.1485148514851485|0.9900990099009901| 149.6072607260726|0.32673267326732675|1.0396039603960396|1.6006600660066006|0.6722408026755853|  4.73421926910299|0.9372937293729373|
+| stddev| 9.03866244244675|0.46729882777012977|0.9601256119600138| 17.59974772958769|51.776917542637065|0.3561978749279763|0.9949712915251783|22.875003276980383|0.46979446452231644| 1.161075022068635|0.6162261453459619| 0.937438317724216|1.9397057693786433|1.2285356879701044|
+|    min|             29.0|                0.0|               1.0|              94.0|             126.0|               0.0|               0.0|              71.0|                0.0|               0.0|               1.0|               0.0|               3.0|                 0|
+|    max|             77.0|                1.0|               4.0|             200.0|             564.0|               1.0|               2.0|             202.0|                1.0|               6.2|               3.0|                 ?|                 ?|                 4|
++-------+-----------------+-------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+------------------+------------------+------------------+------------------+
+
+import org.apache.spark.sql.types._
+val df1 = df.na.replace(Array("ca"), Map( "?" -> "0.0" )).
+             na.replace(Array("thal"), Map( "?" -> "3.0" )).
+			 withColumn("ca", 'ca.cast(DoubleType)).
+			 withColumn("thal", 'thal.cast(DoubleType)).
+			 withColumn("label", 'num)
+			 
+df1.printSchema
+root
+ |-- age: double (nullable = true)
+ |-- sex: double (nullable = true)
+ |-- cp: double (nullable = true)
+ |-- trestbps: double (nullable = true)
+ |-- chol: double (nullable = true)
+ |-- fbs: double (nullable = true)
+ |-- restecg: double (nullable = true)
+ |-- thalach: double (nullable = true)
+ |-- exang: double (nullable = true)
+ |-- oldpeak: double (nullable = true)
+ |-- slope: double (nullable = true)
+ |-- ca: double (nullable = true)
+ |-- thal: double (nullable = true)
+ |-- num: integer (nullable = true)
+ |-- label: integer (nullable = true)
+
+ 
+df1.describe().show
++-------+-----------------+-------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+------------------+------------------+------------------+------------------+------------------+
+|summary|              age|                sex|                cp|          trestbps|              chol|               fbs|           restecg|           thalach|              exang|           oldpeak|             slope|                ca|              thal|               num|             label|
++-------+-----------------+-------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+------------------+------------------+------------------+------------------+------------------+
+|  count|              303|                303|               303|               303|               303|               303|               303|               303|                303|               303|               303|               303|               303|               303|               303|
+|   mean|54.43894389438944| 0.6798679867986799|3.1584158415841586|131.68976897689768|246.69306930693068|0.1485148514851485|0.9900990099009901| 149.6072607260726|0.32673267326732675|1.0396039603960396|1.6006600660066006|0.6633663366336634|4.7227722772277225|0.9372937293729373|0.9372937293729373|
+| stddev| 9.03866244244675|0.46729882777012977|0.9601256119600138| 17.59974772958769|51.776917542637065|0.3561978749279763|0.9949712915251783|22.875003276980383|0.46979446452231644| 1.161075022068635|0.6162261453459619|0.9343754622345017|1.9383826733563154|1.2285356879701044|1.2285356879701044|
+|    min|             29.0|                0.0|               1.0|              94.0|             126.0|               0.0|               0.0|              71.0|                0.0|               0.0|               1.0|               0.0|               3.0|                 0|                 0|
+|    max|             77.0|                1.0|               4.0|             200.0|             564.0|               1.0|               2.0|             202.0|                1.0|               6.2|               3.0|               3.0|               7.0|                 4|                 4|
++-------+-----------------+-------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+------------------+------------------+------------------+------------------+------------------+
+
+import org.apache.spark.ml.feature.{OneHotEncoder, VectorAssembler}
+val dfrawIndexer11 = new OneHotEncoder().setInputCol("cp").setOutputCol("cpVect")
+val dfrawIndexer21 = new OneHotEncoder().setInputCol("restecg").setOutputCol("restecgVect")
+val dfrawIndexer31 = new OneHotEncoder().setInputCol("slope").setOutputCol("slopeVect")
+val dfrawIndexer41 = new OneHotEncoder().setInputCol("ca").setOutputCol("caVect")
+val dfrawIndexer51 = new OneHotEncoder().setInputCol("thal").setOutputCol("thalVect")
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("age","sex","cpVect","trestbps","chol","fbs","restecgVect","thalach","exang","oldpeak","slopeVect","caVect","thalVect"))
+
+import org.apache.spark.ml.feature.StandardScaler
+val stdScaler = new StandardScaler().
+setWithStd(true).
+setWithMean(true).
+setInputCol("features").
+setOutputCol("scaledFeatures")
+
+import org.apache.spark.ml.classification.{LogisticRegression, OneVsRest}
+val lr = new LogisticRegression
+lr.setRegParam(0.01).setMaxIter(500).setFitIntercept(true).setFamily("binomial").setFeaturesCol("scaledFeatures")
+
+val ovr = new OneVsRest().setClassifier(lr)
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(dfrawIndexer11,dfrawIndexer21,dfrawIndexer31,dfrawIndexer41,dfrawIndexer51,va,stdScaler,ovr))
+
+val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
+
+val model = pipeline.fit(trainingData)
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+val evaluator = new MulticlassClassificationEvaluator().setMetricName("accuracy")
+
+evaluator.evaluate(pred)
+res12: Double = 0.5909090909090909
+
+-------------------
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().addGrid(lr.regParam, Array(0.1, 0.01)).addGrid(lr.fitIntercept, Array(true)).addGrid(lr.maxIter, Array(100,200,300)).build()
+
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new MulticlassClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val model = cv.fit(trainingData)
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.OneVsRestModel
+val lrmodel = bestmodel.stages(4).asInstanceOf[OneVsRestModel]
+
+val pred = bestmodel.transform(testData)
+
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+val evaluator = new MulticlassClassificationEvaluator().setMetricName("accuracy")
+
+evaluator.evaluate(pred)
+res13: Double = 0.5909090909090909
