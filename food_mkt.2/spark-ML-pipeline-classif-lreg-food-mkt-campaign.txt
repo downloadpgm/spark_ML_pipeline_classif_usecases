@@ -1,0 +1,251 @@
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("food_mkt/ml_project1_data.csv")
+
+df.printSchema
+root
+ |-- ID: integer (nullable = true)
+ |-- Year_Birth: integer (nullable = true)
+ |-- Education: string (nullable = true)
+ |-- Marital_Status: string (nullable = true)
+ |-- Income: integer (nullable = true)
+ |-- Kidhome: integer (nullable = true)
+ |-- Teenhome: integer (nullable = true)
+ |-- Dt_Customer: timestamp (nullable = true)
+ |-- Recency: integer (nullable = true)
+ |-- MntWines: integer (nullable = true)
+ |-- MntFruits: integer (nullable = true)
+ |-- MntMeatProducts: integer (nullable = true)
+ |-- MntFishProducts: integer (nullable = true)
+ |-- MntSweetProducts: integer (nullable = true)
+ |-- MntGoldProds: integer (nullable = true)
+ |-- NumDealsPurchases: integer (nullable = true)
+ |-- NumWebPurchases: integer (nullable = true)
+ |-- NumCatalogPurchases: integer (nullable = true)
+ |-- NumStorePurchases: integer (nullable = true)
+ |-- NumWebVisitsMonth: integer (nullable = true)
+ |-- AcceptedCmp3: integer (nullable = true)
+ |-- AcceptedCmp4: integer (nullable = true)
+ |-- AcceptedCmp5: integer (nullable = true)
+ |-- AcceptedCmp1: integer (nullable = true)
+ |-- AcceptedCmp2: integer (nullable = true)
+ |-- Complain: integer (nullable = true)
+ |-- Z_CostContact: integer (nullable = true)
+ |-- Z_Revenue: integer (nullable = true)
+ |-- Response: integer (nullable = true)
+ 
+val df1 = df.where("Income is not null").
+withColumn("age",lit(2020)-col("Year_Birth")).withColumn("enrolled_to_date",datediff(current_date(),col("Dt_Customer"))).
+withColumn("label", 'Response).
+drop("ID", "Year_Birth", "Dt_Customer")
+
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+
+val types = df1.dtypes
+types: Array[(String, String)] = Array((Education,StringType), (Marital_Status,StringType), (Income,IntegerType), (Kidhome,IntegerType), (Teenhome,IntegerType), (Recency,IntegerType), (MntWines,IntegerType), (MntFruits,IntegerType), (MntMeatProducts,IntegerType), (MntFishProducts,IntegerType), (MntSweetProducts,IntegerType), (MntGoldProds,IntegerType), (NumDealsPurchases,IntegerType), (NumWebPurchases,IntegerType), (NumCatalogPurchases,IntegerType), (NumStorePurchases,IntegerType), (NumWebVisitsMonth,IntegerType), (AcceptedCmp3,IntegerType), (AcceptedCmp4,IntegerType), (AcceptedCmp5,IntegerType), (AcceptedCmp1,IntegerType), (AcceptedCmp2,IntegerType), (Complain,IntegerType), (Z_CostContact,IntegerType), (Z_Revenue,IntegerType), (Response,IntegerType), (age,IntegerType), (enrolled_to_dat...
+
+df1.select(types.map{ case(c,t) =>  if (t == "IntegerType") col(c).cast(DoubleType) else col(c) }: _*)
+res2: org.apache.spark.sql.DataFrame = [Education: string, Marital_Status: string ... 26 more fields]
+
+val df2 = df1.select(types.map{ case(c,t) =>  if (t == "IntegerType") col(c).cast(DoubleType) else col(c) }: _*)
+df2: org.apache.spark.sql.DataFrame = [Education: string, Marital_Status: string ... 26 more fields]
+
+df2.printSchema
+root
+ |-- Education: string (nullable = true)
+ |-- Marital_Status: string (nullable = true)
+ |-- Income: double (nullable = true)
+ |-- Kidhome: double (nullable = true)
+ |-- Teenhome: double (nullable = true)
+ |-- Recency: double (nullable = true)
+ |-- MntWines: double (nullable = true)
+ |-- MntFruits: double (nullable = true)
+ |-- MntMeatProducts: double (nullable = true)
+ |-- MntFishProducts: double (nullable = true)
+ |-- MntSweetProducts: double (nullable = true)
+ |-- MntGoldProds: double (nullable = true)
+ |-- NumDealsPurchases: double (nullable = true)
+ |-- NumWebPurchases: double (nullable = true)
+ |-- NumCatalogPurchases: double (nullable = true)
+ |-- NumStorePurchases: double (nullable = true)
+ |-- NumWebVisitsMonth: double (nullable = true)
+ |-- AcceptedCmp3: double (nullable = true)
+ |-- AcceptedCmp4: double (nullable = true)
+ |-- AcceptedCmp5: double (nullable = true)
+ |-- AcceptedCmp1: double (nullable = true)
+ |-- AcceptedCmp2: double (nullable = true)
+ |-- Complain: double (nullable = true)
+ |-- Z_CostContact: double (nullable = true)
+ |-- Z_Revenue: double (nullable = true)
+ |-- Response: double (nullable = true)
+ |-- age: double (nullable = true)
+ |-- enrolled_to_date: double (nullable = true)
+ |-- label: double (nullable = true)
+
+ 
+val Array(trainingData, testData) = df2.randomSplit(Array(0.7,0.3),11L)
+ 
+import org.apache.spark.ml.feature.{StringIndexer, OneHotEncoder, VectorAssembler}
+
+val dfInd1 = new StringIndexer().setInputCol("Education").setOutputCol("EducationCat").setHandleInvalid("skip")
+val dfInd2 = new StringIndexer().setInputCol("Marital_Status").setOutputCol("Marital_StatusCat").setHandleInvalid("skip")
+
+val dfOne1 = new OneHotEncoder().setInputCol("EducationCat").setOutputCol("EducationVect")
+val dfOne2 = new OneHotEncoder().setInputCol("Marital_StatusCat").setOutputCol("Marital_StatusVect")
+
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("EducationVect","Marital_StatusVect","Income","Kidhome","Teenhome","Recency","MntWines","MntFruits","MntMeatProducts","MntFishProducts","MntSweetProducts","MntGoldProds","NumDealsPurchases","NumWebPurchases","NumCatalogPurchases","NumStorePurchases","NumWebVisitsMonth","AcceptedCmp1","AcceptedCmp2","AcceptedCmp3","AcceptedCmp4","AcceptedCmp5","Complain","Z_CostContact","Z_Revenue","age","enrolled_to_date"))
+
+import org.apache.spark.ml.feature.StandardScaler
+val stdScaler = new StandardScaler().
+setWithStd(true).
+setWithMean(true).
+setInputCol("features").
+setOutputCol("scaledFeatures")
+
+import org.apache.spark.ml.classification.LogisticRegression
+val lr = new LogisticRegression()
+lr.setRegParam(0.01).setMaxIter(500).setFitIntercept(true).setFeaturesCol("scaledFeatures")
+
+import org.apache.spark.ml.Pipeline
+
+val pipeline = new Pipeline().setStages(Array(dfInd1,dfInd2,dfOne1,dfOne2,va,stdScaler,lr))
+
+val model = pipeline.fit(trainingData)
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res20: Double = 0.8921985815602869
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+
+val lrmodel = model.stages(6).asInstanceOf[LogisticRegressionModel]
+
+println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+LR Model coefficients:
+0.028845621664360103
+0.3388248781972571
+0.1097751916896697
+-0.05985386221591752
+-0.21984296281093918
+-0.19876761149361405
+0.25163933763617663
+0.14667611078621914
+0.141525088306989
+0.050766644768231325
+0.0270483959656669
+0.030929487784573675
+0.13273367738031774
+-0.3880153389075977
+-0.7511142918307673
+0.05638318348904393
+0.025683982567522204
+0.4220719508936333
+0.009457689687679008
+0.010365662309614944
+0.14740708547655895
+0.10049143490875519
+0.2191685505749573
+0.11966371066443807
+-0.4976229685765995
+0.30317171621560207
+0.4140256811085162
+0.18512345626293203
+0.5206222540521263
+0.242390591749128
+0.39958908348212313
+0.012798164906420143
+0.0
+0.0
+0.01117675516056392
+0.5853848907460125
+
+-------------------
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().
+addGrid(lr.regParam, Array(1, 0.1, 0.01)).
+addGrid(lr.fitIntercept).
+addGrid(lr.maxIter, Array(100,300,500)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new BinaryClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val model = cv.fit(trainingData)
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+val lrmodel = bestmodel.stages(6).asInstanceOf[LogisticRegressionModel]
+
+lrmodel.getRegParam
+res3: Double = 0.01
+
+lrmodel.getMaxIter
+res4: Int = 100
+
+lrmodel.getThreshold
+res5: Double = 0.5
+
+lrmodel.getFitIntercept
+res6: Boolean = true
+
+lrmodel.getStandardization
+res7: Boolean = true
+
+println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+LR Model coefficients:
+0.028845621664360103
+0.3388248781972571
+0.1097751916896697
+-0.05985386221591752
+-0.21984296281093918
+-0.19876761149361405
+0.25163933763617663
+0.14667611078621914
+0.141525088306989
+0.050766644768231325
+0.0270483959656669
+0.030929487784573675
+0.13273367738031774
+-0.3880153389075977
+-0.7511142918307673
+0.05638318348904393
+0.025683982567522204
+0.4220719508936333
+0.009457689687679008
+0.010365662309614944
+0.14740708547655895
+0.10049143490875519
+0.2191685505749573
+0.11966371066443807
+-0.4976229685765995
+0.30317171621560207
+0.4140256811085162
+0.18512345626293203
+0.5206222540521263
+0.242390591749128
+0.39958908348212313
+0.012798164906420143
+0.0
+0.0
+0.01117675516056392
+0.5853848907460125
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res10: Double = 0.8921985815602869

@@ -1,0 +1,218 @@
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("spark/data/diabetes_pred/diabetes_data_upload.csv")
+df: org.apache.spark.sql.DataFrame = [Age: int, Gender: string ... 15 more fields]
+
+scala> df.printSchema
+root
+ |-- Age: integer (nullable = true)
+ |-- Gender: string (nullable = true)
+ |-- Polyuria: string (nullable = true)
+ |-- Polydipsia: string (nullable = true)
+ |-- sudden weight loss: string (nullable = true)
+ |-- weakness: string (nullable = true)
+ |-- Polyphagia: string (nullable = true)
+ |-- Genital thrush: string (nullable = true)
+ |-- visual blurring: string (nullable = true)
+ |-- Itching: string (nullable = true)
+ |-- Irritability: string (nullable = true)
+ |-- delayed healing: string (nullable = true)
+ |-- partial paresis: string (nullable = true)
+ |-- muscle stiffness: string (nullable = true)
+ |-- Alopecia: string (nullable = true)
+ |-- Obesity: string (nullable = true)
+ |-- class: string (nullable = true)
+
+df.show
++---+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
+|Age|Gender|Polyuria|Polydipsia|sudden weight loss|weakness|Polyphagia|Genital thrush|visual blurring|Itching|Irritability|delayed healing|partial paresis|muscle stiffness|Alopecia|Obesity|   class|
++---+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
+| 40|  Male|      No|       Yes|                No|     Yes|        No|            No|             No|    Yes|          No|            Yes|             No|             Yes|     Yes|    Yes|Positive|
+| 58|  Male|      No|        No|                No|     Yes|        No|            No|            Yes|     No|          No|             No|            Yes|              No|     Yes|     No|Positive|
+| 41|  Male|     Yes|        No|                No|     Yes|       Yes|            No|             No|    Yes|          No|            Yes|             No|             Yes|     Yes|     No|Positive|
+| 45|  Male|      No|        No|               Yes|     Yes|       Yes|           Yes|             No|    Yes|          No|            Yes|             No|              No|      No|     No|Positive|
+| 60|  Male|     Yes|       Yes|               Yes|     Yes|       Yes|            No|            Yes|    Yes|         Yes|            Yes|            Yes|             Yes|     Yes|    Yes|Positive|
+| 55|  Male|     Yes|       Yes|                No|     Yes|       Yes|            No|            Yes|    Yes|          No|            Yes|             No|             Yes|     Yes|    Yes|Positive|
+| 57|  Male|     Yes|       Yes|                No|     Yes|       Yes|           Yes|             No|     No|          No|            Yes|            Yes|              No|      No|     No|Positive|
+| 66|  Male|     Yes|       Yes|               Yes|     Yes|        No|            No|            Yes|    Yes|         Yes|             No|            Yes|             Yes|      No|     No|Positive|
+| 67|  Male|     Yes|       Yes|                No|     Yes|       Yes|           Yes|             No|    Yes|         Yes|             No|            Yes|             Yes|      No|    Yes|Positive|
+| 70|  Male|      No|       Yes|               Yes|     Yes|       Yes|            No|            Yes|    Yes|         Yes|             No|             No|              No|     Yes|     No|Positive|
+| 44|  Male|     Yes|       Yes|                No|     Yes|        No|           Yes|             No|     No|         Yes|            Yes|             No|             Yes|     Yes|     No|Positive|
+| 38|  Male|     Yes|       Yes|                No|      No|       Yes|           Yes|             No|    Yes|          No|            Yes|             No|             Yes|      No|     No|Positive|
+| 35|  Male|     Yes|        No|                No|      No|       Yes|           Yes|             No|     No|         Yes|            Yes|             No|              No|     Yes|     No|Positive|
+| 61|  Male|     Yes|       Yes|               Yes|     Yes|       Yes|           Yes|            Yes|    Yes|          No|             No|             No|              No|     Yes|    Yes|Positive|
+| 60|  Male|     Yes|       Yes|                No|     Yes|       Yes|            No|            Yes|    Yes|          No|            Yes|            Yes|              No|      No|     No|Positive|
+| 58|  Male|     Yes|       Yes|                No|     Yes|       Yes|            No|             No|     No|          No|            Yes|            Yes|             Yes|      No|     No|Positive|
+| 54|  Male|     Yes|       Yes|               Yes|     Yes|        No|           Yes|             No|     No|          No|            Yes|             No|             Yes|      No|     No|Positive|
+| 67|  Male|      No|       Yes|                No|     Yes|       Yes|            No|            Yes|     No|         Yes|            Yes|            Yes|             Yes|     Yes|    Yes|Positive|
+| 66|  Male|     Yes|       Yes|                No|     Yes|       Yes|            No|            Yes|     No|          No|             No|            Yes|             Yes|      No|     No|Positive|
+| 43|  Male|     Yes|       Yes|               Yes|     Yes|        No|           Yes|             No|     No|          No|             No|             No|              No|      No|     No|Positive|
++---+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
+
+df.describe().show
++-------+------------------+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
+|summary|               Age|Gender|Polyuria|Polydipsia|sudden weight loss|weakness|Polyphagia|Genital thrush|visual blurring|Itching|Irritability|delayed healing|partial paresis|muscle stiffness|Alopecia|Obesity|   class|
++-------+------------------+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
+|  count|               520|   520|     520|       520|               520|     520|       520|           520|            520|    520|         520|            520|            520|             520|     520|    520|     520|
+|   mean| 48.02884615384615|  null|    null|      null|              null|    null|      null|          null|           null|   null|        null|           null|           null|            null|    null|   null|    null|
+| stddev|12.151465995249454|  null|    null|      null|              null|    null|      null|          null|           null|   null|        null|           null|           null|            null|    null|   null|    null|
+|    min|                16|Female|      No|        No|                No|      No|        No|            No|             No|     No|          No|             No|             No|              No|      No|     No|Negative|
+|    max|                90|  Male|     Yes|       Yes|               Yes|     Yes|       Yes|           Yes|            Yes|    Yes|         Yes|            Yes|            Yes|             Yes|     Yes|    Yes|Positive|
++-------+------------------+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
+
+val df1 = df.na.replace(Array("Polyuria","Polydipsia","sudden weight loss","weakness","Polyphagia","Genital thrush","visual blurring","Itching","Irritability","delayed healing","partial paresis","muscle stiffness","Alopecia","Obesity"),Map("No" -> "0.0", "Yes" -> "1.0")).
+      na.replace(Array("class"),Map("Negative" -> "0.0", "Positive" -> "1.0")).
+      na.replace(Array("Gender"),Map("Female" -> "0.0", "Male" -> "1.0")).
+	  withColumn("label", 'class)
+	  
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+
+val types = df1.dtypes
+types: Array[(String, String)] = Array((Age,IntegerType), (Gender,StringType), (Polyuria,StringType), (Polydipsia,StringType), (sudden weight loss,StringType), (weakness,StringType), (Polyphagia,StringType), (Genital thrush,StringType), (visual blurring,StringType), (Itching,StringType), (Irritability,StringType), (delayed healing,StringType), (partial paresis,StringType), (muscle stiffness,StringType), (Alopecia,StringType), (Obesity,StringType), (class,StringType), (label,StringType))
+
+df1.select(types.map{ case(c,t) => col(c).cast(DoubleType)}: _*)
+res13: org.apache.spark.sql.DataFrame = [Age: double, Gender: double ... 16 more fields]
+
+val df2 = df1.select(types.map{ case(c,t) => col(c).cast(DoubleType)}: _*)
+df2: org.apache.spark.sql.DataFrame = [Age: double, Gender: double ... 16 more fields]
+
+df2.printSchema
+root
+ |-- Age: double (nullable = true)
+ |-- Gender: double (nullable = true)
+ |-- Polyuria: double (nullable = true)
+ |-- Polydipsia: double (nullable = true)
+ |-- sudden weight loss: double (nullable = true)
+ |-- weakness: double (nullable = true)
+ |-- Polyphagia: double (nullable = true)
+ |-- Genital thrush: double (nullable = true)
+ |-- visual blurring: double (nullable = true)
+ |-- Itching: double (nullable = true)
+ |-- Irritability: double (nullable = true)
+ |-- delayed healing: double (nullable = true)
+ |-- partial paresis: double (nullable = true)
+ |-- muscle stiffness: double (nullable = true)
+ |-- Alopecia: double (nullable = true)
+ |-- Obesity: double (nullable = true)
+ |-- class: double (nullable = true)
+ |-- label: double (nullable = true)
+
+
+import org.apache.spark.ml.feature.{VectorAssembler}
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("Age","Gender","Polyuria","Polydipsia","sudden weight loss","weakness","Polyphagia","Genital thrush","visual blurring","Itching","Irritability","delayed healing","partial paresis","muscle stiffness","Alopecia","Obesity"))
+
+import org.apache.spark.ml.feature.StandardScaler
+val stdScaler = new StandardScaler().
+setWithStd(true).
+setWithMean(true).
+setInputCol("features").
+setOutputCol("scaledFeatures")
+
+import org.apache.spark.ml.classification.LogisticRegression
+val lr = new LogisticRegression
+lr.setRegParam(0.01).setMaxIter(500).setFitIntercept(true).setFeaturesCol("scaledFeatures")
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(va,stdScaler,lr))
+
+val Array(trainingData, testData) = df2.randomSplit(Array(0.7,0.3),11L)
+
+val model = pipeline.fit(trainingData)
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res17: Double = 0.9717638430509716
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+
+val lrmodel = model.stages(2).asInstanceOf[LogisticRegressionModel]
+
+println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+LR Model coefficients:
+-0.09728127826946179
+-1.2344954156053858
+1.266929438867989
+1.3561435255904153
+0.34632330032266495
+0.17857229822254198
+0.2452477289034843
+0.518836404444447
+0.2278058935699796
+-0.516832627982378
+0.759354527397228
+-0.3932361656761581
+0.4567697886741777
+-0.18166280808138677
+-0.14972494229268168
+-0.09231938186022055
+
+-------------------
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().
+addGrid(lr.regParam, Array(1, 0.1, 0.01)).
+addGrid(lr.fitIntercept).
+addGrid(lr.maxIter, Array(100,300,500)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new BinaryClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val model = cv.fit(trainingData)
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+val lrmodel = bestmodel.stages(2).asInstanceOf[LogisticRegressionModel]
+
+lrmodel.getRegParam
+res3: Double = 00.1
+
+lrmodel.getMaxIter
+res4: Int = 100
+
+lrmodel.getThreshold
+res5: Double = 0.5
+
+lrmodel.getFitIntercept
+res6: Boolean = true
+
+lrmodel.getStandardization
+res7: Boolean = true
+
+println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+LR Model coefficients:
+-0.09728127826946179
+-1.2344954156053858
+1.266929438867989
+1.3561435255904153
+0.34632330032266495
+0.17857229822254198
+0.2452477289034843
+0.518836404444447
+0.2278058935699796
+-0.516832627982378
+0.759354527397228
+-0.3932361656761581
+0.4567697886741777
+-0.18166280808138677
+-0.14972494229268168
+-0.09231938186022055
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res9: Double = 0.9717638430509716

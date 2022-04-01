@@ -204,7 +204,7 @@ import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
   println("iter -> pred / total, AuPR, AuROC") 
   for(numIter <- iterNums) {
-	val lr = SVMWithSGD.train(train, numIter)
+    val lr = SVMWithSGD.train(train, numIter)
     val validPredicts = test.map(x => (lr.predict(x.features),x.label))
     val metrics = new BinaryClassificationMetrics(validPredicts)
     println("%d -> %d / %d, %.4f, %.4f".format(numIter, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))

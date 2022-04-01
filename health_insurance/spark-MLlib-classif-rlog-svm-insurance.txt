@@ -1,0 +1,282 @@
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("insurance/insurance.train.csv")
+
+df.printSchema
+root
+ |-- id: integer (nullable = true)
+ |-- Gender: string (nullable = true)
+ |-- Age: integer (nullable = true)
+ |-- Driving_License: integer (nullable = true)
+ |-- Region_Code: double (nullable = true)
+ |-- Previously_Insured: integer (nullable = true)
+ |-- Vehicle_Age: string (nullable = true)
+ |-- Vehicle_Damage: string (nullable = true)
+ |-- Annual_Premium: double (nullable = true)
+ |-- Policy_Sales_Channel: double (nullable = true)
+ |-- Vintage: integer (nullable = true)
+ |-- Response: integer (nullable = true)
+
+df.show
++---+------+---+---------------+-----------+------------------+-----------+--------------+--------------+--------------------+-------+--------+
+| id|Gender|Age|Driving_License|Region_Code|Previously_Insured|Vehicle_Age|Vehicle_Damage|Annual_Premium|Policy_Sales_Channel|Vintage|Response|
++---+------+---+---------------+-----------+------------------+-----------+--------------+--------------+--------------------+-------+--------+
+|  1|  Male| 44|              1|       28.0|                 0|  > 2 Years|           Yes|       40454.0|                26.0|    217|       1|
+|  2|  Male| 76|              1|        3.0|                 0|   1-2 Year|            No|       33536.0|                26.0|    183|       0|
+|  3|  Male| 47|              1|       28.0|                 0|  > 2 Years|           Yes|       38294.0|                26.0|     27|       1|
+|  4|  Male| 21|              1|       11.0|                 1|   < 1 Year|            No|       28619.0|               152.0|    203|       0|
+|  5|Female| 29|              1|       41.0|                 1|   < 1 Year|            No|       27496.0|               152.0|     39|       0|
+|  6|Female| 24|              1|       33.0|                 0|   < 1 Year|           Yes|        2630.0|               160.0|    176|       0|
+|  7|  Male| 23|              1|       11.0|                 0|   < 1 Year|           Yes|       23367.0|               152.0|    249|       0|
+|  8|Female| 56|              1|       28.0|                 0|   1-2 Year|           Yes|       32031.0|                26.0|     72|       1|
+|  9|Female| 24|              1|        3.0|                 1|   < 1 Year|            No|       27619.0|               152.0|     28|       0|
+| 10|Female| 32|              1|        6.0|                 1|   < 1 Year|            No|       28771.0|               152.0|     80|       0|
+| 11|Female| 47|              1|       35.0|                 0|   1-2 Year|           Yes|       47576.0|               124.0|     46|       1|
+| 12|Female| 24|              1|       50.0|                 1|   < 1 Year|            No|       48699.0|               152.0|    289|       0|
+| 13|Female| 41|              1|       15.0|                 1|   1-2 Year|            No|       31409.0|                14.0|    221|       0|
+| 14|  Male| 76|              1|       28.0|                 0|   1-2 Year|           Yes|       36770.0|                13.0|     15|       0|
+| 15|  Male| 71|              1|       28.0|                 1|   1-2 Year|            No|       46818.0|                30.0|     58|       0|
+| 16|  Male| 37|              1|        6.0|                 0|   1-2 Year|           Yes|        2630.0|               156.0|    147|       1|
+| 17|Female| 25|              1|       45.0|                 0|   < 1 Year|           Yes|       26218.0|               160.0|    256|       0|
+| 18|Female| 25|              1|       35.0|                 1|   < 1 Year|            No|       46622.0|               152.0|    299|       0|
+| 19|  Male| 42|              1|       28.0|                 0|   1-2 Year|           Yes|       33667.0|               124.0|    158|       0|
+| 20|Female| 60|              1|       33.0|                 0|   1-2 Year|           Yes|       32363.0|               124.0|    102|       1|
++---+------+---+---------------+-----------+------------------+-----------+--------------+--------------+--------------------+-------+--------+
+only showing top 20 rows
+
+
+df.select("Gender","Vehicle_Age","Vehicle_Damage","Previously_Insured","Age","Vintage","Response").show
++------+-----------+--------------+------------------+---+-------+--------+
+|Gender|Vehicle_Age|Vehicle_Damage|Previously_Insured|Age|Vintage|Response|
++------+-----------+--------------+------------------+---+-------+--------+
+|  Male|  > 2 Years|           Yes|                 0| 44|    217|       1|
+|  Male|   1-2 Year|            No|                 0| 76|    183|       0|
+|  Male|  > 2 Years|           Yes|                 0| 47|     27|       1|
+|  Male|   < 1 Year|            No|                 1| 21|    203|       0|
+|Female|   < 1 Year|            No|                 1| 29|     39|       0|
+|Female|   < 1 Year|           Yes|                 0| 24|    176|       0|
+|  Male|   < 1 Year|           Yes|                 0| 23|    249|       0|
+|Female|   1-2 Year|           Yes|                 0| 56|     72|       1|
+|Female|   < 1 Year|            No|                 1| 24|     28|       0|
+|Female|   < 1 Year|            No|                 1| 32|     80|       0|
+|Female|   1-2 Year|           Yes|                 0| 47|     46|       1|
+|Female|   < 1 Year|            No|                 1| 24|    289|       0|
+|Female|   1-2 Year|            No|                 1| 41|    221|       0|
+|  Male|   1-2 Year|           Yes|                 0| 76|     15|       0|
+|  Male|   1-2 Year|            No|                 1| 71|     58|       0|
+|  Male|   1-2 Year|           Yes|                 0| 37|    147|       1|
+|Female|   < 1 Year|           Yes|                 0| 25|    256|       0|
+|Female|   < 1 Year|            No|                 1| 25|    299|       0|
+|  Male|   1-2 Year|           Yes|                 0| 42|    158|       0|
+|Female|   1-2 Year|           Yes|                 0| 60|    102|       1|
++------+-----------+--------------+------------------+---+-------+--------+
+only showing top 20 rows
+
+
+df.select("Gender","Vehicle_Age","Vehicle_Damage","Previously_Insured","Age","Vintage","Response").describe().show
++-------+------+-----------+--------------+-------------------+------------------+------------------+-------------------+
+|summary|Gender|Vehicle_Age|Vehicle_Damage| Previously_Insured|               Age|           Vintage|           Response|
++-------+------+-----------+--------------+-------------------+------------------+------------------+-------------------+
+|  count|381109|     381109|        381109|             381109|            381109|            381109|             381109|
+|   mean|  null|       null|          null| 0.4582101183650871|38.822583565331705|154.34739667654136|0.12256336113815208|
+| stddev|  null|       null|          null|0.49825119888722647|15.511611018095289| 83.67130362658735|0.32793576478642567|
+|    min|Female|   1-2 Year|            No|                  0|                20|                10|                  0|
+|    max|  Male|  > 2 Years|           Yes|                  1|                85|               299|                  1|
++-------+------+-----------+--------------+-------------------+------------------+------------------+-------------------+
+
+
+val rdd1 = df.select("Gender","Vehicle_Age","Vehicle_Damage","Previously_Insured","Age","Vintage","Response").rdd
+
+val rdd = rdd1.map( x => x.toSeq.toArray)
+
+
+---- Conversion to 1-to-k binary encoding vectors 
+
+def oneHotEncColumns(rddx: org.apache.spark.rdd.RDD[Array[Any]], idx: Int):org.apache.spark.rdd.RDD[Array[Double]] = {
+  val categories = rddx.map(r => r(idx)).distinct.zipWithIndex.collect.toMap
+  val numCategories = categories.size
+  val vetcateg = rddx.map(r => {
+      val categoryIdx = categories(r(idx)).toInt
+      val categoryFeatures = if (numCategories > 2) Array.ofDim[Double](numCategories) else Array.ofDim[Double](1)
+	  if (numCategories > 2) categoryFeatures(categoryIdx) = 1.0 else categoryFeatures(0) = categoryIdx
+      categoryFeatures
+  })
+  vetcateg
+}
+
+def mergeArray(rddx: org.apache.spark.rdd.RDD[Array[Any]], idx: Int*):org.apache.spark.rdd.RDD[Array[Double]] = {
+  var i = 0
+  var arr1 = oneHotEncColumns(rddx,idx(i))
+  for (j <- 1 until idx.size) {
+    var arr2 = oneHotEncColumns(rddx,idx(j))
+    var flt1 = arr1.zip(arr2).map(x => (x._1.toList ++ x._2.toList).toArray)
+    arr1 = flt1
+  }
+  arr1
+}
+
+val concat = mergeArray(rdd,0,1,2,3)
+
+concat.take(5)
+res7: Array[Array[Double]] = Array(Array(1.0, 0.0, 1.0, 0.0, 1.0, 0.0), Array(1.0, 0.0, 0.0, 1.0, 0.0, 0.0), Array(1.0, 0.0, 1.0, 0.0, 1.0, 0.0), Array(1.0, 1.0, 0.0, 0.0, 0.0, 1.0), Array(0.0, 1.0, 0.0, 0.0, 0.0, 1.0))
+
+val rdd2 = rdd.map( x => x.slice(4,x.size)).map( x => x.map( y => y.toString.toDouble))
+
+val vect = concat.zip(rdd2).map(x => (x._1.toList ++ x._2.toList).toArray)
+
+vect.take(5)
+res8: Array[Array[Double]] = Array(Array(1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 44.0, 217.0, 1.0), Array(1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 76.0, 183.0, 0.0), Array(1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 47.0, 27.0, 1.0), Array(1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 21.0, 203.0, 0.0), Array(0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 29.0, 39.0, 0.0))
+
+
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
+
+val data = vect.map(x => {
+   val arr_size = x.size - 1
+   val l = x(arr_size)
+   val f = x.slice(0, arr_size)
+   LabeledPoint(l, Vectors.dense(f))
+ })
+
+val sets = data.randomSplit(Array(0.7,0.3), 11L)
+val trainSet = sets(0)
+val testSet = sets(1)
+
+trainSet.cache
+
+---- MLlib logistic regression --------------
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+
+def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("iter, step -> pred / total, AuPR, AuROC") 
+  for(numIter <- iterNums; step <- stepSizes) {
+    val model = new LogisticRegressionWithSGD
+	model.optimizer.setNumIterations(numIter).setStepSize(step)
+	val lr = model.run(train)
+    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
+    val metrics = new BinaryClassificationMetrics(validPredicts)
+    println("%d, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+  }
+}
+
+iterateLRwSGD(Array(100,300,500),Array(1, 0.1, 0.01), trainSet, testSet)
+iter, step -> pred / total, AuPR, AuROC
+100, 1.000 -> 100457 / 114438, 0.1222, 0.5000
+100, 0.100 -> 100457 / 114438, 0.1222, 0.5000
+100, 0.010 -> 100457 / 114438, 0.1222, 0.5000
+300, 1.000 -> 100457 / 114438, 0.1222, 0.5000
+300, 0.100 -> 100457 / 114438, 0.1222, 0.5000
+300, 0.010 -> 100457 / 114438, 0.1222, 0.5000
+500, 1.000 -> 100457 / 114438, 0.1222, 0.5000
+500, 1.000 -> 100457 / 114438, 0.1222, 0.5000
+500, 1.000 -> 100457 / 114438, 0.1222, 0.5000
+
+
+---- MLlib SVM regression --------------
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.classification.SVMWithSGD
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+
+def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("iter -> pred / total, AuPR, AuROC") 
+  for(numIter <- iterNums) {
+	val lr = SVMWithSGD.train(train, numIter)
+    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
+    val metrics = new BinaryClassificationMetrics(validPredicts)
+    println("%d -> %d / %d, %.4f, %.4f".format(numIter, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+  }
+}
+
+iterateSVM(Array(100,300,500), trainSet, testSet)
+iter -> pred / total, AuPR, AuROC
+100 -> 100457 / 114438, 0.1222, 0.5000
+300 -> 14115 / 114438, 0.1223, 0.5007
+500 -> 100457 / 114438, 0.1222, 0.5000
+
+
+---- Analyzing statistics for standardization ---------------------
+
+import org.apache.spark.mllib.linalg.Matrix
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+
+val vectors = trainSet.map{ case LabeledPoint(x,y) => y }
+val matrix = new RowMatrix(vectors)
+val matrixSummary = matrix.computeColumnSummaryStatistics()
+
+matrixSummary.max
+res12: org.apache.spark.mllib.linalg.Vector = [1.0,1.0,1.0,1.0,1.0,1.0,85.0,299.0]
+
+matrixSummary.min
+res13: org.apache.spark.mllib.linalg.Vector = [0.0,0.0,0.0,0.0,0.0,0.0,20.0,10.0]
+
+matrixSummary.mean
+res14: org.apache.spark.mllib.linalg.Vector = [0.5406887138084007,0.432619219937676,0.04197306793764601,0.525407712124678,0.504134307817498,0.4591537887509328,38.80024074608746,154.23134874058292]
+
+matrixSummary.variance
+res15: org.apache.spark.mllib.linalg.Vector = [0.24834535984858422,0.24546075094105124,0.04021148029614853,0.24935538323208176,0.2499838449230555,0.24833251825840755,240.22449778581597,7005.710973003284]
+
+----- Standardizing features ------------------------------
+
+import org.apache.spark.mllib.feature.StandardScaler
+val vectors = trainSet.map(lp => lp.features)
+val scaler = new StandardScaler(withMean = true, withStd = true).fit(vectors)
+val trainScaled = trainSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.features)))
+val testScaled = testSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.features)))
+
+trainScaled.cache
+
+----- with MLlib logistic regression ----------------------
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+
+def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("iter, step -> pred / total, AuPR, AuROC") 
+  for(numIter <- iterNums; step <- stepSizes) {
+    val model = new LogisticRegressionWithSGD
+	model.optimizer.setNumIterations(numIter).setStepSize(step)
+	val lr = model.run(train)
+    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
+    val metrics = new BinaryClassificationMetrics(validPredicts)
+    println("%d, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+  }
+}
+
+iterateLRwSGD(Array(100,300,500),Array(1, 0.1, 0.01), trainScaled, testScaled)
+iter, step -> pred / total, AuPR, AuROC
+100, 1.000 -> 68819 / 114438, 0.2324, 0.7679
+100, 0.100 -> 67466 / 114438, 0.2276, 0.7618
+100, 0.010 -> 67466 / 114438, 0.2276, 0.7618
+300, 1.000 -> 68819 / 114438, 0.2324, 0.7679
+300, 0.100 -> 67466 / 114438, 0.2276, 0.7618
+300, 0.010 -> 67466 / 114438, 0.2276, 0.7618
+500, 1.000 -> 68819 / 114438, 0.2324, 0.7679
+500, 0.100 -> 67466 / 114438, 0.2276, 0.7618
+500, 0.010 -> 67466 / 114438, 0.2276, 0.7618
+
+
+----- with MLlib SVM regression ----------------------
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.classification.SVMWithSGD
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+
+def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("iter -> pred / total, AuPR, AuROC") 
+  for(numIter <- iterNums) {
+    val lr = SVMWithSGD.train(train, numIter)
+    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
+    val metrics = new BinaryClassificationMetrics(validPredicts)
+    println("%d -> %d / %d, %.4f, %.4f".format(numIter, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+  }
+}
+
+scala> iterateSVM(Array(100,300,500), trainScaled, testScaled)
+iter -> pred / total, AuPR, AuROC
+100 -> 69862 / 114438, 0.2350, 0.7692
+300 -> 69862 / 114438, 0.2350, 0.7692
+500 -> 69862 / 114438, 0.2350, 0.7692
