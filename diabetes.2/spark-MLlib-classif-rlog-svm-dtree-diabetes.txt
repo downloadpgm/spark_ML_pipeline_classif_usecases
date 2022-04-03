@@ -1,0 +1,248 @@
+---- Feature extraction & Data Munging --------------
+
+val rdd = sc.textFile("spark/data/diabetes/diabetes.csv")
+
+rdd.filter( x => x.contains("Pregnancies")).take(2)
+res3: Array[String] = Array(Pregnancies,Glucose,BloodPressure,SkinThickness,Insulin,BMI,DiabetesPedigreeFunction,Age,Outcome)
+
+val rdd1 = rdd.filter( x => ! x.contains("Pregnancies")).map( x => x.split(","))
+
+rdd1.take(2)
+res2: Array[Array[String]] = Array(Array(6, 148, 72, 35, 0, 33.6, 0.627, 50, 1), Array(1, 85, 66, 29, 0, 26.6, 0.351, 31, 0))
+
+val rdd2 = rdd1.map( x => x.map( y => y.toString.toDouble ))
+
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
+
+val data = rdd2.map( x => {
+   val arr_size = x.size - 1
+   val l = x(arr_size)
+   val f = Vectors.dense(x.slice(0, arr_size-1))
+   LabeledPoint(l,f)
+ })
+
+val sets = data.randomSplit(Array(0.7,0.3), 11L)
+val trainSet = sets(0)
+val testSet = sets(1)
+
+trainSet.cache
+
+---- MLlib logistic regression --------------
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+
+def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("iter, step -> pred / total, AuPR, AuROC") 
+  for(numIter <- iterNums; step <- stepSizes) {
+    val model = new LogisticRegressionWithSGD
+	model.optimizer.setNumIterations(numIter).setStepSize(step)
+	val lr = model.run(train)
+    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
+    val metrics = new BinaryClassificationMetrics(validPredicts)
+    println("%d, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+  }
+}
+
+iterateLRwSGD(Array(100,300,500),Array(1, 0.1, 0.01, 0.001), trainSet, testSet)
+iter, step -> pred / total, AuPR, AuROC
+100, 1.000 -> 95 / 235, 0.3597, 0.5308
+100, 0.100 -> 102 / 235, 0.3689, 0.5477
+100, 0.010 -> 114 / 235, 0.3771, 0.5574
+100, 0.001 -> 149 / 235, 0.3646, 0.5072
+300, 1.000 -> 91 / 235, 0.3573, 0.5266
+300, 0.100 -> 94 / 235, 0.3622, 0.5364
+300, 0.010 -> 115 / 235, 0.3807, 0.5636
+300, 0.001 -> 149 / 235, 0.3646, 0.5072
+500, 1.000 -> 92 / 235, 0.3589, 0.5299
+500, 0.100 -> 94 / 235, 0.3622, 0.5364
+500, 0.010 -> 118 / 235, 0.3810, 0.5616
+500, 0.001 -> 149 / 235, 0.3646, 0.5072
+
+---- MLlib SVM regression --------------
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.classification.SVMWithSGD
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+
+def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("iter -> pred / total, AuPR, AuROC") 
+  for(numIter <- iterNums) {
+	val lr = SVMWithSGD.train(train, numIter)
+    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
+    val metrics = new BinaryClassificationMetrics(validPredicts)
+    println("%d -> %d / %d, %.4f, %.4f".format(numIter, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+  }
+}
+
+iterateSVM(Array(100,300,500), trainSet, testSet)
+iter -> pred / total, AuPR, AuROC
+100 -> 141 / 235, 0.4321, 0.6217
+300 -> 143 / 235, 0.4274, 0.6047
+500 -> 145 / 235, 0.4369, 0.6171
+
+---- Analyzing statistics for standardization ---------------------
+
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+
+val vectors = data.map{ case LabeledPoint(x,y) => y }
+val matrix = new RowMatrix(vectors)
+val matrixSummary = matrix.computeColumnSummaryStatistics
+
+matrixSummary.max
+res8: org.apache.spark.mllib.linalg.Vector = [17.0,199.0,122.0,99.0,846.0,67.1,2.42]
+
+matrixSummary.min
+res9: org.apache.spark.mllib.linalg.Vector = [0.0,0.0,0.0,0.0,0.0,0.0,0.078]
+
+matrixSummary.mean
+res10: org.apache.spark.mllib.linalg.Vector = [3.8450520833333335,120.89453125000006,69.10546875000001,20.536458333333336,79.79947916666669,31.99257812499999,0.4718763020833334]
+
+matrixSummary.variance
+res14: org.apache.spark.mllib.linalg.Vector = [11.35405632062147,1022.2483142519557,374.6472712271838,254.47324532811828,13281.180077955238,62.15998395738265,0.10977863787313938]
+
+----- Standardizing features ------------------------------
+
+import org.apache.spark.mllib.feature.StandardScaler
+val vectors = trainSet.map(lp => lp.features)
+val scaler = new StandardScaler(withMean = true, withStd = true).fit(vectors)
+val trainScaled = trainSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.features)))
+val testScaled = testSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.features)))
+
+trainScaled.cache
+
+----- with MLlib logistic regression ----------------------
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+
+def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("iter, step -> pred / total, AuPR, AuROC") 
+  for(numIter <- iterNums; step <- stepSizes) {
+    val model = new LogisticRegressionWithSGD
+	model.optimizer.setNumIterations(numIter).setStepSize(step)
+	val lr = model.run(train)
+    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
+    val metrics = new BinaryClassificationMetrics(validPredicts)
+    println("%d, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+  }
+}
+
+iterateLRwSGD(Array(100,300,500),Array(1, 0.1, 0.01, 0.001), trainScaled, testScaled)
+iter, step -> pred / total, AuPR, AuROC
+100, 1.000 -> 184 / 235, 0.6207, 0.7847
+100, 0.100 -> 173 / 235, 0.5617, 0.7402
+100, 0.010 -> 170 / 235, 0.5468, 0.7275
+100, 0.001 -> 170 / 235, 0.5468, 0.7275
+300, 1.000 -> 184 / 235, 0.6207, 0.7847
+300, 0.100 -> 173 / 235, 0.5617, 0.7402
+300, 0.010 -> 170 / 235, 0.5468, 0.7275
+300, 0.001 -> 170 / 235, 0.5468, 0.7275
+500, 1.000 -> 184 / 235, 0.6207, 0.7847
+500, 0.100 -> 173 / 235, 0.5617, 0.7402
+500, 0.010 -> 170 / 235, 0.5468, 0.7275
+500, 0.001 -> 170 / 235, 0.5468, 0.7275
+
+----- with MLlib SVM regression ----------------------
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.classification.SVMWithSGD
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+
+def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("iter -> pred / total, AuPR, AuROC") 
+  for(numIter <- iterNums) {
+	val lr = SVMWithSGD.train(train, numIter)
+    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
+    val metrics = new BinaryClassificationMetrics(validPredicts)
+    println("%d -> %d / %d, %.4f, %.4f".format(numIter, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+  }
+}
+
+scala> iterateSVM(Array(100,300,500), trainScaled, testScaled)
+iter -> pred / total, AuPR, AuROC
+100 -> 181 / 235, 0.6028, 0.7779
+300 -> 181 / 235, 0.6028, 0.7779
+500 -> 181 / 235, 0.6028, 0.7779
+
+---- MLlib Decision Tree regression --------------
+
+import org.apache.spark.mllib.tree.DecisionTree
+import org.apache.spark.mllib.tree.model.DecisionTreeModel
+
+val categoricalFeaturesInfo = Map[Int, Int]()  
+
+def iterateDTC(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("impurity, depth, bin -> pred / total, AuPR, AuROC") 
+  for(impurity <- Array("gini", "entropy"); numDepth <- depthNums; numBin <- binNums ) {
+    val model = DecisionTree.trainClassifier(train, 2, categoricalFeaturesInfo, impurity, numDepth, numBin)
+    val validPredicts = test.map(x => (model.predict(x.features),x.label))
+    val metrics = new BinaryClassificationMetrics(validPredicts)
+    println("%s, %d, %d -> %d / %d, %.4f, %.4f".format(impurity, numDepth, numBin, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+  }
+}
+
+iterateDTC(Array(10,20,30), Array(48,64), trainSet, testSet)
+impurity, depth, bin -> pred / total, AuPR, AuROC
+gini, 10, 48 -> 157 / 235, 0.4789, 0.6414
+gini, 10, 64 -> 168 / 235, 0.5375, 0.6742
+gini, 20, 48 -> 154 / 235, 0.4626, 0.6229
+gini, 20, 64 -> 167 / 235, 0.5307, 0.6856 *
+gini, 30, 48 -> 154 / 235, 0.4626, 0.6229
+gini, 30, 64 -> 167 / 235, 0.5307, 0.6856
+entropy, 10, 48 -> 158 / 235, 0.4829, 0.6417
+entropy, 10, 64 -> 160 / 235, 0.4967, 0.6687
+entropy, 20, 48 -> 159 / 235, 0.4872, 0.6421
+entropy, 20, 64 -> 158 / 235, 0.4857, 0.6534
+entropy, 30, 48 -> 159 / 235, 0.4872, 0.6421
+entropy, 30, 64 -> 158 / 235, 0.4857, 0.6534
+
+
+val model = DecisionTree.trainClassifier(trainSet, 2, categoricalFeaturesInfo, "gini", 20, 64)
+
+model.toDebugString
+res23: String =
+"DecisionTreeModel classifier of depth 17 with 205 nodes
+  If (feature 1 <= 154.5)
+   If (feature 5 <= 26.25)
+    If (feature 0 <= 9.5)
+     If (feature 1 <= 130.5)
+      If (feature 6 <= 0.6565000000000001)
+       Predict: 0.0
+      Else (feature 6 > 0.6565000000000001)
+       If (feature 5 <= 23.05)
+        If (feature 5 <= 21.75)
+         Predict: 0.0
+        Else (feature 5 > 21.75)
+         Predict: 1.0
+       Else (feature 5 > 23.05)
+        Predict: 0.0
+     Else (feature 1 > 130.5)
+      If (feature 1 <= 135.5)
+       If (feature 0 <= 4.5)
+        Predict: 1.0
+       Else (feature 0 > 4.5)
+        Predict: 0.0
+      Else (feature 1 > 135.5)
+       Predict: 0.0
+    Else (feature 0 > 9.5)
+     If (feature 2 <= 12.0)
+      Predict: 1.0
+     Else (feature 2 > 12.0)
+ ...
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res24: Array[(Double, Double)] = Array((1.0,1.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (1.0,1.0), (1.0,0.0), (1.0,0.0), (1.0,1.0), (0.0,1.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 167
+validPredicts.count                            // 235
+model.getClass.getSimpleName
+metrics.areaUnderPR   // 0.5306849611396962
+metrics.areaUnderROC  // 0.6855860189193523

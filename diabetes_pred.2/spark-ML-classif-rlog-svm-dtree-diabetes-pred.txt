@@ -177,7 +177,7 @@ import org.apache.spark.ml.classification.LogisticRegressionModel
 val lrmodel = bestmodel.stages(2).asInstanceOf[LogisticRegressionModel]
 
 lrmodel.getRegParam
-res3: Double = 00.1
+res3: Double = 0.01
 
 lrmodel.getMaxIter
 res4: Int = 100
