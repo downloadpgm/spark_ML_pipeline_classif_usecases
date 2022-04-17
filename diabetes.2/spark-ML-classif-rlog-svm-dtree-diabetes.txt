@@ -61,6 +61,8 @@ lr.setRegParam(0.01).setMaxIter(500).setFitIntercept(true).setFeaturesCol("scale
 import org.apache.spark.ml.Pipeline
 val pipeline = new Pipeline().setStages(Array(va,stdScaler,lr))
 
+-------------------
+
 val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
 
 val model = pipeline.fit(trainingData)
@@ -88,6 +90,21 @@ LR Model coefficients:
 0.2505980838269532
 0.20712712844147407
 
+import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
+
+val trainingSummary = lrmodel.summary
+
+trainingSummary.objectiveHistory
+res12: Array[Double] = Array(0.6537596512496414, 0.508737656763239, 0.4895295425831111, 0.4803183294904275, 0.4799611196723748, 0.47972691025101283, 0.4797021411071503, 0.4796962682594956, 0.47969404410575944, 0.47969394863799003, 0.4796939448689789, 0.4796939447651624, 0.47969394475455335, 0.47969394475144833)
+
+val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
+
+binarySummary.areaUnderROC
+res8: Double = 0.8429333493167107
+
+binarySummary.accuracy
+res18: Double = 0.7676579925650557
+
 -------------------
 
 import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
@@ -109,6 +126,13 @@ val model = cv.fit(trainingData)
 
 import org.apache.spark.ml.PipelineModel
 val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res9: Double = 0.8092515592515606
 
 import org.apache.spark.ml.classification.LogisticRegressionModel
 val lrmodel = bestmodel.stages(2).asInstanceOf[LogisticRegressionModel]
@@ -139,9 +163,17 @@ LR Model coefficients:
 0.2505980838269532
 0.20712712844147407
 
-val pred = bestmodel.transform(testData)
+import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
 
-val bceval = new BinaryClassificationEvaluator()
+val trainingSummary = lrmodel.summary
 
-bceval.evaluate(pred)
-res9: Double = 0.8092515592515606
+trainingSummary.objectiveHistory
+res14: Array[Double] = Array(0.6537596512496414, 0.508737656763239, 0.4895295425831111, 0.4803183294904275, 0.4799611196723748, 0.47972691025101283, 0.4797021411071503, 0.4796962682594956, 0.47969404410575944, 0.47969394863799003, 0.4796939448689789, 0.4796939447651624, 0.47969394475455335, 0.47969394475144833)
+
+val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
+
+binarySummary.areaUnderROC
+res15: Double = 0.8429333493167107
+
+binarySummary.accuracy
+res18: Double = 0.7676579925650557

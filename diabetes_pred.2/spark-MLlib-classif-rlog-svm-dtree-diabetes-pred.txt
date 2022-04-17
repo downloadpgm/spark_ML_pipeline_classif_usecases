@@ -1,5 +1,6 @@
+---- Feature extraction & Data Munging --------------
 
-val rdd = sc.textFile("spark/data/diabetes_pred/diabetes_data_upload.csv").filter( x => ! x.contains("Polydipsia"))
+val rdd = sc.textFile("diabetes_pred/diabetes_data_upload.csv").filter( x => ! x.contains("Polydipsia"))
 
 val rdd1 = rdd.map( x => x.split(","))
 

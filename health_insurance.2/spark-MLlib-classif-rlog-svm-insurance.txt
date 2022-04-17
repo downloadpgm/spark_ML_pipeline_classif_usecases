@@ -1,97 +1,23 @@
+---- Feature extraction & Data Munging --------------
 
-val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("insurance/insurance.train.csv")
+val rdd1 = sc.textFile("insurance/train.csv").map( x => x.split(","))
 
-df.printSchema
-root
- |-- id: integer (nullable = true)
- |-- Gender: string (nullable = true)
- |-- Age: integer (nullable = true)
- |-- Driving_License: integer (nullable = true)
- |-- Region_Code: double (nullable = true)
- |-- Previously_Insured: integer (nullable = true)
- |-- Vehicle_Age: string (nullable = true)
- |-- Vehicle_Damage: string (nullable = true)
- |-- Annual_Premium: double (nullable = true)
- |-- Policy_Sales_Channel: double (nullable = true)
- |-- Vintage: integer (nullable = true)
- |-- Response: integer (nullable = true)
+rdd1.first
+res0: Array[String] = Array(id, Gender, Age, Driving_License, Region_Code, Previously_Insured, Vehicle_Age, Vehicle_Damage, Annual_Premium, Policy_Sales_Channel, Vintage, Response)
 
-df.show
-+---+------+---+---------------+-----------+------------------+-----------+--------------+--------------+--------------------+-------+--------+
-| id|Gender|Age|Driving_License|Region_Code|Previously_Insured|Vehicle_Age|Vehicle_Damage|Annual_Premium|Policy_Sales_Channel|Vintage|Response|
-+---+------+---+---------------+-----------+------------------+-----------+--------------+--------------+--------------------+-------+--------+
-|  1|  Male| 44|              1|       28.0|                 0|  > 2 Years|           Yes|       40454.0|                26.0|    217|       1|
-|  2|  Male| 76|              1|        3.0|                 0|   1-2 Year|            No|       33536.0|                26.0|    183|       0|
-|  3|  Male| 47|              1|       28.0|                 0|  > 2 Years|           Yes|       38294.0|                26.0|     27|       1|
-|  4|  Male| 21|              1|       11.0|                 1|   < 1 Year|            No|       28619.0|               152.0|    203|       0|
-|  5|Female| 29|              1|       41.0|                 1|   < 1 Year|            No|       27496.0|               152.0|     39|       0|
-|  6|Female| 24|              1|       33.0|                 0|   < 1 Year|           Yes|        2630.0|               160.0|    176|       0|
-|  7|  Male| 23|              1|       11.0|                 0|   < 1 Year|           Yes|       23367.0|               152.0|    249|       0|
-|  8|Female| 56|              1|       28.0|                 0|   1-2 Year|           Yes|       32031.0|                26.0|     72|       1|
-|  9|Female| 24|              1|        3.0|                 1|   < 1 Year|            No|       27619.0|               152.0|     28|       0|
-| 10|Female| 32|              1|        6.0|                 1|   < 1 Year|            No|       28771.0|               152.0|     80|       0|
-| 11|Female| 47|              1|       35.0|                 0|   1-2 Year|           Yes|       47576.0|               124.0|     46|       1|
-| 12|Female| 24|              1|       50.0|                 1|   < 1 Year|            No|       48699.0|               152.0|    289|       0|
-| 13|Female| 41|              1|       15.0|                 1|   1-2 Year|            No|       31409.0|                14.0|    221|       0|
-| 14|  Male| 76|              1|       28.0|                 0|   1-2 Year|           Yes|       36770.0|                13.0|     15|       0|
-| 15|  Male| 71|              1|       28.0|                 1|   1-2 Year|            No|       46818.0|                30.0|     58|       0|
-| 16|  Male| 37|              1|        6.0|                 0|   1-2 Year|           Yes|        2630.0|               156.0|    147|       1|
-| 17|Female| 25|              1|       45.0|                 0|   < 1 Year|           Yes|       26218.0|               160.0|    256|       0|
-| 18|Female| 25|              1|       35.0|                 1|   < 1 Year|            No|       46622.0|               152.0|    299|       0|
-| 19|  Male| 42|              1|       28.0|                 0|   1-2 Year|           Yes|       33667.0|               124.0|    158|       0|
-| 20|Female| 60|              1|       33.0|                 0|   1-2 Year|           Yes|       32363.0|               124.0|    102|       1|
-+---+------+---+---------------+-----------+------------------+-----------+--------------+--------------+--------------------+-------+--------+
-only showing top 20 rows
+val rdd = rdd1.filter( x => x(3) != "Driving_License")
 
+rdd.take(2)
+res2: Array[Array[String]] = Array(Array(1, Male, 44, 1, 28.0, 0, > 2 Years, Yes, 40454.0, 26.0, 217, 1), Array(2, Male, 76, 1, 3.0, 0, 1-2 Year, No, 33536.0, 26.0, 183, 0))
 
-df.select("Gender","Vehicle_Age","Vehicle_Damage","Previously_Insured","Age","Vintage","Response").show
-+------+-----------+--------------+------------------+---+-------+--------+
-|Gender|Vehicle_Age|Vehicle_Damage|Previously_Insured|Age|Vintage|Response|
-+------+-----------+--------------+------------------+---+-------+--------+
-|  Male|  > 2 Years|           Yes|                 0| 44|    217|       1|
-|  Male|   1-2 Year|            No|                 0| 76|    183|       0|
-|  Male|  > 2 Years|           Yes|                 0| 47|     27|       1|
-|  Male|   < 1 Year|            No|                 1| 21|    203|       0|
-|Female|   < 1 Year|            No|                 1| 29|     39|       0|
-|Female|   < 1 Year|           Yes|                 0| 24|    176|       0|
-|  Male|   < 1 Year|           Yes|                 0| 23|    249|       0|
-|Female|   1-2 Year|           Yes|                 0| 56|     72|       1|
-|Female|   < 1 Year|            No|                 1| 24|     28|       0|
-|Female|   < 1 Year|            No|                 1| 32|     80|       0|
-|Female|   1-2 Year|           Yes|                 0| 47|     46|       1|
-|Female|   < 1 Year|            No|                 1| 24|    289|       0|
-|Female|   1-2 Year|            No|                 1| 41|    221|       0|
-|  Male|   1-2 Year|           Yes|                 0| 76|     15|       0|
-|  Male|   1-2 Year|            No|                 1| 71|     58|       0|
-|  Male|   1-2 Year|           Yes|                 0| 37|    147|       1|
-|Female|   < 1 Year|           Yes|                 0| 25|    256|       0|
-|Female|   < 1 Year|            No|                 1| 25|    299|       0|
-|  Male|   1-2 Year|           Yes|                 0| 42|    158|       0|
-|Female|   1-2 Year|           Yes|                 0| 60|    102|       1|
-+------+-----------+--------------+------------------+---+-------+--------+
-only showing top 20 rows
+val rdd = rdd1.filter( x => x(3) != "Driving_License").map( x => Array(x(1),x(6),x(7),x(5),x(2),x(10),x(11)))
 
-
-df.select("Gender","Vehicle_Age","Vehicle_Damage","Previously_Insured","Age","Vintage","Response").describe().show
-+-------+------+-----------+--------------+-------------------+------------------+------------------+-------------------+
-|summary|Gender|Vehicle_Age|Vehicle_Damage| Previously_Insured|               Age|           Vintage|           Response|
-+-------+------+-----------+--------------+-------------------+------------------+------------------+-------------------+
-|  count|381109|     381109|        381109|             381109|            381109|            381109|             381109|
-|   mean|  null|       null|          null| 0.4582101183650871|38.822583565331705|154.34739667654136|0.12256336113815208|
-| stddev|  null|       null|          null|0.49825119888722647|15.511611018095289| 83.67130362658735|0.32793576478642567|
-|    min|Female|   1-2 Year|            No|                  0|                20|                10|                  0|
-|    max|  Male|  > 2 Years|           Yes|                  1|                85|               299|                  1|
-+-------+------+-----------+--------------+-------------------+------------------+------------------+-------------------+
-
-
-val rdd1 = df.select("Gender","Vehicle_Age","Vehicle_Damage","Previously_Insured","Age","Vintage","Response").rdd
-
-val rdd = rdd1.map( x => x.toSeq.toArray)
-
+rdd.take(2)
+res3: Array[Array[String]] = Array(Array(Male, > 2 Years, Yes, 0, 44, 217, 1), Array(Male, 1-2 Year, No, 0, 76, 183, 0))
 
 ---- Conversion to 1-to-k binary encoding vectors 
 
-def oneHotEncColumns(rddx: org.apache.spark.rdd.RDD[Array[Any]], idx: Int):org.apache.spark.rdd.RDD[Array[Double]] = {
+def oneHotEncColumns(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int):org.apache.spark.rdd.RDD[Array[Double]] = {
   val categories = rddx.map(r => r(idx)).distinct.zipWithIndex.collect.toMap
   val numCategories = categories.size
   val vetcateg = rddx.map(r => {
@@ -103,7 +29,7 @@ def oneHotEncColumns(rddx: org.apache.spark.rdd.RDD[Array[Any]], idx: Int):org.a
   vetcateg
 }
 
-def mergeArray(rddx: org.apache.spark.rdd.RDD[Array[Any]], idx: Int*):org.apache.spark.rdd.RDD[Array[Double]] = {
+def mergeArray(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int*):org.apache.spark.rdd.RDD[Array[Double]] = {
   var i = 0
   var arr1 = oneHotEncColumns(rddx,idx(i))
   for (j <- 1 until idx.size) {
@@ -117,15 +43,14 @@ def mergeArray(rddx: org.apache.spark.rdd.RDD[Array[Any]], idx: Int*):org.apache
 val concat = mergeArray(rdd,0,1,2,3)
 
 concat.take(5)
-res7: Array[Array[Double]] = Array(Array(1.0, 0.0, 1.0, 0.0, 1.0, 0.0), Array(1.0, 0.0, 0.0, 1.0, 0.0, 0.0), Array(1.0, 0.0, 1.0, 0.0, 1.0, 0.0), Array(1.0, 1.0, 0.0, 0.0, 0.0, 1.0), Array(0.0, 1.0, 0.0, 0.0, 0.0, 1.0))
+res3: Array[Array[Double]] = Array(Array(1.0, 0.0, 1.0, 0.0, 1.0, 0.0), Array(1.0, 0.0, 0.0, 1.0, 0.0, 0.0), Array(1.0, 0.0, 1.0, 0.0, 1.0, 0.0), Array(1.0, 1.0, 0.0, 0.0, 0.0, 1.0), Array(0.0, 1.0, 0.0, 0.0, 0.0, 1.0))
 
-val rdd2 = rdd.map( x => x.slice(4,x.size)).map( x => x.map( y => y.toString.toDouble))
+val rdd2 = rdd.map( x => x.slice(4,x.size)).map( x => x.map( y => y.toDouble))
 
 val vect = concat.zip(rdd2).map(x => (x._1.toList ++ x._2.toList).toArray)
 
 vect.take(5)
-res8: Array[Array[Double]] = Array(Array(1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 44.0, 217.0, 1.0), Array(1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 76.0, 183.0, 0.0), Array(1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 47.0, 27.0, 1.0), Array(1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 21.0, 203.0, 0.0), Array(0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 29.0, 39.0, 0.0))
-
+res4: Array[Array[Double]] = Array(Array(1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 44.0, 217.0, 1.0), Array(1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 76.0, 183.0, 0.0), Array(1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 47.0, 27.0, 1.0), Array(1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 21.0, 203.0, 0.0), Array(0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 29.0, 39.0, 0.0))
 
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.regression.LabeledPoint

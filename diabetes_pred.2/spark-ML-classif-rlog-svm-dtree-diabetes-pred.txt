@@ -1,5 +1,5 @@
 
-val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("spark/data/diabetes_pred/diabetes_data_upload.csv")
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("diabetes_pred/diabetes_data_upload.csv")
 df: org.apache.spark.sql.DataFrame = [Age: int, Gender: string ... 15 more fields]
 
 scala> df.printSchema

@@ -1,75 +1,18 @@
+---- Feature extraction & Data Munging --------------
 
-val df = spark.read.format("csv").option("header","true").option("sep",";").load("divorce/divorce.csv")
+val rdd = sc.textFile("divorce/divorce.csv")
 
-df.printSchema
-root
- |-- Atr1: string (nullable = true)
- |-- Atr2: string (nullable = true)
- |-- Atr3: string (nullable = true)
- |-- Atr4: string (nullable = true)
- |-- Atr5: string (nullable = true)
- |-- Atr6: string (nullable = true)
- |-- Atr7: string (nullable = true)
- |-- Atr8: string (nullable = true)
- |-- Atr9: string (nullable = true)
- |-- Atr10: string (nullable = true)
- |-- Atr11: string (nullable = true)
- |-- Atr12: string (nullable = true)
- |-- Atr13: string (nullable = true)
- |-- Atr14: string (nullable = true)
- |-- Atr15: string (nullable = true)
- |-- Atr16: string (nullable = true)
- |-- Atr17: string (nullable = true)
- |-- Atr18: string (nullable = true)
- |-- Atr19: string (nullable = true)
- |-- Atr20: string (nullable = true)
- |-- Atr21: string (nullable = true)
- |-- Atr22: string (nullable = true)
- |-- Atr23: string (nullable = true)
- |-- Atr24: string (nullable = true)
- |-- Atr25: string (nullable = true)
- |-- Atr26: string (nullable = true)
- |-- Atr27: string (nullable = true)
- |-- Atr28: string (nullable = true)
- |-- Atr29: string (nullable = true)
- |-- Atr30: string (nullable = true)
- |-- Atr31: string (nullable = true)
- |-- Atr32: string (nullable = true)
- |-- Atr33: string (nullable = true)
- |-- Atr34: string (nullable = true)
- |-- Atr35: string (nullable = true)
- |-- Atr36: string (nullable = true)
- |-- Atr37: string (nullable = true)
- |-- Atr38: string (nullable = true)
- |-- Atr39: string (nullable = true)
- |-- Atr40: string (nullable = true)
- |-- Atr41: string (nullable = true)
- |-- Atr42: string (nullable = true)
- |-- Atr43: string (nullable = true)
- |-- Atr44: string (nullable = true)
- |-- Atr45: string (nullable = true)
- |-- Atr46: string (nullable = true)
- |-- Atr47: string (nullable = true)
- |-- Atr48: string (nullable = true)
- |-- Atr49: string (nullable = true)
- |-- Atr50: string (nullable = true)
- |-- Atr51: string (nullable = true)
- |-- Atr52: string (nullable = true)
- |-- Atr53: string (nullable = true)
- |-- Atr54: string (nullable = true)
- |-- Class: string (nullable = true)
+val rdd1 = rdd.filter( x => ! x.contains("Atr1")).map( x => x.split(";"))
 
-val rdd = df.rdd.map( x => x.toSeq.toArray)
+val rdd2 = rdd1.map( x => x.map( y => y.toString.toDouble))
 
-val rdd1 = rdd.map( x => x.map( y => y.toString.toDouble))
-
-rdd1.first
+rdd2.first
 res2: Array[Double] = Array(2.0, 2.0, 4.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 2.0, 1.0, 2.0, 0.0, 1.0, 2.0, 1.0, 3.0, 3.0, 2.0, 1.0, 1.0, 2.0, 3.0, 2.0, 1.0, 3.0, 3.0, 3.0, 2.0, 3.0, 2.0, 1.0, 1.0)
 
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.regression.LabeledPoint
 
-val data = rdd1.map(x => {
+val data = rdd2.map(x => {
    val arr_size = x.size - 1
    val l = x(arr_size)
    val f = x.slice(0, arr_size)

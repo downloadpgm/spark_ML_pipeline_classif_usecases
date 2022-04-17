@@ -1,6 +1,6 @@
 ---- Feature extraction & Data Munging --------------
 
-val rdd = sc.textFile("spark/data/diabetes/diabetes.csv")
+val rdd = sc.textFile("diabetes/diabetes.csv")
 
 rdd.filter( x => x.contains("Pregnancies")).take(2)
 res3: Array[String] = Array(Pregnancies,Glucose,BloodPressure,SkinThickness,Insulin,BMI,DiabetesPedigreeFunction,Age,Outcome)

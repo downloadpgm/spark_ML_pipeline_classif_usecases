@@ -1,5 +1,5 @@
 
-val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("insurance/insurance.train.csv")
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("insurance/train.csv")
 
 df.printSchema
 root
