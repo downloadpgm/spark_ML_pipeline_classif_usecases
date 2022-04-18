@@ -3,33 +3,33 @@
 val rdd2x = sc.textFile("spark/data/obesity/ObesityDataSet_raw_and_data_sinthetic.csv").map( x => x.split(","))
 
 rdd2x.first
-res1: Array[String] = Array(Gender, Age, Height, Weight, family_history_with_overweight, FAVC, FCVC, NCP, CAEC, SMOKE, CH2O, SCC, FAF, TUE, CALC, MTRANS, NObeyesdad)
+res0: Array[String] = Array(Gender, Age, Height, Weight, family_history_with_overweight, FAVC, FCVC, NCP, CAEC, SMOKE, CH2O, SCC, FAF, TUE, CALC, MTRANS, NObeyesdad)
 
 val rdd1x = rdd2x.filter( x => x(4) != "family_history_with_overweight")
 
 rdd1x.map( x => Array(x(0),x(4),x(5),x(8),x(9),x(11),x(14),x(15),x(1),x(2),x(3),x(6),x(7),x(10),x(12),x(13),x(16))).take(2)
-res6: Array[Array[String]] = Array(Array(Female, yes, no, Sometimes, no, no, no, Public_Transportation, 21, 1.62, 64, 2, 3, 2, 0, 1, Normal_Weight), Array(Female, yes, no, Sometimes, yes, yes, Sometimes, Public_Transportation, 21, 1.52, 56, 3, 3, 3, 3, 0, Normal_Weight))
+res1: Array[Array[String]] = Array(Array(Female, yes, no, Sometimes, no, no, no, Public_Transportation, 21, 1.62, 64, 2, 3, 2, 0, 1, Normal_Weight), Array(Female, yes, no, Sometimes, yes, yes, Sometimes, Public_Transportation, 21, 1.52, 56, 3, 3, 3, 3, 0, Normal_Weight))
 
 val rdd = rdd1x.map( x => Array(x(0),x(4),x(5),x(8),x(9),x(11),x(14),x(15),x(1),x(2),x(3),x(6),x(7),x(10),x(12),x(13),x(16)))
 
 rdd.take(2)
-res17: Array[Array[String]] = Array(Array(Female, yes, no, Sometimes, no, no, no, Public_Transportation, 21, 1.62, 64, 2, 3, 2, 0, 1, Normal_Weight), Array(Female, yes, no, Sometimes, yes, yes, Sometimes, Public_Transportation, 21, 1.52, 56, 3, 3, 3, 3, 0, Normal_Weight))
+res2: Array[Array[String]] = Array(Array(Female, yes, no, Sometimes, no, no, no, Public_Transportation, 21, 1.62, 64, 2, 3, 2, 0, 1, Normal_Weight), Array(Female, yes, no, Sometimes, yes, yes, Sometimes, Public_Transportation, 21, 1.52, 56, 3, 3, 3, 3, 0, Normal_Weight))
 
 
 rdd1x.map( x => x(16)).distinct.take(10)  // NObeyesdad
-res13: Array[String] = Array(Normal_Weight, Obesity_Type_III, Insufficient_Weight, Overweight_Level_II, Obesity_Type_I, Obesity_Type_II, Overweight_Level_I)
+res3: Array[String] = Array(Normal_Weight, Obesity_Type_III, Insufficient_Weight, Overweight_Level_II, Obesity_Type_I, Obesity_Type_II, Overweight_Level_I)
 
 rdd1x.map( x => x(15)).distinct.take(10)  // MTRANS
-res12: Array[String] = Array(Motorbike, Public_Transportation, Walking, Bike, Automobile)
+res4: Array[String] = Array(Motorbike, Public_Transportation, Walking, Bike, Automobile)
 
 rdd1x.map( x => x(14)).distinct.take(10)  // CALC
-res14: Array[String] = Array(Sometimes, Frequently, no, Always)
+res5: Array[String] = Array(Sometimes, Frequently, no, Always)
 
 rdd1x.map( x => x(8)).distinct.take(10)  // CAEC
-res15: Array[String] = Array(Sometimes, Frequently, no, Always)
+res6: Array[String] = Array(Sometimes, Frequently, no, Always)
 
 rdd1x.map( x => x(0)).distinct.take(10)  // Gender
-res16: Array[String] = Array(Female, Male)
+res7: Array[String] = Array(Female, Male)
 
 ---- Conversion to 1-to-k binary encoding vectors 
 
@@ -59,7 +59,7 @@ def mergeArray(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int*):org.apa
 val concat = mergeArray(rdd,0,1,2,3,4,5,6,7)
 
 concat.take(2)
-res18: Array[Array[Double]] = Array(Array(0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0), Array(0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0))
+res0: Array[Array[Double]] = Array(Array(0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0), Array(0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0))
 
 val categories = rdd.map( x => x(x.size-1)).distinct.zipWithIndex.collectAsMap
 categories: scala.collection.Map[String,Long] = Map(Overweight_Level_II -> 3, Obesity_Type_III -> 1, Normal_Weight -> 0, Overweight_Level_I -> 6, Obesity_Type_I -> 4, Obesity_Type_II -> 5, Insufficient_Weight -> 2)
@@ -68,12 +68,12 @@ val rdd2 = rdd.map( x => x.slice(8,x.size)).map( y => y.map( x => {
                      try { x.toDouble } catch { case _ : Throwable => categories(x).toString.toDouble } }))
 					 
 rdd2.take(5)
-res19: Array[Array[Double]] = Array(Array(21.0, 1.62, 64.0, 2.0, 3.0, 2.0, 0.0, 1.0, 0.0), Array(21.0, 1.52, 56.0, 3.0, 3.0, 3.0, 3.0, 0.0, 0.0), Array(23.0, 1.8, 77.0, 2.0, 3.0, 2.0, 2.0, 1.0, 0.0), Array(27.0, 1.8, 87.0, 3.0, 3.0, 2.0, 2.0, 0.0, 6.0), Array(22.0, 1.78, 89.8, 2.0, 1.0, 2.0, 0.0, 0.0, 3.0))
+res1: Array[Array[Double]] = Array(Array(21.0, 1.62, 64.0, 2.0, 3.0, 2.0, 0.0, 1.0, 0.0), Array(21.0, 1.52, 56.0, 3.0, 3.0, 3.0, 3.0, 0.0, 0.0), Array(23.0, 1.8, 77.0, 2.0, 3.0, 2.0, 2.0, 1.0, 0.0), Array(27.0, 1.8, 87.0, 3.0, 3.0, 2.0, 2.0, 0.0, 6.0), Array(22.0, 1.78, 89.8, 2.0, 1.0, 2.0, 0.0, 0.0, 3.0))
 
 val vect = concat.zip(rdd2).map(x => (x._1.toList ++ x._2.toList).toArray)
 
 vect.take(2)
-res20: Array[Array[Double]] = Array(Array(0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 21.0, 1.62, 64.0, 2.0, 3.0, 2.0, 0.0, 1.0, 0.0), Array(0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 21.0, 1.52, 56.0, 3.0, 3.0, 3.0, 3.0, 0.0, 0.0))
+res2: Array[Array[Double]] = Array(Array(0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 21.0, 1.62, 64.0, 2.0, 3.0, 2.0, 0.0, 1.0, 0.0), Array(0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 21.0, 1.52, 56.0, 3.0, 3.0, 3.0, 3.0, 0.0, 0.0))
 
 
 val categ_gender = rdd.map( x => x(0)).distinct.zipWithIndex.collectAsMap
