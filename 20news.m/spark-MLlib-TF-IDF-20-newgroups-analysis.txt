@@ -1,21 +1,28 @@
-val rdd2 = sc.wholeTextFiles("20news/20news-bydate-train/*")
 
-val rdd1 = rdd2.map(x => x._1).map(x=> x.split("/").takeRight(2).head)
+val df = spark.read.option("samplingRatio",0.2).json("hdfs://4b6c4f67c4c5:9000/data/20news_json")
 
-val rdd = rdd1.zip(rdd2.map(x => x._2)).map( x => Array(x._2,x._1))
+val rdd2 = df.rdd.map{ case org.apache.spark.sql.Row(x1,x2) => (x1.toString,x2.toString) }
+
+val rdd = rdd2.map( x => Array(x._2, x._1.split("/").takeRight(2).head))
+
+rdd.map{ case Array(x2, x1) => x1 }.distinct.take(10)
+res0: Array[String] = Array(rec.motorcycles, sci.crypt, soc.religion.christian, sci.med, talk.politics.guns, sci.electronics, comp.graphics, alt.atheism, sci.space, comp.sys.ibm.pc.hardware)
 
 rdd.cache
+
+val categories = rdd.map( x => x(1)).distinct.zipWithIndex.collectAsMap
+categories: scala.collection.Map[String,Long] = Map(talk.religion.misc -> 16, talk.politics.misc -> 11, rec.sport.hockey -> 17, misc.forsale -> 19, rec.motorcycles -> 0, sci.electronics -> 5, alt.atheism -> 8, talk.politics.mideast -> 10, comp.sys.ibm.pc.hardware -> 9, rec.sport.baseball -> 14, rec.autos -> 15, talk.politics.guns -> 4, sci.space -> 7, sci.crypt -> 1, comp.sys.mac.hardware -> 12, comp.os.ms-windows.misc -> 18, comp.graphics -> 6, comp.windows.x -> 13, sci.med -> 3, soc.religion.christian -> 2)
 
 -- remove nonword characters (such as punctuation).
 val nonWordSplit = rdd.flatMap(x => x(0).split("""\W+""").map(_.toLowerCase))
 nonWordSplit.sample(true, 0.3, 42).take(20).mkString(",")
-nonWordSplit.distinct.count   // 130126
+nonWordSplit.distinct.count   // 173772
 
 -- filter out numbers and tokens that are words mixed with numbers
 val regex = """[^0-9]*""".r
 val filterNumbers = nonWordSplit.filter(token => regex.pattern.matcher(token).matches)
 filterNumbers.sample(false, 0.3, 42).take(20).mkString("\n")
-filterNumbers.distinct.count   // 84912
+filterNumbers.distinct.count   // 109372
 
 -- list highest occurrence of words to get an idea which stop words to be removed
 val tokenCounts = filterNumbers.map(t => (t, 1)).reduceByKey(_ + _)
@@ -23,10 +30,8 @@ val orderingDesc = Ordering.by[(String, Int), Int](_._2)
 tokenCounts.top(20)(orderingDesc).mkString("\n")
 
 -- remove stop words
-val stopwords = Set(
- "the","a","an","of","or","in","for","by","on","but", "is", "not", "with", "as", "was", "if",
- "they", "are", "this", "and", "it", "have", "from", "at", "my", "be", "that", "to", "so", "what"
-)
+import org.apache.spark.ml.feature.StopWordsRemover
+val stopwords = StopWordsRemover.loadDefaultStopWords("english")
 val tokenCountsFilteredStopwords = tokenCounts.filter { case(k, v) => !stopwords.contains(k) }
 tokenCountsFilteredStopwords.top(20)(orderingDesc).mkString("\n")
 
@@ -44,28 +49,25 @@ val tokenCountsFilteredAll = tokenCountsFilteredSize.filter { case (k, v) => !ra
 tokenCountsFilteredAll.top(20)(orderingAsc).mkString("\n")
 
 tokenCountsFilteredAll.count
-res24: Long = 51799
+res24: Long = 67316
 
 def tokenize(line: String): Seq[String] = {
- line.split("""\W+""")
- .map(_.toLowerCase)
+ line.split("""\W+""").map(_.toLowerCase)
  .filter(token => regex.pattern.matcher(token).matches)
- .filterNot(token => stopwords.contains(token))
- .filterNot(token => rareTokens.contains(token))
+ .filter(token => !stopwords.contains(token))
  .filter(token => token.size >= 2)
+ .filter(token => !rareTokens.contains(token))
  .toSeq
 }
 
 rdd.flatMap(x => tokenize(x(0))).distinct.count
-res27: Long = 51799
+res27: Long = 67316
 
 val sets = rdd.randomSplit(Array(0.7,0.3), 11L)
 val trainSet = sets(0)
 val testSet = sets(1)
 
 val tokens = trainSet.map(x => tokenize(x(0)))
-tokens.cache
-
 tokens.first.take(20)
 
 ---------------------------
@@ -78,73 +80,29 @@ val dim = math.pow(2, 18).toInt
 val hashingTF = new HashingTF(dim)
 
 -- transform function of HashingTF maps each input document (that is, a sequence of tokens) to an MLlib Vector.
-val tf = hashingTF.transform(tokens)
-tf.cache
-
-val v = tf.first.asInstanceOf[SV]
-v.size
-v.values.size
-println(v.values.take(10).toSeq)
-println(v.indices.take(10).toSeq)
+val trainTf = trainSet.map(x => hashingTF.transform(tokenize(x(0))))
+trainTf.cache
 
 -- compute the inverse document frequency for each term in the corpus
 -- by creating a new IDF instance and calling fit with our RDD of term frequency
--- vectors as the input. We will then transform our term frequency vectors to TF-IDF
--- vectors through the transform function of IDF:
+-- vectors as the input.
 
-val idf = new IDF().fit(tf)
-val tfidf = idf.transform(tf)
-val v2 = tfidf.first.asInstanceOf[SV]
-println(v2.values.size)
-println(v2.values.take(10).toSeq)
-println(v2.indices.take(10).toSeq)
-
----------------------
-
--- TF-IDF weighting will tend to assign a lower weighting to common terms. To see
--- this, we can compute the TF-IDF representation for a few of the terms that appear in
--- the list of top occurrences that we previously computed, such as you, do, and we:
-
-val common = sc.parallelize(Seq(Seq("you", "do", "we")))
-val tfCommon = hashingTF.transform(common)
-val tfidfCommon = idf.transform(tfCommon)
-val commonVector = tfidfCommon.first.asInstanceOf[SV]
-commonVector: org.apache.spark.mllib.linalg.SparseVector = (262144,[37470,147489,252801],[0.9932140947449862,1.3587935570486906,0.5464523675695683])
-
-println(commonVector.values.toSeq)
-WrappedArray(0.9932140947449862, 1.3587935570486906, 0.5464523675695683)
-
--- let's apply the same transformation to a few less common terms that we might
--- intuitively associate with being more linked to specific topics or concepts:
-
-val uncommon = sc.parallelize(Seq(Seq("telescope", "legislation", "investment")))
-val tfUncommon = hashingTF.transform(uncommon)
-val tfidfUncommon = idf.transform(tfUncommon)
-val uncommonVector = tfidfUncommon.first.asInstanceOf[SV]
-uncommonVector: org.apache.spark.mllib.linalg.SparseVector = (262144,[66704,129951,260003],[5.2212353878667,5.2212353878667,5.548448299075116])
-
-println(uncommonVector.values.toSeq)
-WrappedArray(5.2212353878667, 5.2212353878667, 5.548448299075116)
+val idf = new IDF().fit(trainTf)
+val trainTfIdf = idf.transform(trainTf)
 
 -------------------------
 
-rdd.map( x => x(1)).distinct.count
-res15: Long = 20
-
-val categories = rdd.map( x => x(1)).distinct.zipWithIndex.collect.toMap
-categories: scala.collection.immutable.Map[String,Long] = Map(rec.sport.hockey -> 18, sci.space -> 10, comp.graphics -> 2, sci.crypt -> 11, alt.atheism -> 3, sci.med -> 14, comp.windows.x -> 4, soc.religion.christian -> 13, talk.politics.mideast -> 6, misc.forsale -> 9, comp.sys.ibm.pc.hardware -> 12, talk.religion.misc -> 16, comp.sys.mac.hardware -> 17, rec.sport.baseball -> 5, rec.autos -> 7, rec.motorcycles -> 1, talk.politics.guns -> 8, talk.politics.misc -> 15, comp.os.ms-windows.misc -> 19, sci.electronics -> 0)
-
 import org.apache.spark.mllib.regression.LabeledPoint
 
-val zippedTrain = trainSet.zip(tfidf)
-val train = zippedTrain.map{ case(text,vector) => LabeledPoint(categories(text(1)).toDouble,vector) }
+val zipTrain = trainSet.zip(trainTfIdf)
+val train = zipTrain.map{ case(dset,vector) => LabeledPoint(categories(dset(1)),vector) }
 train.cache
 
 val testTf = testSet.map(x => hashingTF.transform(tokenize(x(0))))
 val testTfIdf = idf.transform(testTf)
 
-val zippedTest = testSet.zip(testTfIdf)
-val test = zippedTest.map{ case(text,vector) => LabeledPoint(categories(text(1)).toDouble,vector) }
+val zipTest = testSet.zip(testTfIdf)
+val test = zipTest.map{ case(dset,vector) => LabeledPoint(categories(dset(1)),vector) }
 test.cache
 
 ---- Multiclass logistic regression - Do not converge ! -------------
@@ -158,28 +116,28 @@ val model = NaiveBayes.train(train)
 val validPredicts =  test.map(p => (model.predict(p.features),p.label))
 
 validPredicts.take(20)
-res14: Array[(Double, Double)] = Array((3.0,3.0), (3.0,3.0), (3.0,3.0), (3.0,3.0), (3.0,3.0), (3.0,3.0), (3.0,3.0), (3.0,3.0), (3.0,3.0), (3.0,3.0), (3.0,3.0), (3.0,3.0), (13.0,3.0), (3.0,3.0), (3.0,3.0), (3.0,3.0), (3.0,3.0), (13.0,3.0), (3.0,3.0), (3.0,3.0))
+res12: Array[(Double, Double)] = Array((8.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0), (2.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0), (8.0,8.0))
 
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
 val metrics = new MulticlassMetrics(validPredicts)
-validPredicts.filter(x => x._1 == x._2).count  // 3099
-validPredicts.count                            // 3489
-val accuracy = metrics.accuracy   // 0.8882201203783319
+validPredicts.filter(x => x._1 == x._2).count  // 4971
+validPredicts.count                            // 5577
+val accuracy = metrics.accuracy   // 0.8913394298009683
 
 metrics.confusionMatrix
-res16: org.apache.spark.mllib.linalg.Matrix =
-148.0  0.0    2.0    0.0    0.0    0.0    0.0    3.0    0.0    ... (20 total)
-0.0    169.0  0.0    0.0    0.0    0.0    0.0    4.0    0.0    ...
-0.0    0.0    131.0  0.0    9.0    0.0    0.0    1.0    2.0    ...
-0.0    0.0    0.0    135.0  0.0    0.0    0.0    0.0    0.0    ...
-1.0    1.0    10.0   0.0    175.0  0.0    0.0    0.0    0.0    ...
-0.0    1.0    0.0    0.0    0.0    168.0  0.0    1.0    0.0    ...
-0.0    0.0    0.0    0.0    0.0    0.0    166.0  0.0    1.0    ...
-1.0    4.0    1.0    0.0    0.0    3.0    0.0    172.0  0.0    ...
-0.0    0.0    0.0    1.0    0.0    1.0    0.0    2.0    178.0  ...
-6.0    2.0    4.0    0.0    0.0    3.0    2.0    10.0   2.0    ...
-0.0    0.0    2.0    0.0    0.0    0.0    1.0    0.0    1.0    ...
-0.0...
+res15: org.apache.spark.mllib.linalg.Matrix =                                   
+304.0  0.0    0.0    1.0    0.0    2.0    1.0    0.0    0.0    ... (20 total)
+0.0    286.0  0.0    1.0    1.0    2.0    3.0    0.0    0.0    ...
+0.0    0.0    320.0  4.0    0.0    0.0    0.0    0.0    8.0    ...
+0.0    1.0    0.0    296.0  2.0    3.0    0.0    2.0    0.0    ...
+1.0    2.0    0.0    1.0    248.0  0.0    0.0    0.0    0.0    ...
+1.0    4.0    0.0    1.0    0.0    266.0  10.0   5.0    0.0    ...
+0.0    0.0    0.0    1.0    0.0    0.0    251.0  1.0    1.0    ...
+0.0    1.0    0.0    4.0    0.0    1.0    0.0    265.0  2.0    ...
+0.0    0.0    4.0    0.0    1.0    0.0    0.0    1.0    220.0  ...
+1.0    1.0    0.0    1.0    0.0    7.0    4.0    1.0    0.0    ...
+0.0    0.0    2.0    0.0    0.0    0.0    2.0    0.0    0.0    ...
+1.0...
 
 
 

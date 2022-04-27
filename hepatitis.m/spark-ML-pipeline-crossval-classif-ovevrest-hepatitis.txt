@@ -1,0 +1,162 @@
+---- Feature extraction & Data Munging --------------
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("hepatitis/hcvdat0.csv")
+
+df.printSchema
+root
+ |-- _c0: integer (nullable = true)
+ |-- Category: string (nullable = true)
+ |-- Age: integer (nullable = true)
+ |-- Sex: string (nullable = true)
+ |-- ALB: string (nullable = true)
+ |-- ALP: string (nullable = true)
+ |-- ALT: string (nullable = true)
+ |-- AST: double (nullable = true)
+ |-- BIL: double (nullable = true)
+ |-- CHE: double (nullable = true)
+ |-- CHOL: string (nullable = true)
+ |-- CREA: double (nullable = true)
+ |-- GGT: double (nullable = true)
+ |-- PROT: string (nullable = true)
+ 
+df.show(10)
++---+-------------+---+---+----+----+----+----+----+-----+----+-----+----+----+
+|_c0|     Category|Age|Sex| ALB| ALP| ALT| AST| BIL|  CHE|CHOL| CREA| GGT|PROT|
++---+-------------+---+---+----+----+----+----+----+-----+----+-----+----+----+
+|  1|0=Blood Donor| 32|  m|38.5|52.5| 7.7|22.1| 7.5| 6.93|3.23|106.0|12.1|  69|
+|  2|0=Blood Donor| 32|  m|38.5|70.3|  18|24.7| 3.9|11.17| 4.8| 74.0|15.6|76.5|
+|  3|0=Blood Donor| 32|  m|46.9|74.7|36.2|52.6| 6.1| 8.84| 5.2| 86.0|33.2|79.3|
+|  4|0=Blood Donor| 32|  m|43.2|  52|30.6|22.6|18.9| 7.33|4.74| 80.0|33.8|75.7|
+|  5|0=Blood Donor| 32|  m|39.2|74.1|32.6|24.8| 9.6| 9.15|4.32| 76.0|29.9|68.7|
+|  6|0=Blood Donor| 32|  m|41.6|43.3|18.5|19.7|12.3| 9.92|6.05|111.0|91.0|  74|
+|  7|0=Blood Donor| 32|  m|46.3|41.3|17.5|17.8| 8.5| 7.01|4.79| 70.0|16.9|74.5|
+|  8|0=Blood Donor| 32|  m|42.2|41.9|35.8|31.1|16.1| 5.82| 4.6|109.0|21.5|67.1|
+|  9|0=Blood Donor| 32|  m|50.9|65.5|23.2|21.2| 6.9| 8.69| 4.1| 83.0|13.7|71.3|
+| 10|0=Blood Donor| 32|  m|42.4|86.3|20.3|20.0|35.2| 5.46|4.45| 81.0|15.9|69.9|
++---+-------------+---+---+----+----+----+----+----+-----+----+-----+----+----+
+
+df.describe().show
++-------+------------------+-------------+------------------+----+-----------------+------------------+------------------+-----------------+------------------+------------------+------------------+-----------------+-----------------+-----------------+
+|summary|               _c0|     Category|               Age| Sex|              ALB|               ALP|               ALT|              AST|               BIL|               CHE|              CHOL|             CREA|              GGT|             PROT|
++-------+------------------+-------------+------------------+----+-----------------+------------------+------------------+-----------------+------------------+------------------+------------------+-----------------+-----------------+-----------------+
+|  count|               615|          615|               615| 615|              615|               615|               615|              615|               615|               615|               615|              615|              615|              615|
+|   mean|             308.0|         null| 47.40813008130081|null|41.62019543973941| 68.28391959798999| 28.45081433224754|34.78634146341462|11.396747967479675| 8.196634146341458| 5.368099173553719|81.28780487804877|39.53317073170732|72.04413680781768|
+| stddev|177.67948671695333|         null|10.055105445519239|null|5.780629404103076|26.028315300123676|25.469688813870942|33.09069033855156|19.673149805846588|2.2056572704292927|1.1327284311597354|49.75616601234976|54.66107123891245|5.402635737104955|
+|    min|                 1|0=Blood Donor|                19|   f|             14.9|             100.4|               0.9|             10.6|               0.8|              1.42|              1.43|              8.0|              4.5|             44.8|
+|    max|               615|  3=Cirrhosis|                77|   m|               NA|                NA|                NA|            324.0|             254.0|             16.41|                NA|           1079.1|            650.9|               NA|
++-------+------------------+-------------+------------------+----+-----------------+------------------+------------------+-----------------+------------------+------------------+------------------+-----------------+-----------------+-----------------+
+
+val df1 = df.na.replace(Array("ALB"),Map("NA" -> "41.62")).
+na.replace(Array("ALP"),Map("NA" -> "68.28")).
+na.replace(Array("ALT"),Map("NA" -> "28.45")).
+na.replace(Array("CHOL"),Map("NA" -> "5.37")).
+na.replace(Array("PROT"),Map("NA" -> "72.04"))
+
+df1.printSchema
+root
+ |-- _c0: integer (nullable = true)
+ |-- Category: string (nullable = true)
+ |-- Age: integer (nullable = true)
+ |-- Sex: string (nullable = true)
+ |-- ALB: string (nullable = true)
+ |-- ALP: string (nullable = true)
+ |-- ALT: string (nullable = true)
+ |-- AST: double (nullable = true)
+ |-- BIL: double (nullable = true)
+ |-- CHE: double (nullable = true)
+ |-- CHOL: string (nullable = true)
+ |-- CREA: double (nullable = true)
+ |-- GGT: double (nullable = true)
+ |-- PROT: string (nullable = true)
+
+import org.apache.spark.sql.types._
+
+val df2 = df1.withColumn("ALB", 'ALB.cast(DoubleType)).
+withColumn("ALP", 'ALP.cast(DoubleType)).
+withColumn("ALT", 'ALT.cast(DoubleType)).
+withColumn("CHOL", 'CHOL.cast(DoubleType)).
+withColumn("PROT", 'PROT.cast(DoubleType))
+ 
+df2.printSchema
+root
+ |-- _c0: integer (nullable = true)
+ |-- Category: string (nullable = true)
+ |-- Age: integer (nullable = true)
+ |-- Sex: string (nullable = true)
+ |-- ALB: double (nullable = true)
+ |-- ALP: double (nullable = true)
+ |-- ALT: double (nullable = true)
+ |-- AST: double (nullable = true)
+ |-- BIL: double (nullable = true)
+ |-- CHE: double (nullable = true)
+ |-- CHOL: double (nullable = true)
+ |-- CREA: double (nullable = true)
+ |-- GGT: double (nullable = true)
+ |-- PROT: double (nullable = true)
+ 
+import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
+
+val dfrawStr1 = new StringIndexer().setInputCol("Category").setOutputCol("label")
+val dfrawStr2 = new StringIndexer().setInputCol("Sex").setOutputCol("SexIdx")
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("Age","SexIdx","ALB","ALP","ALT","AST","BIL","CHE","CHOL","CREA","GGT","PROT"))
+
+import org.apache.spark.ml.feature.StandardScaler
+val stdScaler = new StandardScaler().
+setWithStd(true).
+setWithMean(true).
+setInputCol("features").
+setOutputCol("scaledFeatures")
+
+import org.apache.spark.ml.classification.{LogisticRegression, OneVsRest}
+val lr = new LogisticRegression
+lr.setRegParam(0.01).setMaxIter(500).setFitIntercept(true).setFamily("binomial").setFeaturesCol("scaledFeatures")
+
+val ovr = new OneVsRest().setClassifier(lr)
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(dfrawStr1,dfrawStr2,va,stdScaler,ovr))
+
+val Array(trainingData, testData) = df2.randomSplit(Array(0.7,0.3),11L)
+
+trainingData.cache
+
+val model = pipeline.fit(trainingData)
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+val evaluator = new MulticlassClassificationEvaluator().setMetricName("accuracy")
+
+evaluator.evaluate(pred)
+res19: Double = 0.9120879120879121
+
+-------------------
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().addGrid(lr.regParam, Array(0.1, 0.01)).addGrid(lr.fitIntercept, Array(true)).addGrid(lr.maxIter, Array(100,200,300)).build()
+
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new MulticlassClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val model = cv.fit(trainingData)
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.OneVsRestModel
+val lrmodel = bestmodel.stages(4).asInstanceOf[OneVsRestModel]
+
+val pred = bestmodel.transform(testData)
+
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+val evaluator = new MulticlassClassificationEvaluator().setMetricName("accuracy")
+
+evaluator.evaluate(pred)
+res20: Double = 0.9120879120879121

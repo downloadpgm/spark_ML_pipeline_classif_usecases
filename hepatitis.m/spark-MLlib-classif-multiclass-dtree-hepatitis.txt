@@ -1,0 +1,184 @@
+val rdd1 = sc.textFile("spark/data/hepatitis/hcvdat0.csv").map( x => x.split(","))
+
+rdd1.first
+res3: Array[String] = Array("", "Category", "Age", "Sex", "ALB", "ALP", "ALT", "AST", "BIL", "CHE", "CHOL", "CREA", "GGT", "PROT")
+
+val rdd = rdd1.filter( x => ! x(1).contains("Category"))
+
+rdd.map( x => x(1)).distinct.take(10)
+res8: Array[String] = Array("2=Fibrosis", "3=Cirrhosis", "1=Hepatitis", "0s=suspect Blood Donor", "0=Blood Donor")
+
+rdd.filter( x => x(2).contains("NA")).take(2)
+res37: Array[Array[String]] = Array()
+
+rdd.filter( x => x(3).contains("NA")).take(2)
+res38: Array[Array[String]] = Array()
+
+rdd.filter( x => x(4).contains("NA")).take(2)
+res39: Array[Array[String]] = Array(Array("604", "3=Cirrhosis", 65, "m", NA, NA, 40, 54, 13, 7.5, NA, 70, 107, 79))
+
+rdd.filter( x => x(5).contains("NA")).take(2)
+res40: Array[Array[String]] = Array(Array("542", "1=Hepatitis", 19, "m", 41, NA, 87, 67, 12, 7.55, 3.9, 62, 65, 75), Array("546", "1=Hepatitis", 29, "m", 49, NA, 53, 39, 15, 8.79, 3.6, 79, 37, 90))
+
+rdd.filter( x => x(6).contains("NA")).take(2)
+res41: Array[Array[String]] = Array(Array("541", "1=Hepatitis", 38, "m", 45, 56.3, NA, 33.1, 7, 9.58, 6, 77.9, 18.9, 63))
+
+rdd.filter( x => x(7).contains("NA")).take(2)
+res42: Array[Array[String]] = Array()
+
+rdd.filter( x => x(8).contains("NA")).take(2)
+res43: Array[Array[String]] = Array()
+
+rdd.filter( x => x(9).contains("NA")).take(2)
+res44: Array[Array[String]] = Array()
+
+rdd.filter( x => x(10).contains("NA")).take(2)
+res45: Array[Array[String]] = Array(Array("122", "0=Blood Donor", 43, "m", 48.6, 45, 10.5, 40.5, 5.3, 7.09, NA, 63, 25.1, 70), Array("320", "0=Blood Donor", 32, "f", 47.4, 52.5, 19.1, 17.1, 4.6, 10.19, NA, 63, 23, 72.2))
+
+rdd.filter( x => x(11).contains("NA")).take(2)
+res46: Array[Array[String]] = Array()
+
+rdd.filter( x => x(12).contains("NA")).take(2)
+res47: Array[Array[String]] = Array()
+
+rdd.filter( x => x(13).contains("NA")).take(2)
+res48: Array[Array[String]] = Array(Array("591", "3=Cirrhosis", 46, "m", 20, NA, 62, 113, 254, 1.48, NA, 114, 138, NA))
+
+
+rdd.map( x => x(3)).distinct.take(10)
+res9: Array[String] = Array("f", "m")
+
+val rdd_ALB = rdd.filter( x => ! x(4).contains("NA")).map( y => y(4).toDouble )
+rdd_ALB.reduce(_+_) / rdd_ALB.count  // Double = 41.6201954397394
+
+val rdd_ALP = rdd.filter( x => ! x(5).contains("NA")).map( y => y(5).toDouble )
+rdd_ALP.reduce(_+_) / rdd_ALP.count  // Double = 68.28391959798992
+
+val rdd_ALT = rdd.filter( x => ! x(6).contains("NA")).map( y => y(6).toDouble )
+rdd_ALT.reduce(_+_) / rdd_ALT.count  // Double = 28.45081433224755
+
+val rdd_CHOL = rdd.filter( x => ! x(10).contains("NA")).map( y => y(10).toDouble )
+rdd_CHOL.reduce(_+_) / rdd_CHOL.count  // Double = 5.368099173553719
+
+val rdd_PROT = rdd.filter( x => ! x(13).contains("NA")).map( y => y(13).toDouble )
+rdd_PROT.reduce(_+_) / rdd_PROT.count  // Double = 72.04413680781755
+
+val categ_result = rdd.map(x => x(1)).distinct.zipWithIndex.collectAsMap
+categ_result: scala.collection.Map[String,Long] = Map("0=Blood Donor" -> 4, "3=Cirrhosis" -> 1, "1=Hepatitis" -> 2, "0s=suspect Blood Donor" -> 3, "2=Fibrosis" -> 0)
+
+val rddx = rdd.map( x => {
+   val Categ = categ_result(x(1)).toString
+   val Sex = if (x(3) == "f") "0" else "1"
+   val ALB = if (x(4) == "NA") "41.62" else x(4)
+   val ALP = if (x(5) == "NA") "68.28" else x(5)
+   val ALT = if (x(6) == "NA") "28.45" else x(6)
+   val CHOL = if (x(10) == "NA") "5.37" else x(10)
+   val PROT = if (x(13) == "NA") "72.04" else x(13)
+   Array(Categ,x(2),Sex,ALB,ALP,ALT,x(7),x(8),x(9),CHOL,x(11),x(12),PROT)
+ }).
+ map( y => y.map( z => z.toDouble ))
+ 
+rddx.take(2)
+res21: Array[Array[Double]] = Array(Array(4.0, 32.0, 1.0, 38.5, 52.5, 7.7, 22.1, 7.5, 6.93, 3.23, 106.0, 12.1, 69.0), Array(4.0, 32.0, 1.0, 38.5, 70.3, 18.0, 24.7, 3.9, 11.17, 4.8, 74.0, 15.6, 76.5))
+
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
+
+val data = rddx.map( x => {
+  val arr_size = x.size
+  val l = x(0)
+  val f = Vectors.dense(x.slice(1, arr_size))
+  LabeledPoint(l,f)
+})
+
+val sets = data.randomSplit(Array(0.7,0.3), 11L)
+val trainSet = sets(0)
+val testSet = sets(1)
+
+trainSet.cache
+
+---- MLlib MultiClass logistic regression --------------
+
+import org.apache.spark.mllib.classification.{LogisticRegressionModel, LogisticRegressionWithLBFGS}
+val numIterations = 100
+val model = new LogisticRegressionWithLBFGS().setNumClasses(5).run(trainSet)
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res55: Array[(Double, Double)] = Array((4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0))
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 178
+validPredicts.count                            // 194
+val accuracy = metrics.accuracy   // 0.9175257731958762
+
+metrics.confusionMatrix
+res63: org.apache.spark.mllib.linalg.Matrix =
+2.0  0.0   4.0  1.0
+1.0  11.0  0.0  0.0
+2.0  2.0   7.0  1.0
+0.0  1.0   2.0  158.0
+
+
+---- MLlib Decision Tree regression --------------
+
+import org.apache.spark.mllib.tree.DecisionTree
+import org.apache.spark.mllib.tree.model.DecisionTreeModel
+
+val categoricalFeaturesInfo = Map[Int, Int]( 1 -> 2 )
+
+val model = DecisionTree.trainClassifier(trainSet, 5, categoricalFeaturesInfo, "gini", 30, 32)
+
+model.toDebugString
+
+res64: String =
+"DecisionTreeModel classifier of depth 9 with 63 nodes
+  If (feature 5 <= 61.3)
+   If (feature 4 <= 7.25)
+    If (feature 3 <= 36.6)
+     If (feature 0 <= 33.5)
+      Predict: 2.0
+     Else (feature 0 > 33.5)
+      Predict: 0.0
+    Else (feature 3 > 36.6)
+     Predict: 1.0
+   Else (feature 4 > 7.25)
+    If (feature 2 <= 28.4)
+     If (feature 0 <= 49.5)
+      Predict: 3.0
+     Else (feature 0 > 49.5)
+      If (feature 0 <= 63.5)
+       Predict: 4.0
+      Else (feature 0 > 63.5)
+       Predict: 3.0
+    Else (feature 2 > 28.4)
+     If (feature 5 <= 38.05)
+      If (feature 4 <= 10.5)
+       If (feature 5 <= 22.75)
+        Predict: 4.0
+       Else (feature 5 > 22.75)
+        If (feature 0 <= 34.5)
+         Predict: 2.0
+        Else (feature 0 > 34.5)
+         Predict: 0.0
+ ...
+		
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res65: Array[(Double, Double)] = Array((4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (1.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (3.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0), (4.0,4.0))
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 168
+validPredicts.count                            // 194
+val accuracy = metrics.accuracy   // 0.8711340206185567
+
+metrics.confusionMatrix
+res68: org.apache.spark.mllib.linalg.Matrix =
+3.0  1.0  2.0  1.0
+1.0  8.0  1.0  2.0
+2.0  1.0  4.0  4.0
+2.0  3.0  1.0  154.0
