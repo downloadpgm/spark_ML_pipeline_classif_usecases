@@ -1,0 +1,189 @@
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("churn_bra/dados_clientes.csv")
+
+df.printSchema
+root
+ |-- id: integer (nullable = true)
+ |-- Churn: string (nullable = true)
+ |-- Mais65anos: integer (nullable = true)
+ |-- Conjuge: string (nullable = true)
+ |-- Dependentes: string (nullable = true)
+ |-- MesesDeContrato: integer (nullable = true)
+ |-- TelefoneFixo: string (nullable = true)
+ |-- MaisDeUmaLinhaTelefonica: string (nullable = true)
+ |-- Internet: string (nullable = true)
+ |-- SegurancaOnline: string (nullable = true)
+ |-- BackupOnline: string (nullable = true)
+ |-- SeguroDispositivo: string (nullable = true)
+ |-- SuporteTecnico: string (nullable = true)
+ |-- TVaCabo: string (nullable = true)
+ |-- StreamingFilmes: string (nullable = true)
+ |-- TipoContrato: string (nullable = true)
+ |-- ContaCorreio: string (nullable = true)
+ |-- MetodoPagamento: string (nullable = true)
+ |-- MesesCobrados: double (nullable = true)
+ 
+val dfraw = df.drop("id")
+
+dfraw.describe().show
++-------+-----+------------------+-------+-----------+------------------+------------+------------------------+--------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+---------------+------------------+-----+
+|summary|Churn|        Mais65anos|Conjuge|Dependentes|   MesesDeContrato|TelefoneFixo|MaisDeUmaLinhaTelefonica|Internet|SegurancaOnline|BackupOnline|SeguroDispositivo|SuporteTecnico|TVaCabo|StreamingFilmes|TipoContrato|ContaCorreio|MetodoPagamento|     MesesCobrados|label|
++-------+-----+------------------+-------+-----------+------------------+------------+------------------------+--------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+---------------+------------------+-----+
+|  count|10348|             10348|  10348|      10348|             10348|       10348|                   10348|   10348|          10348|       10348|            10348|         10348|  10348|          10348|       10348|       10348|          10348|             10348|10348|
+|   mean| null|0.1409934286818709|   null|       null|27.518554310011595|        null|                    null|    null|           null|        null|             null|          null|   null|           null|        null|        null|           null| 67.72477324116379| null|
+| stddev| null|0.3480315890924261|   null|       null| 24.09778298180764|        null|                    null|    null|           null|        null|             null|          null|   null|           null|        null|        null|           null|28.859250112596182| null|
+|    min|  Nao|                 0|    Nao|        Nao|                 0|         Nao|                     Nao|     DSL|            Nao|         Nao|              Nao|           Nao|    Nao|            Nao|    DoisAnos|         Nao|         Boleto|             18.25|  Nao|
+|    max|  Sim|                 1|    Sim|        Sim|                72|         Sim|                     Sim|     Nao|            Sim|         Sim|              Sim|           Sim|    Sim|            Sim|       UmAno|         Sim|  DebitoEmConta|            118.75|  Sim|
++-------+-----+------------------+-------+-----------+------------------+------------+------------------------+--------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+---------------+------------------+-----+
+ 
+import org.apache.spark.ml.feature.{StringIndexer, OneHotEncoder, VectorAssembler}
+
+val dfrawIndexer0 = new StringIndexer().setInputCol("Churn").setOutputCol("label")
+val dfrawIndexer1 = new StringIndexer().setInputCol("Conjuge").setOutputCol("ConjugeCat")
+val dfrawIndexer2 = new StringIndexer().setInputCol("Dependentes").setOutputCol("DependentesCat")
+val dfrawIndexer3 = new StringIndexer().setInputCol("TelefoneFixo").setOutputCol("TelefoneFixoCat")
+val dfrawIndexer4 = new StringIndexer().setInputCol("MaisDeUmaLinhaTelefonica").setOutputCol("MaisDeUmaLinhaCat")
+val dfrawIndexer5 = new StringIndexer().setInputCol("Internet").setOutputCol("InternetCat")
+val dfrawIndexer6 = new StringIndexer().setInputCol("SegurancaOnline").setOutputCol("SegurancaOnlineCat")
+val dfrawIndexer7 = new StringIndexer().setInputCol("BackupOnline").setOutputCol("BackupOnlineCat")
+val dfrawIndexer8 = new StringIndexer().setInputCol("SeguroDispositivo").setOutputCol("SeguroDispositivoCat")
+val dfrawIndexer9 = new StringIndexer().setInputCol("SuporteTecnico").setOutputCol("SuporteTecnicoCat")
+val dfrawIndexer10 = new StringIndexer().setInputCol("TVaCabo").setOutputCol("TVaCaboCat")
+val dfrawIndexer11 = new StringIndexer().setInputCol("StreamingFilmes").setOutputCol("StreamingFilmesCat")
+val dfrawIndexer12 = new StringIndexer().setInputCol("TipoContrato").setOutputCol("TipoContratoCat")
+val dfrawIndexer13 = new StringIndexer().setInputCol("ContaCorreio").setOutputCol("ContaCorreioCat")
+val dfrawIndexer14 = new StringIndexer().setInputCol("MetodoPagamento").setOutputCol("MetodoPagamentoCat")
+
+val dfrawIndexer51 = new OneHotEncoder().setInputCol("InternetCat").setOutputCol("InternetVect")
+val dfrawIndexer121 = new OneHotEncoder().setInputCol("TipoContratoCat").setOutputCol("TipoContratoVect")
+val dfrawIndexer141 = new OneHotEncoder().setInputCol("MetodoPagamentoCat").setOutputCol("MetodoPagamentoVect")
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("Mais65anos","ConjugeCat","DependentesCat","MesesDeContrato","TelefoneFixoCat","MaisDeUmaLinhaCat","InternetVect","SegurancaOnlineCat","BackupOnlineCat","SeguroDispositivoCat","SuporteTecnicoCat","TVaCaboCat","StreamingFilmesCat","TipoContratoVect","ContaCorreioCat","MetodoPagamentoVect","MesesCobrados"))
+
+val dfraw1 = dfrawIndexer0.fit(dfraw).transform(dfraw)
+
+import org.apache.spark.ml.feature.StandardScaler
+val stdScaler = new StandardScaler().
+setWithStd(true).
+setWithMean(true).
+setInputCol("features").
+setOutputCol("scaledFeatures")
+
+import org.apache.spark.ml.classification.LogisticRegression
+val lr = new LogisticRegression
+lr.setRegParam(0.01).setMaxIter(500).setFitIntercept(true).setFeaturesCol("scaledFeatures")
+
+import org.apache.spark.ml.Pipeline
+
+val pipeline = new Pipeline().setStages(Array(dfrawIndexer1,dfrawIndexer2,dfrawIndexer3,dfrawIndexer4,dfrawIndexer5,dfrawIndexer6,dfrawIndexer7,dfrawIndexer8,dfrawIndexer9,dfrawIndexer10,dfrawIndexer11,dfrawIndexer12,dfrawIndexer13,dfrawIndexer14,dfrawIndexer51,dfrawIndexer121,dfrawIndexer141,va,stdScaler,lr))
+
+val Array(trainingData, testData) = dfraw.randomSplit(Array(0.7,0.3),11L)
+
+val model = pipeline.fit(trainingData)
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res6: Double = 0.8658007712535928
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+
+val lrmodel = model.stages(19).asInstanceOf[LogisticRegressionModel]
+
+println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+LR Model coefficients:
+-0.1787766634614274
+0.018651785871974327
+-0.24841673686091198
+-0.5771002486717045
+-6.93571527787831E-4
+0.11569811944009592
+0.15704154651491983
+-0.19287119403790814
+-0.3840914633131775
+-0.09193821599822855
+-0.003173042944970888
+-0.28583303100247665
+0.15449768719406343
+0.1423589241368986
+0.4028878297295685
+-0.29491492066341746
+-0.18894304464127895
+0.35141095697956487
+0.08276435999045605
+0.03469735454417196
+0.0762732769325545
+
+-------------------
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().
+addGrid(lr.regParam, Array(0.1, 0.01, 0.001)).
+addGrid(lr.fitIntercept).
+addGrid(lr.maxIter, Array(100,300,500)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new BinaryClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val model = cv.fit(trainingData)
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+val lrmodel = bestmodel.stages(19).asInstanceOf[LogisticRegressionModel]
+
+lrmodel.getRegParam
+res1: Double = 0.001
+
+lrmodel.getMaxIter
+res2: Int = 100
+
+lrmodel.getThreshold
+res3: Double = 0.5
+
+lrmodel.getFitIntercept
+res4: Boolean = true
+
+lrmodel.getStandardization
+res5: Boolean = true
+
+println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+LR Model coefficients:
+-0.19829359570030125
+0.04374733122971558
+-0.2726369034049192
+-0.6464945385115192
+-0.008544452455955991
+0.14239531371871197
+0.032249202229607296
+-0.2879132853030135
+-0.44698640719505045
+-0.08615598371688883
+0.008126835390391156
+-0.3346366056045919
+0.172335272114053
+0.15994182141385652
+0.4004638982394044
+-0.31017521604771
+-0.19629184326899485
+0.3851974317974895
+0.11223012302959764
+0.06917317370120506
+0.1303765733986238
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res3: Double = 0.8659847602407258
