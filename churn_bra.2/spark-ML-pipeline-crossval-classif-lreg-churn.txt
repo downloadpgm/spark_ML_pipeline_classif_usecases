@@ -39,6 +39,8 @@ dfraw.describe().show
 import org.apache.spark.ml.feature.{StringIndexer, OneHotEncoder, VectorAssembler}
 
 val dfrawIndexer0 = new StringIndexer().setInputCol("Churn").setOutputCol("label")
+val dfraw1 = dfrawIndexer0.fit(dfraw).transform(dfraw)
+
 val dfrawIndexer1 = new StringIndexer().setInputCol("Conjuge").setOutputCol("ConjugeCat")
 val dfrawIndexer2 = new StringIndexer().setInputCol("Dependentes").setOutputCol("DependentesCat")
 val dfrawIndexer3 = new StringIndexer().setInputCol("TelefoneFixo").setOutputCol("TelefoneFixoCat")
@@ -60,7 +62,6 @@ val dfrawIndexer141 = new OneHotEncoder().setInputCol("MetodoPagamentoCat").setO
 
 val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("Mais65anos","ConjugeCat","DependentesCat","MesesDeContrato","TelefoneFixoCat","MaisDeUmaLinhaCat","InternetVect","SegurancaOnlineCat","BackupOnlineCat","SeguroDispositivoCat","SuporteTecnicoCat","TVaCaboCat","StreamingFilmesCat","TipoContratoVect","ContaCorreioCat","MetodoPagamentoVect","MesesCobrados"))
 
-val dfraw1 = dfrawIndexer0.fit(dfraw).transform(dfraw)
 
 import org.apache.spark.ml.feature.StandardScaler
 val stdScaler = new StandardScaler().
@@ -77,7 +78,7 @@ import org.apache.spark.ml.Pipeline
 
 val pipeline = new Pipeline().setStages(Array(dfrawIndexer1,dfrawIndexer2,dfrawIndexer3,dfrawIndexer4,dfrawIndexer5,dfrawIndexer6,dfrawIndexer7,dfrawIndexer8,dfrawIndexer9,dfrawIndexer10,dfrawIndexer11,dfrawIndexer12,dfrawIndexer13,dfrawIndexer14,dfrawIndexer51,dfrawIndexer121,dfrawIndexer141,va,stdScaler,lr))
 
-val Array(trainingData, testData) = dfraw.randomSplit(Array(0.7,0.3),11L)
+val Array(trainingData, testData) = dfraw1.randomSplit(Array(0.7,0.3),11L)
 
 val model = pipeline.fit(trainingData)
 
@@ -157,6 +158,13 @@ res4: Boolean = true
 lrmodel.getStandardization
 res5: Boolean = true
 
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res3: Double = 0.8659847602407258
+
 println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
 LR Model coefficients:
 -0.19829359570030125
@@ -180,10 +188,3 @@ LR Model coefficients:
 0.11223012302959764
 0.06917317370120506
 0.1303765733986238
-
-val pred = bestmodel.transform(testData)
-
-val bceval = new BinaryClassificationEvaluator()
-
-bceval.evaluate(pred)
-res3: Double = 0.8659847602407258

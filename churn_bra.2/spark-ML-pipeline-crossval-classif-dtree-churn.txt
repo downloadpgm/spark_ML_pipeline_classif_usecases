@@ -1,0 +1,1583 @@
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("churn_bra/dados_clientes.csv")
+
+df.printSchema
+root
+ |-- id: integer (nullable = true)
+ |-- Churn: string (nullable = true)
+ |-- Mais65anos: integer (nullable = true)
+ |-- Conjuge: string (nullable = true)
+ |-- Dependentes: string (nullable = true)
+ |-- MesesDeContrato: integer (nullable = true)
+ |-- TelefoneFixo: string (nullable = true)
+ |-- MaisDeUmaLinhaTelefonica: string (nullable = true)
+ |-- Internet: string (nullable = true)
+ |-- SegurancaOnline: string (nullable = true)
+ |-- BackupOnline: string (nullable = true)
+ |-- SeguroDispositivo: string (nullable = true)
+ |-- SuporteTecnico: string (nullable = true)
+ |-- TVaCabo: string (nullable = true)
+ |-- StreamingFilmes: string (nullable = true)
+ |-- TipoContrato: string (nullable = true)
+ |-- ContaCorreio: string (nullable = true)
+ |-- MetodoPagamento: string (nullable = true)
+ |-- MesesCobrados: double (nullable = true)
+ 
+val dfraw = df.drop("id")
+
+dfraw.describe().show
++-------+-----+------------------+-------+-----------+------------------+------------+------------------------+--------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+---------------+------------------+-----+
+|summary|Churn|        Mais65anos|Conjuge|Dependentes|   MesesDeContrato|TelefoneFixo|MaisDeUmaLinhaTelefonica|Internet|SegurancaOnline|BackupOnline|SeguroDispositivo|SuporteTecnico|TVaCabo|StreamingFilmes|TipoContrato|ContaCorreio|MetodoPagamento|     MesesCobrados|label|
++-------+-----+------------------+-------+-----------+------------------+------------+------------------------+--------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+---------------+------------------+-----+
+|  count|10348|             10348|  10348|      10348|             10348|       10348|                   10348|   10348|          10348|       10348|            10348|         10348|  10348|          10348|       10348|       10348|          10348|             10348|10348|
+|   mean| null|0.1409934286818709|   null|       null|27.518554310011595|        null|                    null|    null|           null|        null|             null|          null|   null|           null|        null|        null|           null| 67.72477324116379| null|
+| stddev| null|0.3480315890924261|   null|       null| 24.09778298180764|        null|                    null|    null|           null|        null|             null|          null|   null|           null|        null|        null|           null|28.859250112596182| null|
+|    min|  Nao|                 0|    Nao|        Nao|                 0|         Nao|                     Nao|     DSL|            Nao|         Nao|              Nao|           Nao|    Nao|            Nao|    DoisAnos|         Nao|         Boleto|             18.25|  Nao|
+|    max|  Sim|                 1|    Sim|        Sim|                72|         Sim|                     Sim|     Nao|            Sim|         Sim|              Sim|           Sim|    Sim|            Sim|       UmAno|         Sim|  DebitoEmConta|            118.75|  Sim|
++-------+-----+------------------+-------+-----------+------------------+------------+------------------------+--------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+---------------+------------------+-----+
+
+import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
+
+val dfrawIndexer0 = new StringIndexer().setInputCol("Churn").setOutputCol("label")
+val dfraw1 = dfrawIndexer0.fit(dfraw).transform(dfraw)
+
+val dfrawIndexer1 = new StringIndexer().setInputCol("Conjuge").setOutputCol("ConjugeCat")
+val dfrawIndexer2 = new StringIndexer().setInputCol("Dependentes").setOutputCol("DependentesCat")
+val dfrawIndexer3 = new StringIndexer().setInputCol("TelefoneFixo").setOutputCol("TelefoneFixoCat")
+val dfrawIndexer4 = new StringIndexer().setInputCol("MaisDeUmaLinhaTelefonica").setOutputCol("MaisDeUmaLinhaCat")
+val dfrawIndexer5 = new StringIndexer().setInputCol("Internet").setOutputCol("InternetCat")
+val dfrawIndexer6 = new StringIndexer().setInputCol("SegurancaOnline").setOutputCol("SegurancaOnlineCat")
+val dfrawIndexer7 = new StringIndexer().setInputCol("BackupOnline").setOutputCol("BackupOnlineCat")
+val dfrawIndexer8 = new StringIndexer().setInputCol("SeguroDispositivo").setOutputCol("SeguroDispositivoCat")
+val dfrawIndexer9 = new StringIndexer().setInputCol("SuporteTecnico").setOutputCol("SuporteTecnicoCat")
+val dfrawIndexer10 = new StringIndexer().setInputCol("TVaCabo").setOutputCol("TVaCaboCat")
+val dfrawIndexer11 = new StringIndexer().setInputCol("StreamingFilmes").setOutputCol("StreamingFilmesCat")
+val dfrawIndexer12 = new StringIndexer().setInputCol("TipoContrato").setOutputCol("TipoContratoCat")
+val dfrawIndexer13 = new StringIndexer().setInputCol("ContaCorreio").setOutputCol("ContaCorreioCat")
+val dfrawIndexer14 = new StringIndexer().setInputCol("MetodoPagamento").setOutputCol("MetodoPagamentoCat")
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("Mais65anos","ConjugeCat","DependentesCat","MesesDeContrato","TelefoneFixoCat","MaisDeUmaLinhaCat","InternetCat","SegurancaOnlineCat","BackupOnlineCat","SeguroDispositivoCat","SuporteTecnicoCat","TVaCaboCat","StreamingFilmesCat","TipoContratoCat","ContaCorreioCat","MetodoPagamentoCat","MesesCobrados"))
+
+
+import org.apache.spark.ml.classification.DecisionTreeClassifier
+val dt = new DecisionTreeClassifier
+
+import org.apache.spark.ml.Pipeline
+
+val pipeline = new Pipeline().setStages(Array(dfrawIndexer1,dfrawIndexer2,dfrawIndexer3,dfrawIndexer4,dfrawIndexer5,dfrawIndexer6,dfrawIndexer7,dfrawIndexer8,dfrawIndexer9,dfrawIndexer10,dfrawIndexer11,dfrawIndexer12,dfrawIndexer13,dfrawIndexer14,va,dt))
+
+val Array(trainingData, testData) = dfraw1.randomSplit(Array(0.7,0.3),11L)
+
+val model = pipeline.fit(trainingData)
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res0: Double = 0.8393090044298548
+
+import org.apache.spark.ml.classification.DecisionTreeClassificationModel
+
+val dtmodel = model.stages(15).asInstanceOf[DecisionTreeClassificationModel]
+
+println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
+Learned classification tree model:
+ DecisionTreeClassificationModel (uid=dtc_19bf3b01e532) of depth 5 with 63 nodes
+  If (feature 13 in {1.0,2.0})
+   If (feature 6 in {1.0,2.0})
+    If (feature 13 in {1.0})
+     If (feature 15 in {1.0})
+      If (feature 5 in {0.0,2.0})
+       Predict: 0.0
+      Else (feature 5 not in {0.0,2.0})
+       Predict: 0.0
+     Else (feature 15 not in {1.0})
+      If (feature 3 <= 67.5)
+       Predict: 0.0
+      Else (feature 3 > 67.5)
+       Predict: 0.0
+    Else (feature 13 not in {1.0})
+     If (feature 12 in {0.0,2.0})
+      If (feature 11 in {1.0,2.0})
+       Predict: 0.0
+      Else (feature 11 not in {1.0,2.0})
+       Predict: 0.0
+     Else (feature 12 not in {0.0,2.0})
+      If (feature 1 in {0.0})
+       Predict: 0.0
+      Else (feature 1 not in {0.0})
+       Predict: 0.0
+   Else (feature 6 not in {1.0,2.0})
+    If (feature 3 <= 71.5)
+     If (feature 12 in {0.0})
+      If (feature 15 in {1.0,2.0,3.0})
+       Predict: 0.0
+      Else (feature 15 not in {1.0,2.0,3.0})
+       Predict: 0.0
+     Else (feature 12 not in {0.0})
+      If (feature 13 in {1.0})
+       Predict: 0.0
+      Else (feature 13 not in {1.0})
+       Predict: 0.0
+    Else (feature 3 > 71.5)
+     If (feature 13 in {1.0})
+      If (feature 0 <= 0.5)
+       Predict: 0.0
+      Else (feature 0 > 0.5)
+       Predict: 0.0
+     Else (feature 13 not in {1.0})
+      If (feature 16 <= 109.27902294759835)
+       Predict: 0.0
+      Else (feature 16 > 109.27902294759835)
+       Predict: 1.0
+  Else (feature 13 not in {1.0,2.0})
+   If (feature 7 in {1.0,2.0})
+    If (feature 3 <= 1.5)
+     If (feature 15 in {2.0,3.0})
+      If (feature 16 <= 19.903367441545086)
+       Predict: 0.0
+      Else (feature 16 > 19.903367441545086)
+       Predict: 0.0
+     Else (feature 15 not in {2.0,3.0})
+      If (feature 2 in {1.0})
+       Predict: 0.0
+      Else (feature 2 not in {1.0})
+       Predict: 1.0
+    Else (feature 3 > 1.5)
+     If (feature 8 in {1.0,2.0})
+      If (feature 16 <= 94.22263503788018)
+       Predict: 0.0
+      Else (feature 16 > 94.22263503788018)
+       Predict: 0.0
+     Else (feature 8 not in {1.0,2.0})
+      If (feature 15 in {1.0,2.0,3.0})
+       Predict: 0.0
+      Else (feature 15 not in {1.0,2.0,3.0})
+       Predict: 1.0
+   Else (feature 7 not in {1.0,2.0})
+    If (feature 15 in {1.0,2.0,3.0})
+     If (feature 3 <= 10.5)
+      If (feature 6 in {1.0})
+       Predict: 1.0
+      Else (feature 6 not in {1.0})
+       Predict: 1.0
+     Else (feature 3 > 10.5)
+      If (feature 6 in {1.0})
+       Predict: 0.0
+      Else (feature 6 not in {1.0})
+       Predict: 1.0
+    Else (feature 15 not in {1.0,2.0,3.0})
+     If (feature 10 in {1.0})
+      If (feature 8 in {1.0})
+       Predict: 0.0
+      Else (feature 8 not in {1.0})
+       Predict: 1.0
+     Else (feature 10 not in {1.0})
+      If (feature 14 in {1.0})
+       Predict: 1.0
+      Else (feature 14 not in {1.0})
+       Predict: 1.0
+
+-------------------
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().
+addGrid(dt.maxBins, Array(32, 48, 64)).
+addGrid(dt.impurity, Array("gini", "entropy")).
+addGrid(dt.maxDepth, Array(10,20,30)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new BinaryClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val model = cv.fit(trainingData)
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.DecisionTreeClassificationModel
+val dtmodel = bestmodel.stages(15).asInstanceOf[DecisionTreeClassificationModel]
+
+dtmodel.getMaxBins
+res0: Int = 32
+
+dtmodel.getImpurity
+res2: String = gini
+
+dtmodel.getMaxDepth
+res3: Int = 10
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.evaluate(pred)
+res6: Double = 0.8355745133336863
+
+println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
+Learned classification tree model:
+ DecisionTreeClassificationModel (uid=dtc_2a1ce7c0e7c1) of depth 10 with 905 nodes
+  If (feature 13 in {1.0,2.0})
+   If (feature 6 in {1.0,2.0})
+    If (feature 13 in {1.0})
+     If (feature 15 in {1.0})
+      If (feature 5 in {0.0,2.0})
+       Predict: 0.0
+      Else (feature 5 not in {0.0,2.0})
+       If (feature 3 <= 33.5)
+        If (feature 3 <= 30.5)
+         Predict: 0.0
+        Else (feature 3 > 30.5)
+         If (feature 14 in {1.0})
+          Predict: 0.0
+         Else (feature 14 not in {1.0})
+          Predict: 1.0
+       Else (feature 3 > 33.5)
+        Predict: 0.0
+     Else (feature 15 not in {1.0})
+      If (feature 3 <= 67.5)
+       If (feature 3 <= 45.5)
+        If (feature 1 in {1.0})
+         Predict: 0.0
+        Else (feature 1 not in {1.0})
+         If (feature 5 in {0.0,2.0})
+          Predict: 0.0
+         Else (feature 5 not in {0.0,2.0})
+          If (feature 16 <= 24.825000000000003)
+           If (feature 3 <= 26.5)
+            Predict: 1.0
+           Else (feature 3 > 26.5)
+            Predict: 0.0
+          Else (feature 16 > 24.825000000000003)
+           Predict: 0.0
+       Else (feature 3 > 45.5)
+        If (feature 5 in {1.0,2.0})
+         If (feature 16 <= 74.57763714743416)
+          If (feature 3 <= 56.5)
+           If (feature 14 in {1.0})
+            Predict: 0.0
+           Else (feature 14 not in {1.0})
+            Predict: 0.0
+          Else (feature 3 > 56.5)
+           Predict: 0.0
+         Else (feature 16 > 74.57763714743416)
+          If (feature 3 <= 63.5)
+           Predict: 0.0
+          Else (feature 3 > 63.5)
+           If (feature 16 <= 82.025)
+            Predict: 0.0
+           Else (feature 16 > 82.025)
+            Predict: 0.0
+        Else (feature 5 not in {1.0,2.0})
+         If (feature 16 <= 20.662397908091606)
+          If (feature 15 in {0.0,3.0})
+           Predict: 0.0
+          Else (feature 15 not in {0.0,3.0})
+           If (feature 16 <= 19.903367441545086)
+            Predict: 0.0
+           Else (feature 16 > 19.903367441545086)
+            Predict: 0.0
+         Else (feature 16 > 20.662397908091606)
+          If (feature 6 in {2.0})
+           If (feature 1 in {1.0})
+            Predict: 0.0
+           Else (feature 1 not in {1.0})
+            Predict: 1.0
+          Else (feature 6 not in {2.0})
+           If (feature 3 <= 63.5)
+            Predict: 0.0
+           Else (feature 3 > 63.5)
+            Predict: 0.0
+      Else (feature 3 > 67.5)
+       If (feature 15 in {2.0,3.0})
+        If (feature 0 <= 0.5)
+         Predict: 0.0
+        Else (feature 0 > 0.5)
+         If (feature 3 <= 69.5)
+          If (feature 2 in {0.0})
+           Predict: 0.0
+          Else (feature 2 not in {0.0})
+           Predict: 1.0
+         Else (feature 3 > 69.5)
+          Predict: 0.0
+       Else (feature 15 not in {2.0,3.0})
+        If (feature 4 in {0.0})
+         Predict: 0.0
+        Else (feature 4 not in {0.0})
+         If (feature 9 in {0.0})
+          Predict: 1.0
+         Else (feature 9 not in {0.0})
+          If (feature 2 in {1.0})
+           Predict: 0.0
+          Else (feature 2 not in {1.0})
+           If (feature 7 in {1.0})
+            Predict: 0.0
+           Else (feature 7 not in {1.0})
+            Predict: 1.0
+    Else (feature 13 not in {1.0})
+     If (feature 12 in {0.0,2.0})
+      If (feature 11 in {1.0,2.0})
+       If (feature 15 in {1.0,2.0,3.0})
+        If (feature 3 <= 26.5)
+         If (feature 16 <= 61.025)
+          If (feature 15 in {1.0,3.0})
+           If (feature 3 <= 2.5)
+            Predict: 0.0
+           Else (feature 3 > 2.5)
+            Predict: 0.0
+          Else (feature 15 not in {1.0,3.0})
+           If (feature 14 in {0.0})
+            Predict: 0.0
+           Else (feature 14 not in {0.0})
+            Predict: 0.0
+         Else (feature 16 > 61.025)
+          If (feature 3 <= 9.5)
+           Predict: 0.0
+          Else (feature 3 > 9.5)
+           Predict: 1.0
+        Else (feature 3 > 26.5)
+         If (feature 3 <= 52.5)
+          Predict: 0.0
+         Else (feature 3 > 52.5)
+          If (feature 1 in {1.0})
+           Predict: 0.0
+          Else (feature 1 not in {1.0})
+           If (feature 3 <= 56.5)
+            Predict: 0.0
+           Else (feature 3 > 56.5)
+            Predict: 0.0
+       Else (feature 15 not in {1.0,2.0,3.0})
+        If (feature 1 in {1.0})
+         Predict: 0.0
+        Else (feature 1 not in {1.0})
+         If (feature 3 <= 41.5)
+          If (feature 8 in {1.0,2.0})
+           Predict: 0.0
+          Else (feature 8 not in {1.0,2.0})
+           Predict: 1.0
+         Else (feature 3 > 41.5)
+          If (feature 6 in {1.0})
+           Predict: 0.0
+          Else (feature 6 not in {1.0})
+           If (feature 3 <= 56.5)
+            Predict: 1.0
+           Else (feature 3 > 56.5)
+            Predict: 0.0
+      Else (feature 11 not in {1.0,2.0})
+       If (feature 15 in {2.0})
+        Predict: 0.0
+       Else (feature 15 not in {2.0})
+        If (feature 14 in {1.0})
+         If (feature 3 <= 41.5)
+          Predict: 0.0
+         Else (feature 3 > 41.5)
+          If (feature 9 in {0.0})
+           Predict: 0.0
+          Else (feature 9 not in {0.0})
+           If (feature 16 <= 55.80474027117383)
+            Predict: 0.0
+           Else (feature 16 > 55.80474027117383)
+            Predict: 1.0
+        Else (feature 14 not in {1.0})
+         If (feature 3 <= 48.5)
+          If (feature 16 <= 68.275)
+           If (feature 16 <= 40.87204575659124)
+            Predict: 0.0
+           Else (feature 16 > 40.87204575659124)
+            Predict: 0.0
+          Else (feature 16 > 68.275)
+           Predict: 1.0
+         Else (feature 3 > 48.5)
+          If (feature 1 in {0.0})
+           Predict: 0.0
+          Else (feature 1 not in {0.0})
+           If (feature 9 in {1.0})
+            Predict: 0.0
+           Else (feature 9 not in {1.0})
+            Predict: 0.0
+     Else (feature 12 not in {0.0,2.0})
+      If (feature 1 in {0.0})
+       If (feature 15 in {0.0,2.0})
+        If (feature 3 <= 67.5)
+         If (feature 16 <= 82.025)
+          If (feature 16 <= 45.364659265398345)
+           If (feature 3 <= 23.5)
+            Predict: 1.0
+           Else (feature 3 > 23.5)
+            Predict: 0.0
+          Else (feature 16 > 45.364659265398345)
+           Predict: 0.0
+         Else (feature 16 > 82.025)
+          If (feature 0 <= 0.5)
+           If (feature 3 <= 30.5)
+            Predict: 1.0
+           Else (feature 3 > 30.5)
+            Predict: 0.0
+          Else (feature 0 > 0.5)
+           Predict: 1.0
+        Else (feature 3 > 67.5)
+         Predict: 1.0
+       Else (feature 15 not in {0.0,2.0})
+        If (feature 9 in {0.0})
+         If (feature 3 <= 13.5)
+          If (feature 3 <= 10.5)
+           Predict: 0.0
+          Else (feature 3 > 10.5)
+           If (feature 14 in {0.0})
+            Predict: 0.0
+           Else (feature 14 not in {0.0})
+            Predict: 1.0
+         Else (feature 3 > 13.5)
+          Predict: 0.0
+        Else (feature 9 not in {0.0})
+         If (feature 3 <= 45.5)
+          If (feature 2 in {1.0})
+           Predict: 0.0
+          Else (feature 2 not in {1.0})
+           If (feature 3 <= 26.5)
+            Predict: 1.0
+           Else (feature 3 > 26.5)
+            Predict: 0.0
+         Else (feature 3 > 45.5)
+          If (feature 3 <= 63.5)
+           Predict: 0.0
+          Else (feature 3 > 63.5)
+           If (feature 10 in {0.0})
+            Predict: 0.0
+           Else (feature 10 not in {0.0})
+            Predict: 1.0
+      Else (feature 1 not in {0.0})
+       If (feature 11 in {0.0})
+        If (feature 16 <= 75.55022650767089)
+         If (feature 2 in {0.0})
+          Predict: 0.0
+         Else (feature 2 not in {0.0})
+          If (feature 16 <= 69.95351778221344)
+           If (feature 7 in {1.0})
+            Predict: 0.0
+           Else (feature 7 not in {1.0})
+            Predict: 0.0
+          Else (feature 16 > 69.95351778221344)
+           If (feature 10 in {1.0})
+            Predict: 0.0
+           Else (feature 10 not in {1.0})
+            Predict: 1.0
+        Else (feature 16 > 75.55022650767089)
+         If (feature 14 in {0.0})
+          If (feature 3 <= 56.5)
+           Predict: 0.0
+          Else (feature 3 > 56.5)
+           If (feature 15 in {0.0})
+            Predict: 0.0
+           Else (feature 15 not in {0.0})
+            Predict: 1.0
+         Else (feature 14 not in {0.0})
+          Predict: 1.0
+       Else (feature 11 not in {0.0})
+        If (feature 16 <= 74.57763714743416)
+         If (feature 14 in {1.0})
+          Predict: 0.0
+         Else (feature 14 not in {1.0})
+          If (feature 3 <= 60.5)
+           If (feature 15 in {3.0})
+            Predict: 0.0
+           Else (feature 15 not in {3.0})
+            Predict: 1.0
+          Else (feature 3 > 60.5)
+           Predict: 0.0
+        Else (feature 16 > 74.57763714743416)
+         If (feature 3 <= 37.5)
+          If (feature 3 <= 13.5)
+           If (feature 0 <= 0.5)
+            Predict: 1.0
+           Else (feature 0 > 0.5)
+            Predict: 0.0
+          Else (feature 3 > 13.5)
+           Predict: 0.0
+         Else (feature 3 > 37.5)
+          If (feature 8 in {1.0})
+           If (feature 3 <= 41.5)
+            Predict: 1.0
+           Else (feature 3 > 41.5)
+            Predict: 0.0
+          Else (feature 8 not in {1.0})
+           If (feature 16 <= 78.98945737413192)
+            Predict: 0.0
+           Else (feature 16 > 78.98945737413192)
+            Predict: 1.0
+   Else (feature 6 not in {1.0,2.0})
+    If (feature 3 <= 71.5)
+     If (feature 12 in {0.0})
+      If (feature 15 in {1.0,2.0,3.0})
+       If (feature 14 in {0.0})
+        If (feature 16 <= 71.63806064936585)
+         If (feature 1 in {1.0})
+          Predict: 0.0
+         Else (feature 1 not in {1.0})
+          Predict: 1.0
+        Else (feature 16 > 71.63806064936585)
+         Predict: 0.0
+       Else (feature 14 not in {0.0})
+        If (feature 10 in {0.0})
+         Predict: 0.0
+        Else (feature 10 not in {0.0})
+         If (feature 5 in {0.0})
+          Predict: 0.0
+         Else (feature 5 not in {0.0})
+          If (feature 7 in {0.0})
+           Predict: 0.0
+          Else (feature 7 not in {0.0})
+           If (feature 16 <= 94.22263503788018)
+            Predict: 1.0
+           Else (feature 16 > 94.22263503788018)
+            Predict: 0.0
+      Else (feature 15 not in {1.0,2.0,3.0})
+       If (feature 0 <= 0.5)
+        If (feature 16 <= 80.14509244316324)
+         Predict: 0.0
+        Else (feature 16 > 80.14509244316324)
+         If (feature 3 <= 63.5)
+          If (feature 13 in {1.0})
+           If (feature 10 in {0.0})
+            Predict: 0.0
+           Else (feature 10 not in {0.0})
+            Predict: 1.0
+          Else (feature 13 not in {1.0})
+           If (feature 14 in {0.0})
+            Predict: 0.0
+           Else (feature 14 not in {0.0})
+            Predict: 1.0
+         Else (feature 3 > 63.5)
+          If (feature 11 in {1.0})
+           Predict: 0.0
+          Else (feature 11 not in {1.0})
+           If (feature 9 in {0.0})
+            Predict: 0.0
+           Else (feature 9 not in {0.0})
+            Predict: 1.0
+       Else (feature 0 > 0.5)
+        Predict: 0.0
+     Else (feature 12 not in {0.0})
+      If (feature 13 in {1.0})
+       If (feature 15 in {0.0,1.0,3.0})
+        If (feature 1 in {1.0})
+         If (feature 3 <= 63.5)
+          Predict: 0.0
+         Else (feature 3 > 63.5)
+          If (feature 14 in {1.0})
+           Predict: 0.0
+          Else (feature 14 not in {1.0})
+           If (feature 8 in {0.0})
+            Predict: 0.0
+           Else (feature 8 not in {0.0})
+            Predict: 0.0
+        Else (feature 1 not in {1.0})
+         If (feature 8 in {1.0})
+          If (feature 3 <= 67.5)
+           If (feature 16 <= 109.27902294759835)
+            Predict: 0.0
+           Else (feature 16 > 109.27902294759835)
+            Predict: 0.0
+          Else (feature 3 > 67.5)
+           Predict: 0.0
+         Else (feature 8 not in {1.0})
+          If (feature 14 in {1.0})
+           Predict: 0.0
+          Else (feature 14 not in {1.0})
+           If (feature 3 <= 52.5)
+            Predict: 0.0
+           Else (feature 3 > 52.5)
+            Predict: 1.0
+       Else (feature 15 not in {0.0,1.0,3.0})
+        If (feature 1 in {0.0})
+         If (feature 3 <= 67.5)
+          Predict: 0.0
+         Else (feature 3 > 67.5)
+          If (feature 3 <= 69.5)
+           If (feature 8 in {1.0})
+            Predict: 0.0
+           Else (feature 8 not in {1.0})
+            Predict: 1.0
+          Else (feature 3 > 69.5)
+           Predict: 0.0
+        Else (feature 1 not in {0.0})
+         If (feature 8 in {0.0})
+          If (feature 3 <= 52.5)
+           Predict: 1.0
+          Else (feature 3 > 52.5)
+           If (feature 3 <= 69.5)
+            Predict: 0.0
+           Else (feature 3 > 69.5)
+            Predict: 0.0
+         Else (feature 8 not in {0.0})
+          If (feature 11 in {0.0})
+           Predict: 0.0
+          Else (feature 11 not in {0.0})
+           If (feature 16 <= 98.65055734149132)
+            Predict: 1.0
+           Else (feature 16 > 98.65055734149132)
+            Predict: 1.0
+      Else (feature 13 not in {1.0})
+       If (feature 2 in {1.0})
+        If (feature 3 <= 48.5)
+         If (feature 11 in {0.0})
+          If (feature 3 <= 45.5)
+           Predict: 0.0
+          Else (feature 3 > 45.5)
+           Predict: 1.0
+         Else (feature 11 not in {0.0})
+          If (feature 14 in {1.0})
+           If (feature 3 <= 20.5)
+            Predict: 1.0
+           Else (feature 3 > 20.5)
+            Predict: 0.0
+          Else (feature 14 not in {1.0})
+           If (feature 8 in {1.0})
+            Predict: 0.0
+           Else (feature 8 not in {1.0})
+            Predict: 1.0
+        Else (feature 3 > 48.5)
+         If (feature 5 in {0.0})
+          Predict: 0.0
+         Else (feature 5 not in {0.0})
+          If (feature 1 in {0.0})
+           If (feature 3 <= 60.5)
+            Predict: 1.0
+           Else (feature 3 > 60.5)
+            Predict: 0.0
+          Else (feature 1 not in {0.0})
+           If (feature 7 in {0.0})
+            Predict: 0.0
+           Else (feature 7 not in {0.0})
+            Predict: 0.0
+       Else (feature 2 not in {1.0})
+        If (feature 3 <= 52.5)
+         If (feature 1 in {0.0})
+          If (feature 16 <= 105.492693168101)
+           If (feature 0 <= 0.5)
+            Predict: 0.0
+           Else (feature 0 > 0.5)
+            Predict: 0.0
+          Else (feature 16 > 105.492693168101)
+           If (feature 14 in {1.0})
+            Predict: 0.0
+           Else (feature 14 not in {1.0})
+            Predict: 1.0
+         Else (feature 1 not in {0.0})
+          If (feature 14 in {1.0})
+           If (feature 8 in {0.0})
+            Predict: 0.0
+           Else (feature 8 not in {0.0})
+            Predict: 1.0
+          Else (feature 14 not in {1.0})
+           If (feature 3 <= 37.5)
+            Predict: 1.0
+           Else (feature 3 > 37.5)
+            Predict: 0.0
+        Else (feature 3 > 52.5)
+         If (feature 15 in {1.0})
+          Predict: 0.0
+         Else (feature 15 not in {1.0})
+          If (feature 0 <= 0.5)
+           If (feature 3 <= 69.5)
+            Predict: 1.0
+           Else (feature 3 > 69.5)
+            Predict: 0.0
+          Else (feature 0 > 0.5)
+           If (feature 15 in {2.0})
+            Predict: 0.0
+           Else (feature 15 not in {2.0})
+            Predict: 1.0
+    Else (feature 3 > 71.5)
+     If (feature 13 in {1.0})
+      If (feature 0 <= 0.5)
+       Predict: 0.0
+      Else (feature 0 > 0.5)
+       If (feature 10 in {1.0})
+        Predict: 0.0
+       Else (feature 10 not in {1.0})
+        If (feature 7 in {1.0})
+         Predict: 0.0
+        Else (feature 7 not in {1.0})
+         If (feature 9 in {0.0})
+          Predict: 0.0
+         Else (feature 9 not in {0.0})
+          Predict: 1.0
+     Else (feature 13 not in {1.0})
+      If (feature 16 <= 109.27902294759835)
+       Predict: 0.0
+      Else (feature 16 > 109.27902294759835)
+       Predict: 1.0
+  Else (feature 13 not in {1.0,2.0})
+   If (feature 7 in {1.0,2.0})
+    If (feature 3 <= 1.5)
+     If (feature 15 in {2.0,3.0})
+      If (feature 16 <= 19.903367441545086)
+       Predict: 0.0
+      Else (feature 16 > 19.903367441545086)
+       If (feature 16 <= 20.205288147265513)
+        If (feature 1 in {0.0})
+         If (feature 15 in {3.0})
+          Predict: 0.0
+         Else (feature 15 not in {3.0})
+          If (feature 14 in {0.0})
+           Predict: 1.0
+          Else (feature 14 not in {0.0})
+           Predict: 0.0
+        Else (feature 1 not in {0.0})
+         If (feature 14 in {0.0})
+          If (feature 15 in {2.0})
+           Predict: 0.0
+          Else (feature 15 not in {2.0})
+           Predict: 1.0
+         Else (feature 14 not in {0.0})
+          Predict: 1.0
+       Else (feature 16 > 20.205288147265513)
+        If (feature 8 in {1.0,2.0})
+         Predict: 0.0
+        Else (feature 8 not in {1.0,2.0})
+         If (feature 15 in {2.0})
+          Predict: 0.0
+         Else (feature 15 not in {2.0})
+          Predict: 1.0
+     Else (feature 15 not in {2.0,3.0})
+      If (feature 2 in {1.0})
+       If (feature 6 in {0.0})
+        Predict: 1.0
+       Else (feature 6 not in {0.0})
+        If (feature 15 in {0.0})
+         If (feature 14 in {1.0})
+          Predict: 0.0
+         Else (feature 14 not in {1.0})
+          Predict: 1.0
+        Else (feature 15 not in {0.0})
+         If (feature 14 in {0.0})
+          If (feature 1 in {0.0})
+           Predict: 0.0
+          Else (feature 1 not in {0.0})
+           If (feature 6 in {1.0})
+            Predict: 0.0
+           Else (feature 6 not in {1.0})
+            Predict: 1.0
+         Else (feature 14 not in {0.0})
+          If (feature 16 <= 19.903367441545086)
+           If (feature 1 in {0.0})
+            Predict: 1.0
+           Else (feature 1 not in {0.0})
+            Predict: 1.0
+          Else (feature 16 > 19.903367441545086)
+           If (feature 16 <= 20.205288147265513)
+            Predict: 0.0
+           Else (feature 16 > 20.205288147265513)
+            Predict: 1.0
+      Else (feature 2 not in {1.0})
+       If (feature 14 in {0.0})
+        If (feature 15 in {0.0})
+         If (feature 6 in {2.0})
+          If (feature 5 in {1.0})
+           Predict: 0.0
+          Else (feature 5 not in {1.0})
+           Predict: 1.0
+         Else (feature 6 not in {2.0})
+          Predict: 1.0
+        Else (feature 15 not in {0.0})
+         If (feature 16 <= 49.64257564269268)
+          If (feature 16 <= 19.903367441545086)
+           If (feature 16 <= 19.60452670890846)
+            Predict: 1.0
+           Else (feature 16 > 19.60452670890846)
+            Predict: 1.0
+          Else (feature 16 > 19.903367441545086)
+           If (feature 16 <= 20.205288147265513)
+            Predict: 1.0
+           Else (feature 16 > 20.205288147265513)
+            Predict: 1.0
+         Else (feature 16 > 49.64257564269268)
+          If (feature 12 in {0.0})
+           Predict: 0.0
+          Else (feature 12 not in {0.0})
+           Predict: 1.0
+       Else (feature 14 not in {0.0})
+        If (feature 16 <= 40.87204575659124)
+         If (feature 16 <= 20.662397908091606)
+          If (feature 16 <= 19.60452670890846)
+           If (feature 15 in {0.0})
+            Predict: 1.0
+           Else (feature 15 not in {0.0})
+            Predict: 1.0
+          Else (feature 16 > 19.60452670890846)
+           If (feature 16 <= 19.903367441545086)
+            Predict: 1.0
+           Else (feature 16 > 19.903367441545086)
+            Predict: 1.0
+         Else (feature 16 > 20.662397908091606)
+          If (feature 15 in {0.0})
+           Predict: 0.0
+          Else (feature 15 not in {0.0})
+           If (feature 4 in {1.0})
+            Predict: 1.0
+           Else (feature 4 not in {1.0})
+            Predict: 1.0
+        Else (feature 16 > 40.87204575659124)
+         If (feature 8 in {0.0})
+          Predict: 0.0
+         Else (feature 8 not in {0.0})
+          If (feature 5 in {1.0})
+           Predict: 0.0
+          Else (feature 5 not in {1.0})
+           Predict: 1.0
+    Else (feature 3 > 1.5)
+     If (feature 8 in {1.0,2.0})
+      If (feature 16 <= 94.22263503788018)
+       If (feature 3 <= 11.5)
+        If (feature 15 in {3.0})
+         If (feature 3 <= 10.5)
+          If (feature 1 in {0.0})
+           If (feature 16 <= 19.903367441545086)
+            Predict: 0.0
+           Else (feature 16 > 19.903367441545086)
+            Predict: 0.0
+          Else (feature 1 not in {0.0})
+           If (feature 2 in {0.0})
+            Predict: 1.0
+           Else (feature 2 not in {0.0})
+            Predict: 0.0
+         Else (feature 3 > 10.5)
+          If (feature 14 in {0.0})
+           Predict: 0.0
+          Else (feature 14 not in {0.0})
+           If (feature 16 <= 19.903367441545086)
+            Predict: 0.0
+           Else (feature 16 > 19.903367441545086)
+            Predict: 1.0
+        Else (feature 15 not in {3.0})
+         If (feature 15 in {0.0,2.0})
+          If (feature 14 in {0.0})
+           If (feature 3 <= 3.5)
+            Predict: 1.0
+           Else (feature 3 > 3.5)
+            Predict: 0.0
+          Else (feature 14 not in {0.0})
+           If (feature 3 <= 3.5)
+            Predict: 0.0
+           Else (feature 3 > 3.5)
+            Predict: 1.0
+         Else (feature 15 not in {0.0,2.0})
+          If (feature 1 in {1.0})
+           If (feature 16 <= 20.205288147265513)
+            Predict: 1.0
+           Else (feature 16 > 20.205288147265513)
+            Predict: 0.0
+          Else (feature 1 not in {1.0})
+           If (feature 3 <= 3.5)
+            Predict: 0.0
+           Else (feature 3 > 3.5)
+            Predict: 0.0
+       Else (feature 3 > 11.5)
+        If (feature 11 in {1.0,2.0})
+         If (feature 3 <= 60.5)
+          If (feature 3 <= 17.5)
+           If (feature 15 in {0.0,3.0})
+            Predict: 0.0
+           Else (feature 15 not in {0.0,3.0})
+            Predict: 0.0
+          Else (feature 3 > 17.5)
+           If (feature 4 in {1.0})
+            Predict: 0.0
+           Else (feature 4 not in {1.0})
+            Predict: 0.0
+         Else (feature 3 > 60.5)
+          Predict: 1.0
+        Else (feature 11 not in {1.0,2.0})
+         If (feature 3 <= 48.5)
+          If (feature 3 <= 30.5)
+           If (feature 9 in {1.0})
+            Predict: 0.0
+           Else (feature 9 not in {1.0})
+            Predict: 0.0
+          Else (feature 3 > 30.5)
+           If (feature 15 in {1.0,2.0})
+            Predict: 0.0
+           Else (feature 15 not in {1.0,2.0})
+            Predict: 1.0
+         Else (feature 3 > 48.5)
+          If (feature 16 <= 90.80707245077606)
+           Predict: 0.0
+          Else (feature 16 > 90.80707245077606)
+           If (feature 15 in {0.0,3.0})
+            Predict: 0.0
+           Else (feature 15 not in {0.0,3.0})
+            Predict: 1.0
+      Else (feature 16 > 94.22263503788018)
+       If (feature 3 <= 48.5)
+        If (feature 10 in {1.0})
+         If (feature 15 in {0.0,1.0,3.0})
+          If (feature 16 <= 105.492693168101)
+           Predict: 0.0
+          Else (feature 16 > 105.492693168101)
+           If (feature 2 in {1.0})
+            Predict: 0.0
+           Else (feature 2 not in {1.0})
+            Predict: 1.0
+         Else (feature 15 not in {0.0,1.0,3.0})
+          Predict: 1.0
+        Else (feature 10 not in {1.0})
+         If (feature 15 in {2.0})
+          If (feature 1 in {1.0})
+           Predict: 0.0
+          Else (feature 1 not in {1.0})
+           If (feature 2 in {1.0})
+            Predict: 0.0
+           Else (feature 2 not in {1.0})
+            Predict: 1.0
+         Else (feature 15 not in {2.0})
+          If (feature 9 in {0.0})
+           If (feature 3 <= 30.5)
+            Predict: 1.0
+           Else (feature 3 > 30.5)
+            Predict: 0.0
+          Else (feature 9 not in {0.0})
+           Predict: 1.0
+       Else (feature 3 > 48.5)
+        If (feature 12 in {1.0})
+         Predict: 0.0
+        Else (feature 12 not in {1.0})
+         Predict: 1.0
+     Else (feature 8 not in {1.0,2.0})
+      If (feature 15 in {1.0,2.0,3.0})
+       If (feature 2 in {1.0})
+        If (feature 3 <= 3.5)
+         If (feature 15 in {2.0,3.0})
+          Predict: 0.0
+         Else (feature 15 not in {2.0,3.0})
+          If (feature 9 in {1.0})
+           Predict: 0.0
+          Else (feature 9 not in {1.0})
+           Predict: 1.0
+        Else (feature 3 > 3.5)
+         If (feature 16 <= 40.87204575659124)
+          If (feature 3 <= 15.5)
+           Predict: 0.0
+          Else (feature 3 > 15.5)
+           Predict: 1.0
+         Else (feature 16 > 40.87204575659124)
+          Predict: 0.0
+       Else (feature 2 not in {1.0})
+        If (feature 3 <= 30.5)
+         If (feature 16 <= 90.80707245077606)
+          If (feature 16 <= 49.64257564269268)
+           If (feature 15 in {1.0})
+            Predict: 0.0
+           Else (feature 15 not in {1.0})
+            Predict: 1.0
+          Else (feature 16 > 49.64257564269268)
+           If (feature 12 in {1.0})
+            Predict: 0.0
+           Else (feature 12 not in {1.0})
+            Predict: 0.0
+         Else (feature 16 > 90.80707245077606)
+          If (feature 14 in {1.0})
+           If (feature 3 <= 13.5)
+            Predict: 1.0
+           Else (feature 3 > 13.5)
+            Predict: 0.0
+          Else (feature 14 not in {1.0})
+           Predict: 1.0
+        Else (feature 3 > 30.5)
+         If (feature 0 <= 0.5)
+          If (feature 16 <= 45.364659265398345)
+           If (feature 9 in {0.0})
+            Predict: 0.0
+           Else (feature 9 not in {0.0})
+            Predict: 1.0
+          Else (feature 16 > 45.364659265398345)
+           If (feature 14 in {0.0})
+            Predict: 0.0
+           Else (feature 14 not in {0.0})
+            Predict: 0.0
+         Else (feature 0 > 0.5)
+          If (feature 3 <= 33.5)
+           Predict: 0.0
+          Else (feature 3 > 33.5)
+           If (feature 1 in {0.0})
+            Predict: 0.0
+           Else (feature 1 not in {0.0})
+            Predict: 1.0
+      Else (feature 15 not in {1.0,2.0,3.0})
+       If (feature 3 <= 56.5)
+        If (feature 16 <= 95.61285226344403)
+         If (feature 12 in {1.0})
+          If (feature 3 <= 17.5)
+           If (feature 10 in {0.0})
+            Predict: 0.0
+           Else (feature 10 not in {0.0})
+            Predict: 1.0
+          Else (feature 3 > 17.5)
+           If (feature 2 in {1.0})
+            Predict: 0.0
+           Else (feature 2 not in {1.0})
+            Predict: 0.0
+         Else (feature 12 not in {1.0})
+          If (feature 16 <= 80.14509244316324)
+           If (feature 5 in {0.0,2.0})
+            Predict: 1.0
+           Else (feature 5 not in {0.0,2.0})
+            Predict: 1.0
+          Else (feature 16 > 80.14509244316324)
+           If (feature 5 in {1.0})
+            Predict: 0.0
+           Else (feature 5 not in {1.0})
+            Predict: 1.0
+        Else (feature 16 > 95.61285226344403)
+         If (feature 2 in {1.0})
+          If (feature 10 in {1.0})
+           Predict: 0.0
+          Else (feature 10 not in {1.0})
+           If (feature 3 <= 2.5)
+            Predict: 0.0
+           Else (feature 3 > 2.5)
+            Predict: 1.0
+         Else (feature 2 not in {1.0})
+          If (feature 3 <= 13.5)
+           Predict: 1.0
+          Else (feature 3 > 13.5)
+           If (feature 3 <= 15.5)
+            Predict: 1.0
+           Else (feature 3 > 15.5)
+            Predict: 1.0
+       Else (feature 3 > 56.5)
+        Predict: 0.0
+   Else (feature 7 not in {1.0,2.0})
+    If (feature 15 in {1.0,2.0,3.0})
+     If (feature 3 <= 10.5)
+      If (feature 6 in {1.0})
+       If (feature 3 <= 4.5)
+        If (feature 12 in {1.0})
+         If (feature 16 <= 45.364659265398345)
+          If (feature 1 in {1.0})
+           Predict: 0.0
+          Else (feature 1 not in {1.0})
+           Predict: 1.0
+         Else (feature 16 > 45.364659265398345)
+          If (feature 10 in {1.0})
+           If (feature 15 in {1.0})
+            Predict: 0.0
+           Else (feature 15 not in {1.0})
+            Predict: 1.0
+          Else (feature 10 not in {1.0})
+           If (feature 15 in {3.0})
+            Predict: 0.0
+           Else (feature 15 not in {3.0})
+            Predict: 1.0
+        Else (feature 12 not in {1.0})
+         If (feature 8 in {1.0})
+          If (feature 2 in {1.0})
+           If (feature 5 in {1.0,2.0})
+            Predict: 0.0
+           Else (feature 5 not in {1.0,2.0})
+            Predict: 0.0
+          Else (feature 2 not in {1.0})
+           If (feature 14 in {1.0})
+            Predict: 0.0
+           Else (feature 14 not in {1.0})
+            Predict: 1.0
+         Else (feature 8 not in {1.0})
+          If (feature 16 <= 45.364659265398345)
+           If (feature 15 in {2.0,3.0})
+            Predict: 1.0
+           Else (feature 15 not in {2.0,3.0})
+            Predict: 1.0
+          Else (feature 16 > 45.364659265398345)
+           If (feature 0 <= 0.5)
+            Predict: 1.0
+           Else (feature 0 > 0.5)
+            Predict: 0.0
+       Else (feature 3 > 4.5)
+        If (feature 0 <= 0.5)
+         If (feature 5 in {1.0,2.0})
+          If (feature 16 <= 29.476323232477064)
+           If (feature 2 in {0.0})
+            Predict: 0.0
+           Else (feature 2 not in {0.0})
+            Predict: 0.0
+          Else (feature 16 > 29.476323232477064)
+           If (feature 1 in {1.0})
+            Predict: 0.0
+           Else (feature 1 not in {1.0})
+            Predict: 1.0
+         Else (feature 5 not in {1.0,2.0})
+          If (feature 16 <= 55.80474027117383)
+           If (feature 3 <= 5.5)
+            Predict: 0.0
+           Else (feature 3 > 5.5)
+            Predict: 1.0
+          Else (feature 16 > 55.80474027117383)
+           If (feature 9 in {1.0})
+            Predict: 0.0
+           Else (feature 9 not in {1.0})
+            Predict: 0.0
+        Else (feature 0 > 0.5)
+         Predict: 0.0
+      Else (feature 6 not in {1.0})
+       If (feature 5 in {1.0})
+        If (feature 3 <= 5.5)
+         If (feature 16 <= 105.492693168101)
+          If (feature 16 <= 74.57763714743416)
+           If (feature 0 <= 0.5)
+            Predict: 1.0
+           Else (feature 0 > 0.5)
+            Predict: 0.0
+          Else (feature 16 > 74.57763714743416)
+           Predict: 1.0
+         Else (feature 16 > 105.492693168101)
+          Predict: 0.0
+        Else (feature 3 > 5.5)
+         If (feature 10 in {1.0})
+          If (feature 8 in {0.0})
+           Predict: 0.0
+          Else (feature 8 not in {0.0})
+           Predict: 1.0
+         Else (feature 10 not in {1.0})
+          If (feature 16 <= 78.98945737413192)
+           If (feature 16 <= 74.57763714743416)
+            Predict: 1.0
+           Else (feature 16 > 74.57763714743416)
+            Predict: 0.0
+          Else (feature 16 > 78.98945737413192)
+           If (feature 16 <= 84.80012339853204)
+            Predict: 1.0
+           Else (feature 16 > 84.80012339853204)
+            Predict: 1.0
+       Else (feature 5 not in {1.0})
+        If (feature 3 <= 2.5)
+         If (feature 15 in {3.0})
+          If (feature 1 in {1.0})
+           Predict: 0.0
+          Else (feature 1 not in {1.0})
+           Predict: 1.0
+         Else (feature 15 not in {3.0})
+          If (feature 10 in {1.0})
+           Predict: 0.0
+          Else (feature 10 not in {1.0})
+           If (feature 15 in {2.0})
+            Predict: 1.0
+           Else (feature 15 not in {2.0})
+            Predict: 1.0
+        Else (feature 3 > 2.5)
+         If (feature 3 <= 3.5)
+          If (feature 14 in {1.0})
+           Predict: 0.0
+          Else (feature 14 not in {1.0})
+           If (feature 15 in {3.0})
+            Predict: 0.0
+           Else (feature 15 not in {3.0})
+            Predict: 1.0
+         Else (feature 3 > 3.5)
+          If (feature 9 in {1.0})
+           If (feature 15 in {3.0})
+            Predict: 1.0
+           Else (feature 15 not in {3.0})
+            Predict: 1.0
+          Else (feature 9 not in {1.0})
+           If (feature 15 in {1.0,3.0})
+            Predict: 1.0
+           Else (feature 15 not in {1.0,3.0})
+            Predict: 1.0
+     Else (feature 3 > 10.5)
+      If (feature 6 in {1.0})
+       If (feature 1 in {1.0})
+        If (feature 12 in {0.0})
+         If (feature 16 <= 52.40265953595791)
+          If (feature 8 in {0.0})
+           If (feature 9 in {0.0})
+            Predict: 0.0
+           Else (feature 9 not in {0.0})
+            Predict: 0.0
+          Else (feature 8 not in {0.0})
+           If (feature 15 in {1.0,3.0})
+            Predict: 0.0
+           Else (feature 15 not in {1.0,3.0})
+            Predict: 1.0
+         Else (feature 16 > 52.40265953595791)
+          Predict: 0.0
+        Else (feature 12 not in {0.0})
+         If (feature 5 in {1.0})
+          Predict: 0.0
+         Else (feature 5 not in {1.0})
+          If (feature 3 <= 30.5)
+           If (feature 3 <= 20.5)
+            Predict: 0.0
+           Else (feature 3 > 20.5)
+            Predict: 1.0
+          Else (feature 3 > 30.5)
+           If (feature 3 <= 48.5)
+            Predict: 0.0
+           Else (feature 3 > 48.5)
+            Predict: 0.0
+       Else (feature 1 not in {1.0})
+        If (feature 3 <= 17.5)
+         If (feature 10 in {0.0})
+          If (feature 3 <= 15.5)
+           If (feature 16 <= 68.275)
+            Predict: 0.0
+           Else (feature 16 > 68.275)
+            Predict: 1.0
+          Else (feature 3 > 15.5)
+           If (feature 15 in {2.0})
+            Predict: 0.0
+           Else (feature 15 not in {2.0})
+            Predict: 1.0
+         Else (feature 10 not in {0.0})
+          If (feature 16 <= 68.275)
+           If (feature 16 <= 49.64257564269268)
+            Predict: 0.0
+           Else (feature 16 > 49.64257564269268)
+            Predict: 1.0
+          Else (feature 16 > 68.275)
+           Predict: 0.0
+        Else (feature 3 > 17.5)
+         If (feature 16 <= 61.025)
+          If (feature 16 <= 52.40265953595791)
+           If (feature 3 <= 26.5)
+            Predict: 0.0
+           Else (feature 3 > 26.5)
+            Predict: 0.0
+          Else (feature 16 > 52.40265953595791)
+           If (feature 3 <= 23.5)
+            Predict: 1.0
+           Else (feature 3 > 23.5)
+            Predict: 0.0
+         Else (feature 16 > 61.025)
+          Predict: 0.0
+      Else (feature 6 not in {1.0})
+       If (feature 16 <= 103.12586885111018)
+        If (feature 3 <= 15.5)
+         If (feature 16 <= 82.025)
+          If (feature 16 <= 75.55022650767089)
+           If (feature 5 in {0.0})
+            Predict: 0.0
+           Else (feature 5 not in {0.0})
+            Predict: 1.0
+          Else (feature 16 > 75.55022650767089)
+           If (feature 15 in {1.0,3.0})
+            Predict: 0.0
+           Else (feature 15 not in {1.0,3.0})
+            Predict: 1.0
+         Else (feature 16 > 82.025)
+          If (feature 15 in {3.0})
+           If (feature 5 in {0.0})
+            Predict: 0.0
+           Else (feature 5 not in {0.0})
+            Predict: 1.0
+          Else (feature 15 not in {3.0})
+           Predict: 1.0
+        Else (feature 3 > 15.5)
+         If (feature 10 in {1.0})
+          If (feature 16 <= 100.42497800595862)
+           If (feature 2 in {1.0})
+            Predict: 0.0
+           Else (feature 2 not in {1.0})
+            Predict: 0.0
+          Else (feature 16 > 100.42497800595862)
+           If (feature 8 in {1.0})
+            Predict: 0.0
+           Else (feature 8 not in {1.0})
+            Predict: 1.0
+         Else (feature 10 not in {1.0})
+          If (feature 14 in {1.0})
+           If (feature 8 in {1.0})
+            Predict: 0.0
+           Else (feature 8 not in {1.0})
+            Predict: 0.0
+          Else (feature 14 not in {1.0})
+           If (feature 1 in {0.0})
+            Predict: 0.0
+           Else (feature 1 not in {0.0})
+            Predict: 1.0
+       Else (feature 16 > 103.12586885111018)
+        If (feature 9 in {0.0})
+         Predict: 0.0
+        Else (feature 9 not in {0.0})
+         If (feature 5 in {0.0})
+          Predict: 0.0
+         Else (feature 5 not in {0.0})
+          If (feature 3 <= 52.5)
+           If (feature 8 in {0.0})
+            Predict: 1.0
+           Else (feature 8 not in {0.0})
+            Predict: 1.0
+          Else (feature 3 > 52.5)
+           If (feature 3 <= 63.5)
+            Predict: 0.0
+           Else (feature 3 > 63.5)
+            Predict: 1.0
+    Else (feature 15 not in {1.0,2.0,3.0})
+     If (feature 10 in {1.0})
+      If (feature 8 in {1.0})
+       If (feature 3 <= 5.5)
+        If (feature 2 in {1.0})
+         Predict: 0.0
+        Else (feature 2 not in {1.0})
+         If (feature 11 in {1.0})
+          If (feature 3 <= 1.5)
+           Predict: 1.0
+          Else (feature 3 > 1.5)
+           Predict: 0.0
+         Else (feature 11 not in {1.0})
+          Predict: 1.0
+       Else (feature 3 > 5.5)
+        If (feature 16 <= 109.27902294759835)
+         If (feature 11 in {1.0})
+          If (feature 3 <= 7.5)
+           Predict: 1.0
+          Else (feature 3 > 7.5)
+           If (feature 3 <= 45.5)
+            Predict: 0.0
+           Else (feature 3 > 45.5)
+            Predict: 0.0
+         Else (feature 11 not in {1.0})
+          If (feature 3 <= 11.5)
+           Predict: 0.0
+          Else (feature 3 > 11.5)
+           If (feature 3 <= 45.5)
+            Predict: 1.0
+           Else (feature 3 > 45.5)
+            Predict: 0.0
+        Else (feature 16 > 109.27902294759835)
+         If (feature 3 <= 56.5)
+          If (feature 0 <= 0.5)
+           If (feature 2 in {1.0})
+            Predict: 0.0
+           Else (feature 2 not in {1.0})
+            Predict: 1.0
+          Else (feature 0 > 0.5)
+           If (feature 3 <= 11.5)
+            Predict: 0.0
+           Else (feature 3 > 11.5)
+            Predict: 0.0
+         Else (feature 3 > 56.5)
+          Predict: 0.0
+      Else (feature 8 not in {1.0})
+       If (feature 14 in {1.0})
+        If (feature 11 in {0.0})
+         Predict: 0.0
+        Else (feature 11 not in {0.0})
+         If (feature 3 <= 30.5)
+          If (feature 3 <= 9.5)
+           If (feature 3 <= 2.5)
+            Predict: 1.0
+           Else (feature 3 > 2.5)
+            Predict: 0.0
+          Else (feature 3 > 9.5)
+           If (feature 1 in {1.0})
+            Predict: 0.0
+           Else (feature 1 not in {1.0})
+            Predict: 1.0
+         Else (feature 3 > 30.5)
+          Predict: 0.0
+       Else (feature 14 not in {1.0})
+        If (feature 3 <= 56.5)
+         If (feature 4 in {1.0})
+          If (feature 3 <= 15.5)
+           If (feature 3 <= 3.5)
+            Predict: 0.0
+           Else (feature 3 > 3.5)
+            Predict: 1.0
+          Else (feature 3 > 15.5)
+           Predict: 0.0
+         Else (feature 4 not in {1.0})
+          If (feature 11 in {0.0})
+           If (feature 16 <= 89.40038370178017)
+            Predict: 1.0
+           Else (feature 16 > 89.40038370178017)
+            Predict: 0.0
+          Else (feature 11 not in {0.0})
+           If (feature 3 <= 1.5)
+            Predict: 0.0
+           Else (feature 3 > 1.5)
+            Predict: 1.0
+        Else (feature 3 > 56.5)
+         Predict: 0.0
+     Else (feature 10 not in {1.0})
+      If (feature 14 in {1.0})
+       If (feature 3 <= 6.5)
+        If (feature 3 <= 2.5)
+         If (feature 0 <= 0.5)
+          If (feature 8 in {1.0})
+           If (feature 3 <= 1.5)
+            Predict: 1.0
+           Else (feature 3 > 1.5)
+            Predict: 0.0
+          Else (feature 8 not in {1.0})
+           If (feature 16 <= 45.364659265398345)
+            Predict: 1.0
+           Else (feature 16 > 45.364659265398345)
+            Predict: 1.0
+         Else (feature 0 > 0.5)
+          If (feature 4 in {1.0})
+           Predict: 1.0
+          Else (feature 4 not in {1.0})
+           If (feature 16 <= 45.364659265398345)
+            Predict: 0.0
+           Else (feature 16 > 45.364659265398345)
+            Predict: 1.0
+        Else (feature 3 > 2.5)
+         If (feature 16 <= 49.64257564269268)
+          If (feature 2 in {1.0})
+           If (feature 0 <= 0.5)
+            Predict: 0.0
+           Else (feature 0 > 0.5)
+            Predict: 1.0
+          Else (feature 2 not in {1.0})
+           If (feature 16 <= 29.476323232477064)
+            Predict: 1.0
+           Else (feature 16 > 29.476323232477064)
+            Predict: 1.0
+         Else (feature 16 > 49.64257564269268)
+          If (feature 16 <= 74.57763714743416)
+           If (feature 11 in {1.0})
+            Predict: 0.0
+           Else (feature 11 not in {1.0})
+            Predict: 1.0
+          Else (feature 16 > 74.57763714743416)
+           If (feature 12 in {1.0})
+            Predict: 1.0
+           Else (feature 12 not in {1.0})
+            Predict: 1.0
+       Else (feature 3 > 6.5)
+        If (feature 1 in {0.0})
+         If (feature 3 <= 26.5)
+          If (feature 8 in {1.0})
+           If (feature 16 <= 82.025)
+            Predict: 0.0
+           Else (feature 16 > 82.025)
+            Predict: 1.0
+          Else (feature 8 not in {1.0})
+           If (feature 6 in {1.0})
+            Predict: 1.0
+           Else (feature 6 not in {1.0})
+            Predict: 1.0
+         Else (feature 3 > 26.5)
+          If (feature 3 <= 56.5)
+           If (feature 16 <= 75.55022650767089)
+            Predict: 0.0
+           Else (feature 16 > 75.55022650767089)
+            Predict: 0.0
+          Else (feature 3 > 56.5)
+           Predict: 1.0
+        Else (feature 1 not in {0.0})
+         If (feature 9 in {1.0})
+          If (feature 16 <= 29.476323232477064)
+           Predict: 0.0
+          Else (feature 16 > 29.476323232477064)
+           If (feature 3 <= 33.5)
+            Predict: 1.0
+           Else (feature 3 > 33.5)
+            Predict: 0.0
+         Else (feature 9 not in {1.0})
+          If (feature 2 in {1.0})
+           If (feature 5 in {1.0,2.0})
+            Predict: 0.0
+           Else (feature 5 not in {1.0,2.0})
+            Predict: 1.0
+          Else (feature 2 not in {1.0})
+           If (feature 3 <= 52.5)
+            Predict: 1.0
+           Else (feature 3 > 52.5)
+            Predict: 0.0
+      Else (feature 14 not in {1.0})
+       If (feature 3 <= 5.5)
+        If (feature 16 <= 71.63806064936585)
+         If (feature 8 in {1.0})
+          If (feature 4 in {0.0})
+           Predict: 0.0
+          Else (feature 4 not in {0.0})
+           If (feature 0 <= 0.5)
+            Predict: 1.0
+           Else (feature 0 > 0.5)
+            Predict: 0.0
+         Else (feature 8 not in {1.0})
+          If (feature 3 <= 1.5)
+           If (feature 5 in {1.0})
+            Predict: 1.0
+           Else (feature 5 not in {1.0})
+            Predict: 1.0
+          Else (feature 3 > 1.5)
+           If (feature 4 in {1.0})
+            Predict: 1.0
+           Else (feature 4 not in {1.0})
+            Predict: 1.0
+        Else (feature 16 > 71.63806064936585)
+         If (feature 2 in {1.0})
+          If (feature 5 in {1.0})
+           Predict: 1.0
+          Else (feature 5 not in {1.0})
+           If (feature 8 in {1.0})
+            Predict: 1.0
+           Else (feature 8 not in {1.0})
+            Predict: 1.0
+         Else (feature 2 not in {1.0})
+          If (feature 0 <= 0.5)
+           If (feature 16 <= 94.22263503788018)
+            Predict: 1.0
+           Else (feature 16 > 94.22263503788018)
+            Predict: 1.0
+          Else (feature 0 > 0.5)
+           If (feature 3 <= 4.5)
+            Predict: 1.0
+           Else (feature 3 > 4.5)
+            Predict: 1.0
+       Else (feature 3 > 5.5)
+        If (feature 16 <= 95.61285226344403)
+         If (feature 2 in {1.0})
+          If (feature 6 in {1.0})
+           If (feature 3 <= 20.5)
+            Predict: 0.0
+           Else (feature 3 > 20.5)
+            Predict: 0.0
+          Else (feature 6 not in {1.0})
+           If (feature 1 in {0.0})
+            Predict: 0.0
+           Else (feature 1 not in {0.0})
+            Predict: 1.0
+         Else (feature 2 not in {1.0})
+          If (feature 16 <= 75.55022650767089)
+           If (feature 4 in {0.0})
+            Predict: 1.0
+           Else (feature 4 not in {0.0})
+            Predict: 1.0
+          Else (feature 16 > 75.55022650767089)
+           If (feature 3 <= 69.5)
+            Predict: 1.0
+           Else (feature 3 > 69.5)
+            Predict: 0.0
+        Else (feature 16 > 95.61285226344403)
+         If (feature 0 <= 0.5)
+          If (feature 3 <= 45.5)
+           If (feature 2 in {1.0})
+            Predict: 1.0
+           Else (feature 2 not in {1.0})
+            Predict: 1.0
+          Else (feature 3 > 45.5)
+           If (feature 5 in {0.0})
+            Predict: 0.0
+           Else (feature 5 not in {0.0})
+            Predict: 1.0
+         Else (feature 0 > 0.5)
+          If (feature 3 <= 60.5)
+           If (feature 2 in {1.0})
+            Predict: 0.0
+           Else (feature 2 not in {1.0})
+            Predict: 1.0
+          Else (feature 3 > 60.5)
+           If (feature 3 <= 67.5)
+            Predict: 0.0
+           Else (feature 3 > 67.5)
+            Predict: 1.0
