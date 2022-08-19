@@ -1,0 +1,490 @@
+---- Feature extraction & Data Munging --------------
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("diabetes/diabetes.csv")
+
+df.printSchema
+root
+ |-- Pregnancies: integer (nullable = true)
+ |-- Glucose: integer (nullable = true)
+ |-- BloodPressure: integer (nullable = true)
+ |-- SkinThickness: integer (nullable = true)
+ |-- Insulin: integer (nullable = true)
+ |-- BMI: double (nullable = true)
+ |-- DiabetesPedigreeFunction: double (nullable = true)
+ |-- Age: integer (nullable = true)
+ |-- Outcome: integer (nullable = true)
+ 
+df.show(10)
++-----------+-------+-------------+-------------+-------+----+------------------------+---+-------+
+|Pregnancies|Glucose|BloodPressure|SkinThickness|Insulin| BMI|DiabetesPedigreeFunction|Age|Outcome|
++-----------+-------+-------------+-------------+-------+----+------------------------+---+-------+
+|          6|    148|           72|           35|      0|33.6|                   0.627| 50|      1|
+|          1|     85|           66|           29|      0|26.6|                   0.351| 31|      0|
+|          8|    183|           64|            0|      0|23.3|                   0.672| 32|      1|
+|          1|     89|           66|           23|     94|28.1|                   0.167| 21|      0|
+|          0|    137|           40|           35|    168|43.1|                   2.288| 33|      1|
+|          5|    116|           74|            0|      0|25.6|                   0.201| 30|      0|
+|          3|     78|           50|           32|     88|31.0|                   0.248| 26|      1|
+|         10|    115|            0|            0|      0|35.3|                   0.134| 29|      0|
+|          2|    197|           70|           45|    543|30.5|                   0.158| 53|      1|
+|          8|    125|           96|            0|      0| 0.0|                   0.232| 54|      1|
++-----------+-------+-------------+-------------+-------+----+------------------------+---+-------+
+ 
+df.describe().show
++-------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------------+------------------+------------------+
+|summary|       Pregnancies|          Glucose|     BloodPressure|     SkinThickness|           Insulin|               BMI|DiabetesPedigreeFunction|               Age|           Outcome|
++-------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------------+------------------+------------------+
+|  count|               768|              768|               768|               768|               768|               768|                     768|               768|               768|
+|   mean|3.8450520833333335|     120.89453125|       69.10546875|20.536458333333332| 79.79947916666667|31.992578124999977|      0.4718763020833327|33.240885416666664|0.3489583333333333|
+| stddev|  3.36957806269887|31.97261819513622|19.355807170644777|15.952217567727642|115.24400235133803| 7.884160320375441|       0.331328595012775|11.760231540678689| 0.476951377242799|
+|    min|                 0|                0|                 0|                 0|                 0|               0.0|                   0.078|                21|                 0|
+|    max|                17|              199|               122|                99|               846|              67.1|                    2.42|                81|                 1|
++-------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------------+------------------+------------------+
+
+import org.apache.spark.sql.types._
+val df1 = df.withColumn("label", col("Outcome").cast(DoubleType))
+
+import org.apache.spark.ml.feature.{VectorAssembler}
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age"))
+
+-------------------
+
+import org.apache.spark.ml.classification.DecisionTreeClassifier
+val dt = new DecisionTreeClassifier
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(va, dt))
+
+val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
+
+trainingData.cache
+testData.cache
+
+val model = pipeline.fit(trainingData)
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res2: Double = 0.7674982674982676
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res3: Double = 0.6555242135673434
+
+df1.groupBy("label").count.show
++-----+-----+
+|label|count|
++-----+-----+
+|    1|  268|
+|    0|  500|
++-----+-----+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res11: org.apache.spark.mllib.linalg.Matrix =
+141.0  35.0
+15.0   39.0
+
+import org.apache.spark.ml.classification.DecisionTreeClassificationModel
+
+val dtmodel = model.stages(1).asInstanceOf[DecisionTreeClassificationModel]
+
+println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
+Learned classification tree model:
+ DecisionTreeClassificationModel (uid=dtc_d0b10d30fa95) of depth 5 with 53 nodes
+  If (feature 1 <= 128.5)
+   If (feature 7 <= 28.5)
+    If (feature 5 <= 32.349999999999994)
+     If (feature 0 <= 6.5)
+      If (feature 3 <= 31.5)
+       Predict: 0.0
+      Else (feature 3 > 31.5)
+       Predict: 0.0
+     Else (feature 0 > 6.5)
+      Predict: 1.0
+    Else (feature 5 > 32.349999999999994)
+     If (feature 6 <= 0.1455)
+      If (feature 1 <= 87.5)
+       Predict: 0.0
+      Else (feature 1 > 87.5)
+       Predict: 1.0
+     Else (feature 6 > 0.1455)
+      If (feature 6 <= 0.4945)
+       Predict: 0.0
+      Else (feature 6 > 0.4945)
+       Predict: 0.0
+   Else (feature 7 > 28.5)
+    If (feature 1 <= 99.5)
+     If (feature 0 <= 11.5)
+      If (feature 5 <= 34.150000000000006)
+       Predict: 0.0
+      Else (feature 5 > 34.150000000000006)
+       Predict: 0.0
+     Else (feature 0 > 11.5)
+      If (feature 2 <= 73.0)
+       Predict: 1.0
+      Else (feature 2 > 73.0)
+       Predict: 0.0
+    Else (feature 1 > 99.5)
+     If (feature 5 <= 26.05)
+      If (feature 5 <= 19.55)
+       Predict: 1.0
+      Else (feature 5 > 19.55)
+       Predict: 0.0
+     Else (feature 5 > 26.05)
+      If (feature 6 <= 0.554)
+       Predict: 0.0
+      Else (feature 6 > 0.554)
+       Predict: 1.0
+  Else (feature 1 > 128.5)
+   If (feature 5 <= 30.05)
+    If (feature 0 <= 1.5)
+     Predict: 0.0
+    Else (feature 0 > 1.5)
+     If (feature 2 <= 55.5)
+      Predict: 1.0
+     Else (feature 2 > 55.5)
+      If (feature 2 <= 87.0)
+       Predict: 0.0
+      Else (feature 2 > 87.0)
+       Predict: 0.0
+   Else (feature 5 > 30.05)
+    If (feature 1 <= 155.5)
+     If (feature 7 <= 41.5)
+      If (feature 2 <= 71.0)
+       Predict: 1.0
+      Else (feature 2 > 71.0)
+       Predict: 0.0
+     Else (feature 7 > 41.5)
+      If (feature 6 <= 0.2355)
+       Predict: 0.0
+      Else (feature 6 > 0.2355)
+       Predict: 1.0
+    Else (feature 1 > 155.5)
+     If (feature 5 <= 45.95)
+      If (feature 6 <= 1.263)
+       Predict: 1.0
+      Else (feature 6 > 1.263)
+       Predict: 1.0
+     Else (feature 5 > 45.95)
+      If (feature 4 <= 108.0)
+       Predict: 1.0
+      Else (feature 4 > 108.0)
+       Predict: 0.0
+
+-------------------
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().
+addGrid(dt.maxBins, Array(32, 48, 64)).
+addGrid(dt.impurity, Array("gini", "entropy")).
+addGrid(dt.maxDepth, Array(10,20,30)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new BinaryClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val model = cv.fit(trainingData)
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.DecisionTreeClassificationModel
+val dtmodel = bestmodel.stages(1).asInstanceOf[DecisionTreeClassificationModel]
+
+dtmodel.getMaxBins
+res0: Int = 48
+
+dtmodel.getImpurity
+res2: String = entropy
+
+dtmodel.getMaxDepth
+res3: Int = 10
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res16: Double = 0.7436763686763688
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res17: Double = 0.6269005913941122
+
+df1.groupBy("label").count.show
++-----+-----+
+|label|count|
++-----+-----+
+|    1|  268|
+|    0|  500|
++-----+-----+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res18: org.apache.spark.mllib.linalg.Matrix =
+124.0  28.0
+32.0   46.0
+
+println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
+Learned classification tree model:
+ DecisionTreeClassificationModel (uid=dtc_d0b10d30fa95) of depth 10 with 163 nodes
+  If (feature 1 <= 128.5)
+   If (feature 7 <= 28.5)
+    If (feature 5 <= 30.75)
+     If (feature 0 <= 6.5)
+      If (feature 6 <= 0.673)
+       Predict: 0.0
+      Else (feature 6 > 0.673)
+       If (feature 0 <= 2.5)
+        Predict: 0.0
+       Else (feature 0 > 2.5)
+        Predict: 1.0
+     Else (feature 0 > 6.5)
+      Predict: 1.0
+    Else (feature 5 > 30.75)
+     If (feature 2 <= 53.0)
+      If (feature 0 <= 1.5)
+       If (feature 3 <= 45.5)
+        Predict: 1.0
+       Else (feature 3 > 45.5)
+        Predict: 0.0
+      Else (feature 0 > 1.5)
+       If (feature 6 <= 0.2525)
+        If (feature 0 <= 2.5)
+         Predict: 0.0
+        Else (feature 0 > 2.5)
+         Predict: 1.0
+       Else (feature 6 > 0.2525)
+        Predict: 0.0
+     Else (feature 2 > 53.0)
+      If (feature 1 <= 89.5)
+       Predict: 0.0
+      Else (feature 1 > 89.5)
+       If (feature 5 <= 45.349999999999994)
+        If (feature 6 <= 0.4945)
+         If (feature 2 <= 75.5)
+          Predict: 0.0
+         Else (feature 2 > 75.5)
+          If (feature 3 <= 25.5)
+           If (feature 6 <= 0.2055)
+            Predict: 0.0
+           Else (feature 6 > 0.2055)
+            Predict: 1.0
+          Else (feature 3 > 25.5)
+           Predict: 0.0
+        Else (feature 6 > 0.4945)
+         If (feature 2 <= 69.0)
+          If (feature 0 <= 0.5)
+           Predict: 0.0
+          Else (feature 0 > 0.5)
+           If (feature 1 <= 114.5)
+            Predict: 1.0
+           Else (feature 1 > 114.5)
+            Predict: 0.0
+         Else (feature 2 > 69.0)
+          If (feature 4 <= 181.0)
+           Predict: 0.0
+          Else (feature 4 > 181.0)
+           If (feature 0 <= 0.5)
+            Predict: 0.0
+           Else (feature 0 > 0.5)
+            Predict: 1.0
+       Else (feature 5 > 45.349999999999994)
+        If (feature 1 <= 116.5)
+         Predict: 1.0
+        Else (feature 1 > 116.5)
+         Predict: 0.0
+   Else (feature 7 > 28.5)
+    If (feature 5 <= 26.25)
+     If (feature 5 <= 18.299999999999997)
+      Predict: 1.0
+     Else (feature 5 > 18.299999999999997)
+      Predict: 0.0
+    Else (feature 5 > 26.25)
+     If (feature 1 <= 99.5)
+      If (feature 3 <= 3.5)
+       Predict: 0.0
+      Else (feature 3 > 3.5)
+       If (feature 7 <= 48.5)
+        If (feature 4 <= 86.5)
+         If (feature 4 <= 8.0)
+          If (feature 2 <= 73.0)
+           Predict: 1.0
+          Else (feature 2 > 73.0)
+           Predict: 0.0
+         Else (feature 4 > 8.0)
+          Predict: 0.0
+        Else (feature 4 > 86.5)
+         If (feature 0 <= 6.5)
+          If (feature 0 <= 1.5)
+           Predict: 1.0
+          Else (feature 0 > 1.5)
+           Predict: 0.0
+         Else (feature 0 > 6.5)
+          Predict: 1.0
+       Else (feature 7 > 48.5)
+        Predict: 1.0
+     Else (feature 1 > 99.5)
+      If (feature 6 <= 0.58)
+       If (feature 2 <= 84.5)
+        If (feature 3 <= 32.5)
+         If (feature 7 <= 54.5)
+          If (feature 7 <= 29.5)
+           If (feature 0 <= 4.5)
+            Predict: 0.0
+           Else (feature 0 > 4.5)
+            Predict: 1.0
+          Else (feature 7 > 29.5)
+           If (feature 1 <= 121.5)
+            Predict: 1.0
+           Else (feature 1 > 121.5)
+            Predict: 0.0
+         Else (feature 7 > 54.5)
+          Predict: 0.0
+        Else (feature 3 > 32.5)
+         If (feature 1 <= 111.5)
+          Predict: 0.0
+         Else (feature 1 > 111.5)
+          If (feature 1 <= 119.5)
+           Predict: 1.0
+          Else (feature 1 > 119.5)
+           Predict: 0.0
+       Else (feature 2 > 84.5)
+        Predict: 0.0
+      Else (feature 6 > 0.58)
+       If (feature 7 <= 34.5)
+        If (feature 7 <= 30.5)
+         Predict: 1.0
+        Else (feature 7 > 30.5)
+         If (feature 0 <= 6.5)
+          If (feature 4 <= 125.5)
+           Predict: 0.0
+          Else (feature 4 > 125.5)
+           If (feature 3 <= 37.5)
+            Predict: 1.0
+           Else (feature 3 > 37.5)
+            Predict: 0.0
+         Else (feature 0 > 6.5)
+          Predict: 1.0
+       Else (feature 7 > 34.5)
+        Predict: 1.0
+  Else (feature 1 > 128.5)
+   If (feature 5 <= 29.95)
+    If (feature 0 <= 1.5)
+     Predict: 0.0
+    Else (feature 0 > 1.5)
+     If (feature 2 <= 87.0)
+      If (feature 7 <= 60.5)
+       If (feature 1 <= 161.5)
+        If (feature 6 <= 0.554)
+         If (feature 2 <= 54.5)
+          Predict: 1.0
+         Else (feature 2 > 54.5)
+          If (feature 2 <= 64.5)
+           If (feature 0 <= 3.5)
+            Predict: 0.0
+           Else (feature 0 > 3.5)
+            Predict: 0.0
+          Else (feature 2 > 64.5)
+           If (feature 3 <= 19.5)
+            Predict: 0.0
+           Else (feature 3 > 19.5)
+            Predict: 1.0
+        Else (feature 6 > 0.554)
+         Predict: 0.0
+       Else (feature 1 > 161.5)
+        Predict: 1.0
+      Else (feature 7 > 60.5)
+       Predict: 0.0
+     Else (feature 2 > 87.0)
+      Predict: 0.0
+   Else (feature 5 > 29.95)
+    If (feature 1 <= 166.5)
+     If (feature 0 <= 7.5)
+      If (feature 2 <= 60.5)
+       If (feature 1 <= 129.5)
+        Predict: 0.0
+       Else (feature 1 > 129.5)
+        Predict: 1.0
+      Else (feature 2 > 60.5)
+       If (feature 2 <= 64.5)
+        Predict: 0.0
+       Else (feature 2 > 64.5)
+        If (feature 0 <= 1.5)
+         If (feature 3 <= 33.5)
+          Predict: 0.0
+         Else (feature 3 > 33.5)
+          If (feature 5 <= 41.4)
+           If (feature 1 <= 133.5)
+            Predict: 1.0
+           Else (feature 1 > 133.5)
+            Predict: 0.0
+          Else (feature 5 > 41.4)
+           If (feature 6 <= 0.2795)
+            Predict: 0.0
+           Else (feature 6 > 0.2795)
+            Predict: 1.0
+        Else (feature 0 > 1.5)
+         If (feature 6 <= 0.716)
+          If (feature 4 <= 274.5)
+           If (feature 4 <= 131.0)
+            Predict: 1.0
+           Else (feature 4 > 131.0)
+            Predict: 0.0
+          Else (feature 4 > 274.5)
+           Predict: 1.0
+         Else (feature 6 > 0.716)
+          Predict: 1.0
+     Else (feature 0 > 7.5)
+      If (feature 6 <= 0.2865)
+       If (feature 1 <= 142.5)
+        If (feature 0 <= 8.5)
+         Predict: 1.0
+        Else (feature 0 > 8.5)
+         Predict: 0.0
+       Else (feature 1 > 142.5)
+        Predict: 1.0
+      Else (feature 6 > 0.2865)
+       Predict: 1.0
+    Else (feature 1 > 166.5)
+     If (feature 6 <= 1.3969999999999998)
+      If (feature 5 <= 45.349999999999994)
+       If (feature 3 <= 15.5)
+        If (feature 4 <= 8.0)
+         If (feature 0 <= 9.5)
+          Predict: 1.0
+         Else (feature 0 > 9.5)
+          If (feature 1 <= 171.5)
+           Predict: 1.0
+          Else (feature 1 > 171.5)
+           Predict: 0.0
+        Else (feature 4 > 8.0)
+         Predict: 0.0
+       Else (feature 3 > 15.5)
+        Predict: 1.0
+      Else (feature 5 > 45.349999999999994)
+       If (feature 0 <= 0.5)
+        Predict: 0.0
+       Else (feature 0 > 0.5)
+        Predict: 1.0
+     Else (feature 6 > 1.3969999999999998)
+      If (feature 0 <= 3.5)
+       Predict: 1.0
+      Else (feature 0 > 3.5)
+       Predict: 0.0

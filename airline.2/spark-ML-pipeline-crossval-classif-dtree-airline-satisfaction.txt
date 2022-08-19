@@ -1,0 +1,336 @@
+import org.apache.spark.sql.types._
+
+val schemaAnswer = new StructType().
+add("row", DoubleType).
+add("id", DoubleType).
+add("gender", StringType).
+add("cust_type", StringType).
+add("age", DoubleType).
+add("travel_type", StringType).
+add("class", StringType).
+add("flight_distance", DoubleType).
+add("inflight_wifi", DoubleType).
+add("deprt_arrv_time_conv", DoubleType).
+add("ease_online_booking", DoubleType).
+add("gate_location", DoubleType).
+add("food_and_drink", DoubleType).
+add("online_boarding", DoubleType).
+add("seat_comfort", DoubleType).
+add("inflight_entertain", DoubleType).
+add("onboard_service", DoubleType).
+add("legroom_service", DoubleType).
+add("baggage_handling", DoubleType).
+add("checkin_service", DoubleType).
+add("inflight_service", DoubleType).
+add("cleanliness", DoubleType).
+add("deprt_delay_minutes", DoubleType).
+add("arrv_delay_minutes", DoubleType).
+add("satisfaction", StringType)
+
+val df = spark.read.format("csv").option("header","true").schema(schemaAnswer).load("airline/airline_satisfaction_train.csv")
+
+df.printSchema
+root
+ |-- row: double (nullable = true)
+ |-- id: double (nullable = true)
+ |-- gender: string (nullable = true)
+ |-- cust_type: string (nullable = true)
+ |-- age: double (nullable = true)
+ |-- travel_type: string (nullable = true)
+ |-- class: string (nullable = true)
+ |-- flight_distance: double (nullable = true)
+ |-- inflight_wifi: double (nullable = true)
+ |-- deprt_arrv_time_conv: double (nullable = true)
+ |-- ease_online_booking: double (nullable = true)
+ |-- gate_location: double (nullable = true)
+ |-- food_and_drink: double (nullable = true)
+ |-- online_boarding: double (nullable = true)
+ |-- seat_comfort: double (nullable = true)
+ |-- inflight_entertain: double (nullable = true)
+ |-- onboard_service: double (nullable = true)
+ |-- legroom_service: double (nullable = true)
+ |-- baggage_handling: double (nullable = true)
+ |-- checkin_service: double (nullable = true)
+ |-- inflight_service: double (nullable = true)
+ |-- cleanliness: double (nullable = true)
+ |-- deprt_delay_minutes: double (nullable = true)
+ |-- arrv_delay_minutes: double (nullable = true)
+ |-- satisfaction: string (nullable = true)
+ 
+
+val df1 = df.drop("row","id").na.fill(0, Seq("arrv_delay_minutes"))
+
+df1.show(10)
++------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+
+|gender|        cust_type| age|    travel_type|   class|flight_distance|inflight_wifi|deprt_arrv_time_conv|ease_online_booking|gate_location|food_and_drink|online_boarding|seat_comfort|inflight_entertain|onboard_service|legroom_service|baggage_handling|checkin_service|inflight_service|cleanliness|deprt_delay_minutes|arrv_delay_minutes|        satisfaction|
++------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+
+|  Male|   Loyal Customer|13.0|Personal Travel|Eco Plus|          460.0|          3.0|                 4.0|                3.0|          1.0|           5.0|            3.0|         5.0|               5.0|            4.0|            3.0|             4.0|            4.0|             5.0|        5.0|               25.0|              18.0|neutral or dissat...|
+|  Male|disloyal Customer|25.0|Business travel|Business|          235.0|          3.0|                 2.0|                3.0|          3.0|           1.0|            3.0|         1.0|               1.0|            1.0|            5.0|             3.0|            1.0|             4.0|        1.0|                1.0|               6.0|neutral or dissat...|
+|Female|   Loyal Customer|26.0|Business travel|Business|         1142.0|          2.0|                 2.0|                2.0|          2.0|           5.0|            5.0|         5.0|               5.0|            4.0|            3.0|             4.0|            4.0|             4.0|        5.0|                0.0|               0.0|           satisfied|
+|Female|   Loyal Customer|25.0|Business travel|Business|          562.0|          2.0|                 5.0|                5.0|          5.0|           2.0|            2.0|         2.0|               2.0|            2.0|            5.0|             3.0|            1.0|             4.0|        2.0|               11.0|               9.0|neutral or dissat...|
+|  Male|   Loyal Customer|61.0|Business travel|Business|          214.0|          3.0|                 3.0|                3.0|          3.0|           4.0|            5.0|         5.0|               3.0|            3.0|            4.0|             4.0|            3.0|             3.0|        3.0|                0.0|               0.0|           satisfied|
+|Female|   Loyal Customer|26.0|Personal Travel|     Eco|         1180.0|          3.0|                 4.0|                2.0|          1.0|           1.0|            2.0|         1.0|               1.0|            3.0|            4.0|             4.0|            4.0|             4.0|        1.0|                0.0|               0.0|neutral or dissat...|
+|  Male|   Loyal Customer|47.0|Personal Travel|     Eco|         1276.0|          2.0|                 4.0|                2.0|          3.0|           2.0|            2.0|         2.0|               2.0|            3.0|            3.0|             4.0|            3.0|             5.0|        2.0|                9.0|              23.0|neutral or dissat...|
+|Female|   Loyal Customer|52.0|Business travel|Business|         2035.0|          4.0|                 3.0|                4.0|          4.0|           5.0|            5.0|         5.0|               5.0|            5.0|            5.0|             5.0|            4.0|             5.0|        4.0|                4.0|               0.0|           satisfied|
+|Female|   Loyal Customer|41.0|Business travel|Business|          853.0|          1.0|                 2.0|                2.0|          2.0|           4.0|            3.0|         3.0|               1.0|            1.0|            2.0|             1.0|            4.0|             1.0|        2.0|                0.0|               0.0|neutral or dissat...|
+|  Male|disloyal Customer|20.0|Business travel|     Eco|         1061.0|          3.0|                 3.0|                3.0|          4.0|           2.0|            3.0|         3.0|               2.0|            2.0|            3.0|             4.0|            4.0|             3.0|        2.0|                0.0|               0.0|neutral or dissat...|
++------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+
+only showing top 10 rows
+
+
+df1.describe().show
++-------+------+-----------------+------------------+---------------+--------+------------------+------------------+--------------------+-------------------+------------------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+--------------------+
+|summary|gender|        cust_type|               age|    travel_type|   class|   flight_distance|     inflight_wifi|deprt_arrv_time_conv|ease_online_booking|     gate_location|    food_and_drink|  online_boarding|      seat_comfort|inflight_entertain|   onboard_service|   legroom_service|  baggage_handling|   checkin_service|  inflight_service|       cleanliness|deprt_delay_minutes|arrv_delay_minutes|        satisfaction|
++-------+------+-----------------+------------------+---------------+--------+------------------+------------------+--------------------+-------------------+------------------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+--------------------+
+|  count|103904|           103904|            103904|         103904|  103904|            103904|            103904|              103904|             103904|            103904|            103904|           103904|            103904|            103904|            103904|            103904|            103904|            103904|            103904|            103904|             103904|            103904|              103904|
+|   mean|  null|             null|39.379706267323684|           null|    null|1189.4483754234677|  2.72968316907915|    3.06029604250077| 2.7569006005543577|2.9768825069294733|3.2021288882044963|3.250375346473668|3.4393959809054513| 3.358157530027718| 3.382362565445026|3.3510548198336925|3.6318332306744687| 3.304290498922082|3.6404277024946103|3.2863508623344626| 14.815618263012011|15.133392362180475|                null|
+| stddev|  null|             null|15.114963699737896|           null|    null| 997.1472805289565|1.3278294712362229|  1.5250751972834864|  1.398929472659151|1.2776210103002335| 1.329532710858201|1.349508953713335|1.3190875186173359| 1.332990714627123|1.2883543609017745| 1.315604619325567| 1.180903411075977|1.2653958269270715|1.1756630338758984|1.3122728470665397| 38.230900584141814| 38.64977613202412|                null|
+|    min|Female|   Loyal Customer|               7.0|Business travel|Business|              31.0|               0.0|                 0.0|                0.0|               0.0|               0.0|              0.0|               0.0|               0.0|               0.0|               0.0|               1.0|               0.0|               0.0|               0.0|                0.0|               0.0|neutral or dissat...|
+|    max|  Male|disloyal Customer|              85.0|Personal Travel|Eco Plus|            4983.0|               5.0|                 5.0|                5.0|               5.0|               5.0|              5.0|               5.0|               5.0|               5.0|               5.0|               5.0|               5.0|               5.0|               5.0|             1592.0|            1584.0|           satisfied|
++-------+------+-----------------+------------------+---------------+--------+------------------+------------------+--------------------+-------------------+------------------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+--------------------+
+
+df1.groupBy('gender).count.show
++------+-----+
+|gender|count|
++------+-----+
+|Female|52727|
+|  Male|51177|
++------+-----+
+
+df1.groupBy('cust_type).count.show
++-----------------+-----+
+|        cust_type|count|
++-----------------+-----+
+|   Loyal Customer|84923|
+|disloyal Customer|18981|
++-----------------+-----+
+
+df1.groupBy('travel_type).count.show
++---------------+-----+
+|    travel_type|count|
++---------------+-----+
+|Personal Travel|32249|
+|Business travel|71655|
++---------------+-----+
+
+df1.groupBy('class).count.show
++--------+-----+
+|   class|count|
++--------+-----+
+|Eco Plus| 7494|
+|Business|49665|
+|     Eco|46745|
++--------+-----+
+
+df1.groupBy('satisfaction).count.show
++--------------------+-----+
+|        satisfaction|count|
++--------------------+-----+
+|neutral or dissat...|58879|
+|           satisfied|45025|
++--------------------+-----+
+
+import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
+
+val dfrawIndexer1 = new StringIndexer().setInputCol("gender").setOutputCol("gender_cat")
+val dfrawIndexer2 = new StringIndexer().setInputCol("cust_type").setOutputCol("cust_type_cat")
+val dfrawIndexer3 = new StringIndexer().setInputCol("travel_type").setOutputCol("travel_type_cat")
+val dfrawIndexer4 = new StringIndexer().setInputCol("class").setOutputCol("class_cat")
+val dfrawIndexer5 = new StringIndexer().setInputCol("satisfaction").setOutputCol("label")
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("gender_cat","cust_type_cat","age","travel_type_cat","class_cat","flight_distance","inflight_wifi","deprt_arrv_time_conv","ease_online_booking","gate_location","food_and_drink","online_boarding","seat_comfort","inflight_entertain","onboard_service","legroom_service","baggage_handling","checkin_service","inflight_service","cleanliness","deprt_delay_minutes","arrv_delay_minutes"))
+
+
+import org.apache.spark.ml.classification.DecisionTreeClassifier
+val dt = new DecisionTreeClassifier
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(dfrawIndexer1,dfrawIndexer2,dfrawIndexer3,dfrawIndexer4,dfrawIndexer5,va,dt))
+
+val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
+
+trainingData.cache
+testData.cache
+
+val model = pipeline.fit(trainingData)
+
+val pred = model.transform(testData)
+
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res2: Double = 0.8393090044298548
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res3: Double = 0.811529725510497
+
+df1.groupBy("satisfaction").count.show
++--------------------+-----+
+|        satisfaction|count|
++--------------------+-----+
+|neutral or dissat...|58879|
+|           satisfied|45025|
++--------------------+-----+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res12: org.apache.spark.mllib.linalg.Matrix =
+16283.0  1714.0
+1192.0   11883.0
+
+import org.apache.spark.ml.classification.DecisionTreeClassificationModel
+
+val dtmodel = model.stages(6).asInstanceOf[DecisionTreeClassificationModel]
+
+println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
+Learned classification tree model:
+ DecisionTreeClassificationModel (uid=dtc_5bf81f22c74c) of depth 5 with 53 nodes
+  If (feature 11 <= 3.5)
+   If (feature 6 <= 3.5)
+    If (feature 6 <= 0.5)
+     If (feature 13 <= 0.5)
+      Predict: 0.0
+     Else (feature 13 > 0.5)
+      Predict: 1.0
+    Else (feature 6 > 0.5)
+     If (feature 4 in {1.0,2.0})
+      If (feature 8 <= 3.5)
+       Predict: 0.0
+      Else (feature 8 > 3.5)
+       Predict: 0.0
+     Else (feature 4 not in {1.0,2.0})
+      If (feature 13 <= 3.5)
+       Predict: 0.0
+      Else (feature 13 > 3.5)
+       Predict: 0.0
+   Else (feature 6 > 3.5)
+    If (feature 6 <= 4.5)
+     If (feature 9 <= 3.5)
+      If (feature 5 <= 1445.5)
+       Predict: 0.0
+      Else (feature 5 > 1445.5)
+       Predict: 0.0
+     Else (feature 9 > 3.5)
+      If (feature 3 in {1.0})
+       Predict: 0.0
+      Else (feature 3 not in {1.0})
+       Predict: 1.0
+    Else (feature 6 > 4.5)
+     If (feature 8 <= 4.5)
+      If (feature 15 <= 4.5)
+       Predict: 1.0
+      Else (feature 15 > 4.5)
+       Predict: 1.0
+     Else (feature 8 > 4.5)
+      If (feature 17 <= 1.5)
+       Predict: 1.0
+      Else (feature 17 > 1.5)
+       Predict: 1.0
+  Else (feature 11 > 3.5)
+   If (feature 3 in {1.0})
+    If (feature 6 <= 4.5)
+     If (feature 6 <= 3.5)
+      If (feature 6 <= 0.5)
+       Predict: 1.0
+      Else (feature 6 > 0.5)
+       Predict: 0.0
+     Else (feature 6 > 3.5)
+      If (feature 21 <= 5.5)
+       Predict: 0.0
+      Else (feature 21 > 5.5)
+       Predict: 0.0
+    Else (feature 6 > 4.5)
+     Predict: 1.0
+   Else (feature 3 not in {1.0})
+    If (feature 13 <= 3.5)
+     If (feature 11 <= 4.5)
+      If (feature 17 <= 2.5)
+       Predict: 0.0
+      Else (feature 17 > 2.5)
+       Predict: 1.0
+     Else (feature 11 > 4.5)
+      If (feature 4 in {1.0,2.0})
+       Predict: 1.0
+      Else (feature 4 not in {1.0,2.0})
+       Predict: 1.0
+    Else (feature 13 > 3.5)
+     If (feature 1 in {1.0})
+      If (feature 6 <= 4.5)
+       Predict: 0.0
+      Else (feature 6 > 4.5)
+       Predict: 1.0
+     Else (feature 1 not in {1.0})
+      If (feature 17 <= 2.5)
+       Predict: 1.0
+      Else (feature 17 > 2.5)
+       Predict: 1.0
+
+-------------------
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().
+addGrid(dt.maxBins, Array(32, 48, 64)).
+addGrid(dt.impurity, Array("gini", "entropy")).
+addGrid(dt.maxDepth, Array(10,20,30)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new BinaryClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val model = cv.fit(trainingData)
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.DecisionTreeClassificationModel
+val dtmodel = bestmodel.stages(6).asInstanceOf[DecisionTreeClassificationModel]
+
+dtmodel.getMaxBins
+res0: Int = 48
+
+dtmodel.getImpurity
+res2: String = entropy
+
+dtmodel.getMaxDepth
+res3: Int = 20
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res18: Double = 0.9695101218890012
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res19: Double = 0.9760878520996816
+
+df1.groupBy("satisfaction").count.show
++--------------------+-----+
+|        satisfaction|count|
++--------------------+-----+
+|neutral or dissat...|58879|
+|           satisfied|45025|
++--------------------+-----+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res20: org.apache.spark.mllib.linalg.Matrix =
+16692.0  818.0
+783.0    12779.0
+
+println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")

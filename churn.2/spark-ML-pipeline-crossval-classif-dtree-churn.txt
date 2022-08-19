@@ -1,0 +1,1157 @@
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("churn/Churn_Modelling.csv")
+
+df.printSchema
+root
+ |-- RowNumber: integer (nullable = true)
+ |-- CustomerId: integer (nullable = true)
+ |-- Surname: string (nullable = true)
+ |-- CreditScore: integer (nullable = true)
+ |-- Geography: string (nullable = true)
+ |-- Gender: string (nullable = true)
+ |-- Age: integer (nullable = true)
+ |-- Tenure: integer (nullable = true)
+ |-- Balance: double (nullable = true)
+ |-- NumOfProducts: integer (nullable = true)
+ |-- HasCrCard: integer (nullable = true)
+ |-- IsActiveMember: integer (nullable = true)
+ |-- EstimatedSalary: double (nullable = true)
+ |-- Exited: integer (nullable = true)
+ 
++---------+----------+--------+-----------+---------+------+---+------+---------+-------------+---------+--------------+---------------+------+
+|RowNumber|CustomerId| Surname|CreditScore|Geography|Gender|Age|Tenure|  Balance|NumOfProducts|HasCrCard|IsActiveMember|EstimatedSalary|Exited|
++---------+----------+--------+-----------+---------+------+---+------+---------+-------------+---------+--------------+---------------+------+
+|        1|  15634602|Hargrave|        619|   France|Female| 42|     2|      0.0|            1|        1|             1|      101348.88|     1|
+|        2|  15647311|    Hill|        608|    Spain|Female| 41|     1| 83807.86|            1|        0|             1|      112542.58|     0|
+|        3|  15619304|    Onio|        502|   France|Female| 42|     8| 159660.8|            3|        1|             0|      113931.57|     1|
+|        4|  15701354|    Boni|        699|   France|Female| 39|     1|      0.0|            2|        0|             0|       93826.63|     0|
+|        5|  15737888|Mitchell|        850|    Spain|Female| 43|     2|125510.82|            1|        1|             1|        79084.1|     0|
+|        6|  15574012|     Chu|        645|    Spain|  Male| 44|     8|113755.78|            2|        1|             0|      149756.71|     1|
+|        7|  15592531|Bartlett|        822|   France|  Male| 50|     7|      0.0|            2|        1|             1|        10062.8|     0|
+|        8|  15656148|  Obinna|        376|  Germany|Female| 29|     4|115046.74|            4|        1|             0|      119346.88|     1|
+|        9|  15792365|      He|        501|   France|  Male| 44|     4|142051.07|            2|        0|             1|        74940.5|     0|
+|       10|  15592389|      H?|        684|   France|  Male| 27|     2|134603.88|            1|        1|             1|       71725.73|     0|
++---------+----------+--------+-----------+---------+------+---+------+---------+-------------+---------+--------------+---------------+------+
+only showing top 10 rows
+
+import org.apache.spark.sql.types._
+val df1 = df.drop("RowNumber","CustomerId","Surname").withColumn("label", col("Exited").cast(DoubleType))
+
+df1.describe().show
++-------+-----------------+---------+------+------------------+------------------+-----------------+------------------+-------------------+-------------------+-----------------+-------------------+-------------------+
+|summary|      CreditScore|Geography|Gender|               Age|            Tenure|          Balance|     NumOfProducts|          HasCrCard|     IsActiveMember|  EstimatedSalary|             Exited|              label|
++-------+-----------------+---------+------+------------------+------------------+-----------------+------------------+-------------------+-------------------+-----------------+-------------------+-------------------+
+|  count|            10000|    10000| 10000|             10000|             10000|            10000|             10000|              10000|              10000|            10000|              10000|              10000|
+|   mean|         650.5288|     null|  null|           38.9218|            5.0128|76485.88928799961|            1.5302|             0.7055|             0.5151|100090.2398809998|             0.2037|             0.2037|
+| stddev|96.65329873613035|     null|  null|10.487806451704587|2.8921743770496837|62397.40520238599|0.5816543579989917|0.45584046447513327|0.49979692845891815|57510.49281769821|0.40276858399486065|0.40276858399486065|
+|    min|              350|   France|Female|                18|                 0|              0.0|                 1|                  0|                  0|            11.58|                  0|                  0|
+|    max|              850|    Spain|  Male|                92|                10|        250898.09|                 4|                  1|                  1|        199992.48|                  1|                  1|
++-------+-----------------+---------+------+------------------+------------------+-----------------+------------------+-------------------+-------------------+-----------------+-------------------+-------------------+
+
+df1.groupBy('Geography).count.show
++---------+-----+
+|Geography|count|
++---------+-----+
+|  Germany| 2509|
+|   France| 5014|
+|    Spain| 2477|
++---------+-----+
+
+df1.groupBy('Gender).count.show
++------+-----+
+|Gender|count|
++------+-----+
+|Female| 4543|
+|  Male| 5457|
++------+-----+
+
+
+import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
+val dfrawIndexer1 = new StringIndexer().setInputCol("Geography").setOutputCol("GeographyCat")
+val dfrawIndexer2 = new StringIndexer().setInputCol("Gender").setOutputCol("GenderCat")
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("CreditScore","GeographyCat","GenderCat","Age","Tenure","Balance","NumOfProducts","HasCrCard","IsActiveMember","EstimatedSalary"))
+
+import org.apache.spark.ml.classification.DecisionTreeClassifier
+val dt = new DecisionTreeClassifier
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(dfrawIndexer1,dfrawIndexer2,va,dt))
+
+val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
+
+trainingData.cache
+testData.cache
+
+val model = pipeline.fit(trainingData)
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res2: Double = 0.6369097342014668
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res3: Double = 0.34312839045215865
+
+df1.groupBy("label").count.show
++-----+-----+
+|label|count|
++-----+-----+
+|  0.0| 7963|
+|  1.0| 2037|
++-----+-----+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res4: org.apache.spark.mllib.linalg.Matrix =
+1107.0  272.0
+389.0   1243.0
+
+import org.apache.spark.ml.classification.DecisionTreeClassificationModel
+
+val dtmodel = model.stages(3).asInstanceOf[DecisionTreeClassificationModel]
+
+println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
+Learned classification tree model:
+ DecisionTreeClassificationModel (uid=dtc_f4379d0cebf1) of depth 5 with 61 nodes
+  If (feature 3 <= 42.5)
+   If (feature 6 <= 2.5)
+    If (feature 6 <= 1.5)
+     If (feature 1 in {0.0,2.0})
+      If (feature 5 <= 58652.175)
+       Predict: 0.0
+      Else (feature 5 > 58652.175)
+       Predict: 0.0
+     Else (feature 1 not in {0.0,2.0})
+      If (feature 3 <= 33.5)
+       Predict: 0.0
+      Else (feature 3 > 33.5)
+       Predict: 0.0
+    Else (feature 6 > 1.5)
+     If (feature 5 <= 58652.175)
+      If (feature 2 in {0.0})
+       Predict: 0.0
+      Else (feature 2 not in {0.0})
+       Predict: 0.0
+     Else (feature 5 > 58652.175)
+      If (feature 3 <= 36.5)
+       Predict: 0.0
+      Else (feature 3 > 36.5)
+       Predict: 0.0
+   Else (feature 6 > 2.5)
+    If (feature 5 <= 58652.175)
+     If (feature 3 <= 37.5)
+      If (feature 9 <= 168560.78499999997)
+       Predict: 0.0
+      Else (feature 9 > 168560.78499999997)
+       Predict: 1.0
+     Else (feature 3 > 37.5)
+      If (feature 1 in {1.0})
+       Predict: 0.0
+      Else (feature 1 not in {1.0})
+       Predict: 1.0
+    Else (feature 5 > 58652.175)
+     If (feature 9 <= 193822.95)
+      If (feature 4 <= 1.5)
+       Predict: 1.0
+      Else (feature 4 > 1.5)
+       Predict: 1.0
+     Else (feature 9 > 193822.95)
+      Predict: 0.0
+  Else (feature 3 > 42.5)
+   If (feature 8 <= 0.5)
+    If (feature 3 <= 50.5)
+     If (feature 6 <= 1.5)
+      If (feature 1 in {0.0,2.0})
+       Predict: 1.0
+      Else (feature 1 not in {0.0,2.0})
+       Predict: 1.0
+     Else (feature 6 > 1.5)
+      If (feature 6 <= 2.5)
+       Predict: 0.0
+      Else (feature 6 > 2.5)
+       Predict: 1.0
+    Else (feature 3 > 50.5)
+     If (feature 4 <= 8.5)
+      If (feature 3 <= 53.5)
+       Predict: 1.0
+      Else (feature 3 > 53.5)
+       Predict: 1.0
+     Else (feature 4 > 8.5)
+      If (feature 3 <= 63.5)
+       Predict: 1.0
+      Else (feature 3 > 63.5)
+       Predict: 0.0
+   Else (feature 8 > 0.5)
+    If (feature 6 <= 2.5)
+     If (feature 6 <= 1.5)
+      If (feature 1 in {0.0,2.0})
+       Predict: 0.0
+      Else (feature 1 not in {0.0,2.0})
+       Predict: 1.0
+     Else (feature 6 > 1.5)
+      If (feature 5 <= 27800.050000000003)
+       Predict: 0.0
+      Else (feature 5 > 27800.050000000003)
+       Predict: 0.0
+    Else (feature 6 > 2.5)
+     If (feature 3 <= 63.5)
+      If (feature 0 <= 573.5)
+       Predict: 1.0
+      Else (feature 0 > 573.5)
+       Predict: 1.0
+     Else (feature 3 > 63.5)
+      If (feature 0 <= 708.5)
+       Predict: 1.0
+      Else (feature 0 > 708.5)
+       Predict: 0.0
+
+-------------------
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().
+addGrid(dt.maxBins, Array(32, 48, 64)).
+addGrid(dt.impurity, Array("gini", "entropy")).
+addGrid(dt.maxDepth, Array(10,20,30)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new BinaryClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val model = cv.fit(trainingData)
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.DecisionTreeClassificationModel
+val dtmodel = bestmodel.stages(3).asInstanceOf[DecisionTreeClassificationModel]
+
+dtmodel.getMaxBins
+res0: Int = 48
+
+dtmodel.getImpurity
+res2: String = entropy
+
+dtmodel.getMaxDepth
+res3: Int = 10
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res11: Double = 0.7252358127004868
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res12: Double = 0.502910323822986
+
+df2.groupBy("label").count.show
++-----+-----+
+|label|count|
++-----+-----+
+|  0.0| 7963|
+|  1.0| 2037|
++-----+-----+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res13: org.apache.spark.mllib.linalg.Matrix =
+2139.0  299.0
+170.0   291.0
+
+println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
+Learned classification tree model:
+ DecisionTreeClassificationModel (uid=dtc_f4379d0cebf1) of depth 10 with 585 nodes
+  If (feature 3 <= 41.5)
+   If (feature 6 <= 2.5)
+    If (feature 6 <= 1.5)
+     If (feature 1 in {0.0,2.0})
+      If (feature 5 <= 71727.435)
+       If (feature 2 in {0.0})
+        If (feature 3 <= 31.5)
+         If (feature 9 <= 111326.66)
+          If (feature 0 <= 799.5)
+           If (feature 9 <= 50524.68)
+            Predict: 0.0
+           Else (feature 9 > 50524.68)
+            Predict: 0.0
+          Else (feature 0 > 799.5)
+           Predict: 1.0
+         Else (feature 9 > 111326.66)
+          Predict: 0.0
+        Else (feature 3 > 31.5)
+         If (feature 4 <= 5.5)
+          If (feature 3 <= 38.5)
+           If (feature 1 in {0.0})
+            Predict: 0.0
+           Else (feature 1 not in {0.0})
+            Predict: 0.0
+          Else (feature 3 > 38.5)
+           If (feature 0 <= 568.5)
+            Predict: 0.0
+           Else (feature 0 > 568.5)
+            Predict: 0.0
+         Else (feature 4 > 5.5)
+          If (feature 9 <= 119901.36)
+           If (feature 0 <= 635.5)
+            Predict: 0.0
+           Else (feature 0 > 635.5)
+            Predict: 0.0
+          Else (feature 9 > 119901.36)
+           If (feature 4 <= 7.5)
+            Predict: 1.0
+           Else (feature 4 > 7.5)
+            Predict: 0.0
+       Else (feature 2 not in {0.0})
+        If (feature 8 <= 0.5)
+         If (feature 0 <= 786.5)
+          If (feature 1 in {0.0})
+           If (feature 9 <= 132004.34)
+            Predict: 0.0
+           Else (feature 9 > 132004.34)
+            Predict: 1.0
+          Else (feature 1 not in {0.0})
+           If (feature 5 <= 34280.725)
+            Predict: 0.0
+           Else (feature 5 > 34280.725)
+            Predict: 1.0
+         Else (feature 0 > 786.5)
+          Predict: 0.0
+        Else (feature 8 > 0.5)
+         If (feature 9 <= 12488.5)
+          Predict: 0.0
+         Else (feature 9 > 12488.5)
+          If (feature 9 <= 21051.145)
+           If (feature 0 <= 630.5)
+            Predict: 1.0
+           Else (feature 0 > 630.5)
+            Predict: 0.0
+          Else (feature 9 > 21051.145)
+           If (feature 3 <= 39.5)
+            Predict: 0.0
+           Else (feature 3 > 39.5)
+            Predict: 0.0
+      Else (feature 5 > 71727.435)
+       If (feature 3 <= 39.5)
+        If (feature 8 <= 0.5)
+         If (feature 5 <= 176079.29499999998)
+          If (feature 4 <= 7.5)
+           If (feature 3 <= 35.5)
+            Predict: 0.0
+           Else (feature 3 > 35.5)
+            Predict: 0.0
+          Else (feature 4 > 7.5)
+           If (feature 5 <= 127961.315)
+            Predict: 0.0
+           Else (feature 5 > 127961.315)
+            Predict: 0.0
+         Else (feature 5 > 176079.29499999998)
+          If (feature 0 <= 596.5)
+           If (feature 9 <= 54491.625)
+            Predict: 0.0
+           Else (feature 9 > 54491.625)
+            Predict: 0.0
+          Else (feature 0 > 596.5)
+           If (feature 1 in {2.0})
+            Predict: 0.0
+           Else (feature 1 not in {2.0})
+            Predict: 1.0
+        Else (feature 8 > 0.5)
+         If (feature 3 <= 26.5)
+          Predict: 0.0
+         Else (feature 3 > 26.5)
+          If (feature 3 <= 27.5)
+           If (feature 9 <= 145008.005)
+            Predict: 0.0
+           Else (feature 9 > 145008.005)
+            Predict: 0.0
+          Else (feature 3 > 27.5)
+           If (feature 2 in {0.0})
+            Predict: 0.0
+           Else (feature 2 not in {0.0})
+            Predict: 0.0
+       Else (feature 3 > 39.5)
+        If (feature 9 <= 124164.62)
+         If (feature 4 <= 8.5)
+          If (feature 4 <= 3.5)
+           If (feature 5 <= 144787.63)
+            Predict: 0.0
+           Else (feature 5 > 144787.63)
+            Predict: 0.0
+          Else (feature 4 > 3.5)
+           If (feature 5 <= 79736.285)
+            Predict: 1.0
+           Else (feature 5 > 79736.285)
+            Predict: 0.0
+         Else (feature 4 > 8.5)
+          Predict: 0.0
+        Else (feature 9 > 124164.62)
+         If (feature 2 in {0.0})
+          If (feature 1 in {2.0})
+           Predict: 0.0
+          Else (feature 1 not in {2.0})
+           If (feature 0 <= 738.5)
+            Predict: 0.0
+           Else (feature 0 > 738.5)
+            Predict: 1.0
+         Else (feature 2 not in {0.0})
+          If (feature 5 <= 79736.285)
+           Predict: 1.0
+          Else (feature 5 > 79736.285)
+           If (feature 0 <= 602.5)
+            Predict: 1.0
+           Else (feature 0 > 602.5)
+            Predict: 0.0
+     Else (feature 1 not in {0.0,2.0})
+      If (feature 3 <= 33.5)
+       If (feature 5 <= 100890.73499999999)
+        If (feature 9 <= 140746.02000000002)
+         Predict: 0.0
+        Else (feature 9 > 140746.02000000002)
+         If (feature 0 <= 724.5)
+          If (feature 0 <= 687.5)
+           If (feature 4 <= 8.5)
+            Predict: 0.0
+           Else (feature 4 > 8.5)
+            Predict: 1.0
+          Else (feature 0 > 687.5)
+           Predict: 1.0
+         Else (feature 0 > 724.5)
+          Predict: 0.0
+       Else (feature 5 > 100890.73499999999)
+        If (feature 2 in {0.0})
+         If (feature 8 <= 0.5)
+          If (feature 0 <= 819.5)
+           If (feature 5 <= 135880.315)
+            Predict: 0.0
+           Else (feature 5 > 135880.315)
+            Predict: 0.0
+          Else (feature 0 > 819.5)
+           Predict: 1.0
+         Else (feature 8 > 0.5)
+          If (feature 0 <= 553.5)
+           If (feature 4 <= 4.5)
+            Predict: 1.0
+           Else (feature 4 > 4.5)
+            Predict: 0.0
+          Else (feature 0 > 553.5)
+           Predict: 0.0
+        Else (feature 2 not in {0.0})
+         If (feature 5 <= 113712.32)
+          If (feature 9 <= 140746.02000000002)
+           If (feature 9 <= 124164.62)
+            Predict: 1.0
+           Else (feature 9 > 124164.62)
+            Predict: 0.0
+          Else (feature 9 > 140746.02000000002)
+           Predict: 1.0
+         Else (feature 5 > 113712.32)
+          If (feature 5 <= 157857.65)
+           If (feature 4 <= 8.5)
+            Predict: 0.0
+           Else (feature 4 > 8.5)
+            Predict: 0.0
+          Else (feature 5 > 157857.65)
+           Predict: 0.0
+      Else (feature 3 > 33.5)
+       If (feature 5 <= 144787.63)
+        If (feature 5 <= 97905.435)
+         If (feature 0 <= 499.5)
+          If (feature 2 in {1.0})
+           Predict: 0.0
+          Else (feature 2 not in {1.0})
+           Predict: 1.0
+         Else (feature 0 > 499.5)
+          If (feature 4 <= 2.5)
+           If (feature 5 <= 79736.285)
+            Predict: 0.0
+           Else (feature 5 > 79736.285)
+            Predict: 0.0
+          Else (feature 4 > 2.5)
+           If (feature 9 <= 127939.225)
+            Predict: 0.0
+           Else (feature 9 > 127939.225)
+            Predict: 0.0
+        Else (feature 5 > 97905.435)
+         If (feature 4 <= 1.5)
+          If (feature 9 <= 166653.25)
+           If (feature 9 <= 111326.66)
+            Predict: 1.0
+           Else (feature 9 > 111326.66)
+            Predict: 1.0
+          Else (feature 9 > 166653.25)
+           If (feature 5 <= 103425.715)
+            Predict: 0.0
+           Else (feature 5 > 103425.715)
+            Predict: 0.0
+         Else (feature 4 > 1.5)
+          If (feature 4 <= 5.5)
+           If (feature 0 <= 481.5)
+            Predict: 1.0
+           Else (feature 0 > 481.5)
+            Predict: 0.0
+          Else (feature 4 > 5.5)
+           If (feature 9 <= 140746.02000000002)
+            Predict: 1.0
+           Else (feature 9 > 140746.02000000002)
+            Predict: 0.0
+       Else (feature 5 > 144787.63)
+        If (feature 2 in {1.0})
+         Predict: 0.0
+        Else (feature 2 not in {1.0})
+         If (feature 0 <= 640.5)
+          If (feature 3 <= 37.5)
+           Predict: 0.0
+          Else (feature 3 > 37.5)
+           Predict: 1.0
+         Else (feature 0 > 640.5)
+          If (feature 3 <= 34.5)
+           Predict: 1.0
+          Else (feature 3 > 34.5)
+           Predict: 0.0
+    Else (feature 6 > 1.5)
+     If (feature 5 <= 37484.729999999996)
+      If (feature 2 in {0.0})
+       If (feature 3 <= 36.5)
+        If (feature 9 <= 179022.49)
+         If (feature 3 <= 29.5)
+          If (feature 0 <= 672.5)
+           Predict: 0.0
+          Else (feature 0 > 672.5)
+           If (feature 0 <= 678.5)
+            Predict: 0.0
+           Else (feature 0 > 678.5)
+            Predict: 0.0
+         Else (feature 3 > 29.5)
+          Predict: 0.0
+        Else (feature 9 > 179022.49)
+         If (feature 3 <= 31.5)
+          Predict: 0.0
+         Else (feature 3 > 31.5)
+          If (feature 3 <= 33.5)
+           If (feature 0 <= 687.5)
+            Predict: 0.0
+           Else (feature 0 > 687.5)
+            Predict: 1.0
+          Else (feature 3 > 33.5)
+           Predict: 0.0
+       Else (feature 3 > 36.5)
+        If (feature 9 <= 3866.58)
+         If (feature 0 <= 560.5)
+          Predict: 1.0
+         Else (feature 0 > 560.5)
+          Predict: 0.0
+        Else (feature 9 > 3866.58)
+         If (feature 9 <= 83137.82500000001)
+          Predict: 0.0
+         Else (feature 9 > 83137.82500000001)
+          If (feature 9 <= 87193.935)
+           If (feature 0 <= 700.5)
+            Predict: 0.0
+           Else (feature 0 > 700.5)
+            Predict: 1.0
+          Else (feature 9 > 87193.935)
+           If (feature 0 <= 683.5)
+            Predict: 0.0
+           Else (feature 0 > 683.5)
+            Predict: 0.0
+      Else (feature 2 not in {0.0})
+       If (feature 9 <= 58402.185)
+        If (feature 0 <= 602.5)
+         Predict: 0.0
+        Else (feature 0 > 602.5)
+         If (feature 4 <= 0.5)
+          If (feature 3 <= 39.5)
+           Predict: 1.0
+          Else (feature 3 > 39.5)
+           Predict: 0.0
+         Else (feature 4 > 0.5)
+          If (feature 4 <= 9.5)
+           If (feature 0 <= 667.5)
+            Predict: 0.0
+           Else (feature 0 > 667.5)
+            Predict: 0.0
+          Else (feature 4 > 9.5)
+           If (feature 0 <= 724.5)
+            Predict: 1.0
+           Else (feature 0 > 724.5)
+            Predict: 0.0
+       Else (feature 9 > 58402.185)
+        If (feature 1 in {1.0,2.0})
+         Predict: 0.0
+        Else (feature 1 not in {1.0,2.0})
+         If (feature 0 <= 584.5)
+          Predict: 0.0
+         Else (feature 0 > 584.5)
+          If (feature 0 <= 590.5)
+           If (feature 4 <= 2.5)
+            Predict: 0.0
+           Else (feature 4 > 2.5)
+            Predict: 0.0
+          Else (feature 0 > 590.5)
+           If (feature 0 <= 672.5)
+            Predict: 0.0
+           Else (feature 0 > 672.5)
+            Predict: 0.0
+     Else (feature 5 > 37484.729999999996)
+      If (feature 3 <= 36.5)
+       If (feature 8 <= 0.5)
+        If (feature 5 <= 152592.255)
+         If (feature 3 <= 24.5)
+          If (feature 0 <= 711.5)
+           If (feature 4 <= 6.5)
+            Predict: 0.0
+           Else (feature 4 > 6.5)
+            Predict: 0.0
+          Else (feature 0 > 711.5)
+           Predict: 0.0
+         Else (feature 3 > 24.5)
+          If (feature 3 <= 27.5)
+           Predict: 0.0
+          Else (feature 3 > 27.5)
+           If (feature 9 <= 62690.955)
+            Predict: 0.0
+           Else (feature 9 > 62690.955)
+            Predict: 0.0
+        Else (feature 5 > 152592.255)
+         Predict: 0.0
+       Else (feature 8 > 0.5)
+        If (feature 5 <= 176079.29499999998)
+         If (feature 3 <= 27.5)
+          Predict: 0.0
+         Else (feature 3 > 27.5)
+          If (feature 9 <= 170767.26)
+           If (feature 9 <= 158372.57)
+            Predict: 0.0
+           Else (feature 9 > 158372.57)
+            Predict: 0.0
+          Else (feature 9 > 170767.26)
+           Predict: 0.0
+        Else (feature 5 > 176079.29499999998)
+         If (feature 7 <= 0.5)
+          Predict: 1.0
+         Else (feature 7 > 0.5)
+          If (feature 1 in {0.0,1.0})
+           Predict: 0.0
+          Else (feature 1 not in {0.0,1.0})
+           If (feature 3 <= 25.5)
+            Predict: 1.0
+           Else (feature 3 > 25.5)
+            Predict: 0.0
+      Else (feature 3 > 36.5)
+       If (feature 8 <= 0.5)
+        If (feature 4 <= 2.5)
+         If (feature 9 <= 170767.26)
+          Predict: 0.0
+         Else (feature 9 > 170767.26)
+          If (feature 5 <= 71727.435)
+           Predict: 1.0
+          Else (feature 5 > 71727.435)
+           If (feature 9 <= 175257.635)
+            Predict: 1.0
+           Else (feature 9 > 175257.635)
+            Predict: 0.0
+        Else (feature 4 > 2.5)
+         If (feature 5 <= 108678.4)
+          If (feature 4 <= 6.5)
+           Predict: 0.0
+          Else (feature 4 > 6.5)
+           If (feature 1 in {1.0,2.0})
+            Predict: 0.0
+           Else (feature 1 not in {1.0,2.0})
+            Predict: 0.0
+         Else (feature 5 > 108678.4)
+          If (feature 9 <= 42124.58)
+           Predict: 0.0
+          Else (feature 9 > 42124.58)
+           If (feature 9 <= 179022.49)
+            Predict: 0.0
+           Else (feature 9 > 179022.49)
+            Predict: 0.0
+       Else (feature 8 > 0.5)
+        If (feature 2 in {0.0})
+         If (feature 9 <= 66714.17000000001)
+          If (feature 5 <= 121160.61)
+           Predict: 0.0
+          Else (feature 5 > 121160.61)
+           If (feature 4 <= 1.5)
+            Predict: 1.0
+           Else (feature 4 > 1.5)
+            Predict: 0.0
+         Else (feature 9 > 66714.17000000001)
+          Predict: 0.0
+        Else (feature 2 not in {0.0})
+         If (feature 0 <= 499.5)
+          Predict: 1.0
+         Else (feature 0 > 499.5)
+          If (feature 9 <= 83137.82500000001)
+           Predict: 0.0
+          Else (feature 9 > 83137.82500000001)
+           If (feature 0 <= 613.5)
+            Predict: 0.0
+           Else (feature 0 > 613.5)
+            Predict: 0.0
+   Else (feature 6 > 2.5)
+    If (feature 5 <= 6229.595)
+     If (feature 9 <= 170767.26)
+      If (feature 3 <= 37.5)
+       If (feature 4 <= 9.5)
+        If (feature 4 <= 1.5)
+         If (feature 0 <= 724.5)
+          Predict: 1.0
+         Else (feature 0 > 724.5)
+          Predict: 0.0
+        Else (feature 4 > 1.5)
+         If (feature 0 <= 602.5)
+          If (feature 9 <= 75098.36499999999)
+           If (feature 0 <= 596.5)
+            Predict: 0.0
+           Else (feature 0 > 596.5)
+            Predict: 1.0
+          Else (feature 9 > 75098.36499999999)
+           Predict: 0.0
+         Else (feature 0 > 602.5)
+          Predict: 0.0
+       Else (feature 4 > 9.5)
+        Predict: 1.0
+      Else (feature 3 > 37.5)
+       If (feature 9 <= 79318.85500000001)
+        If (feature 3 <= 40.5)
+         If (feature 4 <= 2.5)
+          Predict: 1.0
+         Else (feature 4 > 2.5)
+          Predict: 0.0
+        Else (feature 3 > 40.5)
+         Predict: 1.0
+       Else (feature 9 > 79318.85500000001)
+        Predict: 1.0
+     Else (feature 9 > 170767.26)
+      Predict: 1.0
+    Else (feature 5 > 6229.595)
+     If (feature 4 <= 1.5)
+      If (feature 5 <= 141654.27500000002)
+       If (feature 9 <= 127939.225)
+        Predict: 1.0
+       Else (feature 9 > 127939.225)
+        Predict: 0.0
+      Else (feature 5 > 141654.27500000002)
+       Predict: 1.0
+     Else (feature 4 > 1.5)
+      If (feature 2 in {0.0})
+       If (feature 9 <= 66714.17000000001)
+        If (feature 0 <= 646.5)
+         If (feature 0 <= 640.5)
+          Predict: 1.0
+         Else (feature 0 > 640.5)
+          Predict: 0.0
+        Else (feature 0 > 646.5)
+         Predict: 1.0
+       Else (feature 9 > 66714.17000000001)
+        Predict: 1.0
+      Else (feature 2 not in {0.0})
+       Predict: 1.0
+  Else (feature 3 > 41.5)
+   If (feature 6 <= 2.5)
+    If (feature 6 <= 1.5)
+     If (feature 8 <= 0.5)
+      If (feature 3 <= 48.5)
+       If (feature 1 in {0.0,2.0})
+        If (feature 5 <= 13360.994999999999)
+         If (feature 0 <= 683.5)
+          If (feature 3 <= 44.5)
+           If (feature 2 in {0.0})
+            Predict: 0.0
+           Else (feature 2 not in {0.0})
+            Predict: 0.0
+          Else (feature 3 > 44.5)
+           If (feature 0 <= 596.5)
+            Predict: 1.0
+           Else (feature 0 > 596.5)
+            Predict: 1.0
+         Else (feature 0 > 683.5)
+          If (feature 4 <= 7.5)
+           Predict: 1.0
+          Else (feature 4 > 7.5)
+           If (feature 3 <= 44.5)
+            Predict: 1.0
+           Else (feature 3 > 44.5)
+            Predict: 0.0
+        Else (feature 5 > 13360.994999999999)
+         If (feature 4 <= 9.5)
+          If (feature 0 <= 512.5)
+           If (feature 9 <= 12488.5)
+            Predict: 0.0
+           Else (feature 9 > 12488.5)
+            Predict: 1.0
+          Else (feature 0 > 512.5)
+           If (feature 5 <= 157857.65)
+            Predict: 0.0
+           Else (feature 5 > 157857.65)
+            Predict: 1.0
+         Else (feature 4 > 9.5)
+          Predict: 0.0
+       Else (feature 1 not in {0.0,2.0})
+        If (feature 3 <= 42.5)
+         If (feature 0 <= 651.5)
+          If (feature 4 <= 1.5)
+           Predict: 1.0
+          Else (feature 4 > 1.5)
+           If (feature 5 <= 100890.73499999999)
+            Predict: 0.0
+           Else (feature 5 > 100890.73499999999)
+            Predict: 0.0
+         Else (feature 0 > 651.5)
+          Predict: 0.0
+        Else (feature 3 > 42.5)
+         If (feature 9 <= 191751.94)
+          If (feature 4 <= 1.5)
+           Predict: 1.0
+          Else (feature 4 > 1.5)
+           If (feature 3 <= 44.5)
+            Predict: 1.0
+           Else (feature 3 > 44.5)
+            Predict: 1.0
+         Else (feature 9 > 191751.94)
+          If (feature 0 <= 577.5)
+           Predict: 1.0
+          Else (feature 0 > 577.5)
+           Predict: 0.0
+      Else (feature 3 > 48.5)
+       If (feature 4 <= 3.5)
+        If (feature 0 <= 613.5)
+         If (feature 0 <= 590.5)
+          If (feature 3 <= 66.5)
+           Predict: 1.0
+          Else (feature 3 > 66.5)
+           Predict: 0.0
+         Else (feature 0 > 590.5)
+          If (feature 3 <= 53.5)
+           If (feature 5 <= 116120.93)
+            Predict: 0.0
+           Else (feature 5 > 116120.93)
+            Predict: 1.0
+          Else (feature 3 > 53.5)
+           Predict: 1.0
+        Else (feature 0 > 613.5)
+         Predict: 1.0
+       Else (feature 4 > 3.5)
+        If (feature 5 <= 30899.86)
+         If (feature 0 <= 590.5)
+          If (feature 3 <= 53.5)
+           Predict: 1.0
+          Else (feature 3 > 53.5)
+           If (feature 4 <= 5.5)
+            Predict: 1.0
+           Else (feature 4 > 5.5)
+            Predict: 0.0
+         Else (feature 0 > 590.5)
+          Predict: 1.0
+        Else (feature 5 > 30899.86)
+         If (feature 9 <= 183277.84)
+          If (feature 3 <= 49.5)
+           If (feature 0 <= 819.5)
+            Predict: 0.0
+           Else (feature 0 > 819.5)
+            Predict: 1.0
+          Else (feature 3 > 49.5)
+           If (feature 5 <= 141654.27500000002)
+            Predict: 1.0
+           Else (feature 5 > 141654.27500000002)
+            Predict: 1.0
+         Else (feature 9 > 183277.84)
+          Predict: 1.0
+     Else (feature 8 > 0.5)
+      If (feature 3 <= 65.5)
+       If (feature 1 in {0.0,2.0})
+        If (feature 5 <= 71727.435)
+         If (feature 4 <= 4.5)
+          If (feature 9 <= 33736.134999999995)
+           If (feature 0 <= 512.5)
+            Predict: 0.0
+           Else (feature 0 > 512.5)
+            Predict: 1.0
+          Else (feature 9 > 33736.134999999995)
+           If (feature 5 <= 6229.595)
+            Predict: 1.0
+           Else (feature 5 > 6229.595)
+            Predict: 0.0
+         Else (feature 4 > 4.5)
+          If (feature 9 <= 187726.375)
+           If (feature 4 <= 9.5)
+            Predict: 0.0
+           Else (feature 4 > 9.5)
+            Predict: 0.0
+          Else (feature 9 > 187726.375)
+           Predict: 1.0
+        Else (feature 5 > 71727.435)
+         If (feature 3 <= 56.5)
+          If (feature 3 <= 48.5)
+           If (feature 0 <= 747.5)
+            Predict: 0.0
+           Else (feature 0 > 747.5)
+            Predict: 0.0
+          Else (feature 3 > 48.5)
+           If (feature 5 <= 176079.29499999998)
+            Predict: 0.0
+           Else (feature 5 > 176079.29499999998)
+            Predict: 1.0
+         Else (feature 3 > 56.5)
+          If (feature 2 in {0.0})
+           Predict: 0.0
+          Else (feature 2 not in {0.0})
+           If (feature 0 <= 667.5)
+            Predict: 0.0
+           Else (feature 0 > 667.5)
+            Predict: 0.0
+       Else (feature 1 not in {0.0,2.0})
+        If (feature 5 <= 94475.64)
+         If (feature 0 <= 765.5)
+          If (feature 3 <= 57.5)
+           Predict: 0.0
+          Else (feature 3 > 57.5)
+           If (feature 3 <= 58.5)
+            Predict: 1.0
+           Else (feature 3 > 58.5)
+            Predict: 0.0
+         Else (feature 0 > 765.5)
+          Predict: 1.0
+        Else (feature 5 > 94475.64)
+         If (feature 5 <= 133207.65000000002)
+          If (feature 0 <= 590.5)
+           If (feature 9 <= 25551.435)
+            Predict: 0.0
+           Else (feature 9 > 25551.435)
+            Predict: 1.0
+          Else (feature 0 > 590.5)
+           If (feature 0 <= 613.5)
+            Predict: 1.0
+           Else (feature 0 > 613.5)
+            Predict: 1.0
+         Else (feature 5 > 133207.65000000002)
+          If (feature 9 <= 12488.5)
+           Predict: 1.0
+          Else (feature 9 > 12488.5)
+           If (feature 3 <= 55.5)
+            Predict: 0.0
+           Else (feature 3 > 55.5)
+            Predict: 0.0
+      Else (feature 3 > 65.5)
+       If (feature 1 in {0.0})
+        Predict: 0.0
+       Else (feature 1 not in {0.0})
+        If (feature 9 <= 191751.94)
+         If (feature 3 <= 69.5)
+          If (feature 9 <= 119901.36)
+           If (feature 0 <= 499.5)
+            Predict: 1.0
+           Else (feature 0 > 499.5)
+            Predict: 0.0
+          Else (feature 9 > 119901.36)
+           Predict: 0.0
+         Else (feature 3 > 69.5)
+          Predict: 0.0
+        Else (feature 9 > 191751.94)
+         If (feature 0 <= 731.5)
+          Predict: 1.0
+         Else (feature 0 > 731.5)
+          Predict: 0.0
+    Else (feature 6 > 1.5)
+     If (feature 5 <= 27800.050000000003)
+      If (feature 8 <= 0.5)
+       If (feature 3 <= 50.5)
+        If (feature 9 <= 33736.134999999995)
+         Predict: 0.0
+        Else (feature 9 > 33736.134999999995)
+         If (feature 3 <= 47.5)
+          If (feature 7 <= 0.5)
+           If (feature 4 <= 3.5)
+            Predict: 0.0
+           Else (feature 4 > 3.5)
+            Predict: 0.0
+          Else (feature 7 > 0.5)
+           If (feature 9 <= 58402.185)
+            Predict: 0.0
+           Else (feature 9 > 58402.185)
+            Predict: 0.0
+         Else (feature 3 > 47.5)
+          Predict: 0.0
+       Else (feature 3 > 50.5)
+        If (feature 9 <= 46558.585)
+         If (feature 9 <= 29700.795)
+          If (feature 0 <= 568.5)
+           Predict: 1.0
+          Else (feature 0 > 568.5)
+           Predict: 0.0
+         Else (feature 9 > 29700.795)
+          Predict: 1.0
+        Else (feature 9 > 46558.585)
+         If (feature 9 <= 106977.66500000001)
+          Predict: 0.0
+         Else (feature 9 > 106977.66500000001)
+          If (feature 9 <= 153695.1)
+           Predict: 1.0
+          Else (feature 9 > 153695.1)
+           If (feature 9 <= 191751.94)
+            Predict: 0.0
+           Else (feature 9 > 191751.94)
+            Predict: 1.0
+      Else (feature 8 > 0.5)
+       If (feature 9 <= 162229.625)
+        If (feature 9 <= 106977.66500000001)
+         If (feature 3 <= 50.5)
+          If (feature 9 <= 3866.58)
+           If (feature 0 <= 747.5)
+            Predict: 1.0
+           Else (feature 0 > 747.5)
+            Predict: 0.0
+          Else (feature 9 > 3866.58)
+           If (feature 3 <= 47.5)
+            Predict: 0.0
+           Else (feature 3 > 47.5)
+            Predict: 0.0
+         Else (feature 3 > 50.5)
+          Predict: 0.0
+        Else (feature 9 > 106977.66500000001)
+         If (feature 3 <= 48.5)
+          If (feature 0 <= 786.5)
+           Predict: 0.0
+          Else (feature 0 > 786.5)
+           If (feature 0 <= 799.5)
+            Predict: 0.0
+           Else (feature 0 > 799.5)
+            Predict: 0.0
+         Else (feature 3 > 48.5)
+          If (feature 9 <= 145008.005)
+           If (feature 0 <= 613.5)
+            Predict: 0.0
+           Else (feature 0 > 613.5)
+            Predict: 0.0
+          Else (feature 9 > 145008.005)
+           If (feature 3 <= 53.5)
+            Predict: 1.0
+           Else (feature 3 > 53.5)
+            Predict: 0.0
+       Else (feature 9 > 162229.625)
+        Predict: 0.0
+     Else (feature 5 > 27800.050000000003)
+      If (feature 3 <= 46.5)
+       If (feature 9 <= 158372.57)
+        If (feature 0 <= 799.5)
+         If (feature 3 <= 43.5)
+          If (feature 9 <= 58402.185)
+           Predict: 0.0
+          Else (feature 9 > 58402.185)
+           If (feature 0 <= 543.5)
+            Predict: 0.0
+           Else (feature 0 > 543.5)
+            Predict: 0.0
+         Else (feature 3 > 43.5)
+          If (feature 9 <= 54491.625)
+           If (feature 4 <= 7.5)
+            Predict: 1.0
+           Else (feature 4 > 7.5)
+            Predict: 0.0
+          Else (feature 9 > 54491.625)
+           If (feature 7 <= 0.5)
+            Predict: 0.0
+           Else (feature 7 > 0.5)
+            Predict: 0.0
+        Else (feature 0 > 799.5)
+         Predict: 0.0
+       Else (feature 9 > 158372.57)
+        If (feature 0 <= 481.5)
+         If (feature 1 in {1.0})
+          Predict: 0.0
+         Else (feature 1 not in {1.0})
+          Predict: 1.0
+        Else (feature 0 > 481.5)
+         Predict: 0.0
+      Else (feature 3 > 46.5)
+       If (feature 8 <= 0.5)
+        If (feature 3 <= 53.5)
+         If (feature 4 <= 9.5)
+          If (feature 5 <= 71727.435)
+           Predict: 1.0
+          Else (feature 5 > 71727.435)
+           If (feature 9 <= 127939.225)
+            Predict: 0.0
+           Else (feature 9 > 127939.225)
+            Predict: 1.0
+         Else (feature 4 > 9.5)
+          Predict: 1.0
+        Else (feature 3 > 53.5)
+         If (feature 0 <= 672.5)
+          Predict: 1.0
+         Else (feature 0 > 672.5)
+          If (feature 1 in {0.0,1.0})
+           If (feature 7 <= 0.5)
+            Predict: 1.0
+           Else (feature 7 > 0.5)
+            Predict: 0.0
+          Else (feature 1 not in {0.0,1.0})
+           Predict: 1.0
+       Else (feature 8 > 0.5)
+        If (feature 3 <= 57.5)
+         If (feature 0 <= 775.5)
+          If (feature 2 in {0.0})
+           If (feature 4 <= 4.5)
+            Predict: 0.0
+           Else (feature 4 > 4.5)
+            Predict: 0.0
+          Else (feature 2 not in {0.0})
+           If (feature 0 <= 590.5)
+            Predict: 0.0
+           Else (feature 0 > 590.5)
+            Predict: 1.0
+         Else (feature 0 > 775.5)
+          Predict: 1.0
+        Else (feature 3 > 57.5)
+         If (feature 5 <= 94475.64)
+          Predict: 0.0
+         Else (feature 5 > 94475.64)
+          If (feature 0 <= 453.5)
+           Predict: 1.0
+          Else (feature 0 > 453.5)
+           If (feature 4 <= 0.5)
+            Predict: 1.0
+           Else (feature 4 > 0.5)
+            Predict: 0.0
+   Else (feature 6 > 2.5)
+    If (feature 5 <= 58652.175)
+     If (feature 1 in {1.0})
+      Predict: 0.0
+     Else (feature 1 not in {1.0})
+      If (feature 9 <= 83137.82500000001)
+       If (feature 3 <= 60.5)
+        If (feature 2 in {0.0})
+         If (feature 0 <= 568.5)
+          If (feature 3 <= 43.5)
+           Predict: 1.0
+          Else (feature 3 > 43.5)
+           Predict: 0.0
+         Else (feature 0 > 568.5)
+          Predict: 1.0
+        Else (feature 2 not in {0.0})
+         Predict: 1.0
+       Else (feature 3 > 60.5)
+        Predict: 0.0
+      Else (feature 9 > 83137.82500000001)
+       Predict: 1.0
+    Else (feature 5 > 58652.175)
+     Predict: 1.0

@@ -1,5 +1,8 @@
 ---- Feature extraction & Data Munging --------------
 
+val colname = sc.textFile("churn/Churn_Modelling.csv").filter( x => x.contains("RowNumber")).take(1)
+colname: Array[String] = Array(RowNumber,CustomerId,Surname,CreditScore,Geography,Gender,Age,Tenure,Balance,NumOfProducts,HasCrCard,IsActiveMember,EstimatedSalary,Exited)
+
 val rdd = sc.textFile("churn/Churn_Modelling.csv").filter( x => ! x.contains("RowNumber"))
 
 val rdd1 = rdd.map( x => x.split(",")).map( x => x.slice(3,x.size))
@@ -11,11 +14,16 @@ res2: Array[Array[String]] = Array(Array(619, France, Female, 42, 2, 0, 1, 1, 1,
 
 def oneHotEncColumns(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int):org.apache.spark.rdd.RDD[Array[Double]] = {
   val categories = rddx.map(r => r(idx)).distinct.zipWithIndex.collectAsMap
+  print(f"$idx%.0f -> "); println(categories)
+  
   val numCategories = categories.size
   val vetcateg = rddx.map(r => {
     val categoryIdx = categories(r(idx)).toInt
-    val categoryFeatures = if (numCategories > 2) Array.ofDim[Double](numCategories) else Array.ofDim[Double](1)
-    if (numCategories > 2) categoryFeatures(categoryIdx) = 1.0 else categoryFeatures(0) = categoryIdx
+    val categoryFeatures = if (numCategories > 2) Array.ofDim[Double](numCategories - 1) else Array.ofDim[Double](1)
+    if (numCategories > 2) { 
+      if (categoryIdx > 0) categoryFeatures(categoryIdx - 1) = 1.0
+    }
+    else categoryFeatures(0) = categoryIdx
     categoryFeatures
     })
   vetcateg
@@ -33,9 +41,11 @@ def mergeArray(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int*):org.apa
 }
 
 val concat = mergeArray(rdd1,1,2)
+1 -> Map(Germany -> 2, France -> 0, Spain -> 1)
+2 -> Map(Male -> 0, Female -> 1)
 
 concat.take(2)
-res2: Array[Array[Double]] = Array(Array(1.0, 0.0, 0.0, 0.0), Array(0.0, 1.0, 0.0, 0.0))
+res43: Array[Array[Double]] = Array(Array(0.0, 0.0, 1.0), Array(1.0, 0.0, 1.0))
 
 val rdd2 = rdd1.map( x => {
   val y = Array(x(0),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10))
@@ -43,6 +53,9 @@ val rdd2 = rdd1.map( x => {
 })
 
 val vect = concat.zip(rdd2).map(x => (x._1.toList ++ x._2.toList).toArray)
+
+vect.take(2)
+res45: Array[Array[Double]] = Array(Array(0.0, 0.0, 1.0, 619.0, 42.0, 2.0, 0.0, 1.0, 1.0, 1.0, 101348.88, 1.0), Array(1.0, 0.0, 1.0, 608.0, 41.0, 1.0, 83807.86, 1.0, 0.0, 1.0, 112542.58, 0.0))
 
 val categ_country = rdd1.map(x => x(1)).distinct.zipWithIndex.collectAsMap
 categ_country: scala.collection.immutable.Map[String,Long] = Map(France -> 0, Spain -> 1, Germany -> 2)
@@ -54,6 +67,9 @@ val rdd2_dt = rdd1.map( x => {
   val y = Array(x(0),categ_country(x(1)),categ_gender(x(2)),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10))
   y.map( z => z.toString.toDouble)
 })
+
+rdd2_dt.take(2)
+res44: Array[Array[Double]] = Array(Array(619.0, 0.0, 1.0, 42.0, 2.0, 0.0, 1.0, 1.0, 1.0, 101348.88, 1.0), Array(608.0, 1.0, 1.0, 41.0, 1.0, 83807.86, 1.0, 0.0, 1.0, 112542.58, 0.0))
 
 val data = vect.zip(rdd2_dt)
 
@@ -79,6 +95,63 @@ val testSet = test_rdd.map( x => {
  })
 
 trainSet.cache
+testSet.cache
+
+---- calculate cosine column similarities to check multicolinearity
+
+import org.apache.spark.mllib.linalg.Matrix
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+
+val vectors = vect.map( x => Vectors.dense(x.slice(0, x.size - 1)))
+val matrix = new RowMatrix(vectors)
+
+val colsims = matrix.columnSimilarities()
+val mat1 = colsims.toRowMatrix
+
+import org.apache.spark.mllib.linalg.distributed.MatrixEntry
+val transformedRDD = colsims.entries.map{case MatrixEntry(row: Long, col:Long, sim:Double) => ((row,col),sim)}
+
+val rep = transformedRDD.sortBy(_._1).map(x => ((x._1._1,x._1._2),x._2))
+
+var i = -1.0
+var j = 0.0
+
+rep.foreach( x => {
+  val sim = x._2
+  if (x._1._1 != i) { println
+    i = x._1._1
+    j = i + 1
+    while (j < x._1._2) { 
+      print("0.0000 ")
+      j = j + 1
+    }
+    print(f"$sim%.4f ")
+  } else {
+      j = j + 1
+      while (j < x._1._2) { 
+        print("0.0000 ")
+        j = j + 1
+      }
+      print(f"$sim%.4f ")
+    }
+})
+// Geography,Gender,CreditScore,Age,Tenure,Balance,NumOfProducts,HasCrCard,IsActiveMember,EstimatedSalary
+0.0000 0.3246 0.4929 0.4802 0.4328 0.3117 0.4680 0.4117 0.3673 0.4287
+       0.3534 0.4962 0.4942 0.4336 0.6076 0.4650 0.4257 0.3472 0.4388
+              0.6670 0.6561 0.5784 0.5166 0.6358 0.5638 0.4721 0.5874
+                     0.9549 0.8568 0.7670 0.9252 0.8304 0.7125 0.8576
+                            0.8351 0.7528 0.8997 0.8094 0.7085 0.8363
+                                   0.6673 0.8121 0.7337 0.6118 0.7530
+                                          0.6560 0.6458 0.5517 0.6759
+                                                 0.7858 0.6733 0.8130
+                                                        0.5983 0.7256
+                                                               0.6183
+
+// CreditScore x Age = 0.9549 can be considered multicolinear
+// CreditScore x Tenure = 0.8568 can be considered multicolinear
+// CreditScore x NumOfProducts = 0.9252 can be considered multicolinear
+// CreditScore x EstimatedSalary= 0.8576 can be considered multicolinear
+// Age x NumOfProducts = 0.8997 can be considered multicolinear
 
 ---- MLlib logistic regression --------------
 
@@ -100,15 +173,15 @@ def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[Labele
 
 iterateLRwSGD(Array(100,300,500),Array(0.1, 0.01, 0.001), trainSet, testSet)
 iter, step -> pred / total, AreaPR, AreaROC
-100, 0.100 -> 2318 / 2922, 0.2067, 0.5000
-100, 0.010 -> 2318 / 2922, 0.2067, 0.5000
-100, 0.001 -> 2318 / 2922, 0.2067, 0.5000
-300, 0.100 -> 1914 / 2922, 0.2301, 0.5292
-300, 0.010 -> 2318 / 2922, 0.2067, 0.5000
-300, 0.001 -> 2318 / 2922, 0.2067, 0.5000
-500, 0.100 -> 2318 / 2922, 0.2067, 0.5000
-500, 0.010 -> 2318 / 2922, 0.2067, 0.5000
-500, 0.001 -> 1888 / 2922, 0.2304, 0.5309
+100, 0.100 -> 2310 / 2899, 0.2032, 0.5000
+100, 0.010 -> 589 / 2899, 0.2032, 0.5000
+100, 0.001 -> 2310 / 2899, 0.2032, 0.5000
+300, 0.100 -> 763 / 2899, 0.1934, 0.4713
+300, 0.010 -> 2310 / 2899, 0.2032, 0.5000
+300, 0.001 -> 1388 / 2899, 0.2435, 0.5888
+500, 0.100 -> 2310 / 2899, 0.2032, 0.5000
+500, 0.010 -> 2182 / 2899, 0.2501, 0.5261
+500, 0.001 -> 2310 / 2899, 0.2032, 0.5000
  
 ---- MLlib SVM regression --------------
 
@@ -128,9 +201,9 @@ def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoi
 
 iterateSVM(Array(100,300,500), trainSet, testSet)
 iter -> pred / total, AreaPR, AreaROC
-100 -> 2318 / 2922, 0.2067, 0.5000
-300 -> 605 / 2922, 0.2068, 0.5002
-500 -> 2318 / 2922, 0.2067, 0.5000
+100 -> 1836 / 2899, 0.2460, 0.5631
+300 -> 591 / 2899, 0.2033, 0.5004
+500 -> 2310 / 2899, 0.2032, 0.5000
 
 
 ---- Analyzing statistics for standardization ---------------------
@@ -143,16 +216,16 @@ val matrix = new RowMatrix(vectors)
 val matrixSummary = matrix.computeColumnSummaryStatistics()
 
 matrixSummary.max
-res26: org.apache.spark.mllib.linalg.Vector = [1.0,1.0,1.0,1.0,1.0,850.0,92.0,10.0,250898.09,4.0,1.0,1.0,199992.48]
+res53: org.apache.spark.mllib.linalg.Vector = [1.0,1.0,1.0,850.0,92.0,10.0,222267.63,4.0,1.0,1.0,199992.48]
 
 matrixSummary.min
-res3: org.apache.spark.mllib.linalg.Vector = [0.0,0.0,0.0,0.0,350.0,18.0,0.0,0.0,1.0,0.0,0.0,90.07]
+res54: org.apache.spark.mllib.linalg.Vector = [0.0,0.0,0.0,350.0,18.0,0.0,0.0,1.0,0.0,0.0,90.07]
 
 matrixSummary.mean
-res28: org.apache.spark.mllib.linalg.Vector = [0.5018853695324283,0.24522373051784815,0.25289089994972347,0.5444947209653092,0.4555052790346908,650.3612368024109,38.970588235294116,5.031422825540482,76800.48831070877,1.5228758169934626,0.7044997486173957,0.5187280040221217,100277.98718451483]
+res55: org.apache.spark.mllib.linalg.Vector = [0.2505280946345585,0.24996479369102942,0.45331643430502744,650.2272919307158,38.907477820025264,5.0229545134488065,76816.17311927915,1.5300661878608626,0.7048303055907619,0.5124630333755809,99857.7737051122]
 
 matrixSummary.variance
-res29: org.apache.spark.mllib.linalg.Vector = [0.25002787171049823,0.18511231951724427,0.18896084340680785,0.24805139770940043,0.24805139770940043,9404.219962970483,111.77713609642477,8.419377032509724,3.8894285466663036E9,0.3337318166319536,0.20820602250150813,0.2496806445506856,3.305986531756714E9]
+res56: org.apache.spark.mllib.linalg.Vector = [0.187790214034524,0.18750880157724265,0.24785554901015724,9389.265514200513,109.60143844052907,8.3976420301842,3.883662355131386E9,0.34096209421009877,0.20807384796031506,0.24987986218961425,3.3323936250122147E9]
 
 ----- Standardizing features ------------------------------
 
@@ -163,6 +236,7 @@ val trainScaled = trainSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.f
 val testScaled = testSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.features)))
 
 trainScaled.cache
+testScaled.cache
 
 ----- with MLlib logistic regression ----------------------
 
@@ -184,15 +258,15 @@ def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[Labele
 
 iterateLRwSGD(Array(100,300,500),Array(0.1, 0.01, 0.001), trainScaled, testScaled)
 iter, step -> pred / total, AreaPR, AreaROC
-100, 0.100 -> 1902 / 2922, 0.3289, 0.6937
-100, 0.010 -> 1903 / 2922, 0.3259, 0.6878 *
-100, 0.001 -> 1903 / 2922, 0.3256, 0.6872
-300, 0.100 -> 1902 / 2922, 0.3289, 0.6937
-300, 0.010 -> 1903 / 2922, 0.3259, 0.6878
-300, 0.001 -> 1903 / 2922, 0.3256, 0.6872
-500, 0.100 -> 1902 / 2922, 0.3289, 0.6937
-500, 0.010 -> 1903 / 2922, 0.3259, 0.6878
-500, 0.001 -> 1903 / 2922, 0.3256, 0.6872
+100, 0.100 -> 1888 / 2899, 0.3294, 0.7034
+100, 0.010 -> 1878 / 2899, 0.3269, 0.7006
+100, 0.001 -> 1878 / 2899, 0.3269, 0.7006
+300, 0.100 -> 1888 / 2899, 0.3294, 0.7034
+300, 0.010 -> 1878 / 2899, 0.3269, 0.7006
+300, 0.001 -> 1878 / 2899, 0.3269, 0.7006
+500, 0.100 -> 1888 / 2899, 0.3294, 0.7034
+500, 0.010 -> 1878 / 2899, 0.3269, 0.7006
+500, 0.001 -> 1878 / 2899, 0.3269, 0.7006
 
 
 ----- with MLlib SVM regression ----------------------
@@ -213,9 +287,9 @@ def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoi
 
 iterateSVM(Array(100,300,500), trainScaled, testScaled)
 iter -> pred / total, AreaPR, AreaROC
-100 -> 1935 / 2922, 0.3397, 0.7069
-300 -> 1935 / 2922, 0.3397, 0.7069
-500 -> 1935 / 2922, 0.3397, 0.7069
+100 -> 1918 / 2899, 0.3377, 0.7124
+300 -> 1918 / 2899, 0.3377, 0.7124
+500 -> 1918 / 2899, 0.3377, 0.7124
 
 ----- with MLlib Decision tree regression ----------------------
 

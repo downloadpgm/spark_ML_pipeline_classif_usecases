@@ -23,7 +23,7 @@ root
  |-- MetodoPagamento: string (nullable = true)
  |-- MesesCobrados: double (nullable = true)
  
-val dfraw = df.drop("id")
+val df1 = df.drop("id")
 
 dfraw.describe().show
 +-------+-----+------------------+-------+-----------+------------------+------------+------------------------+--------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+---------------+------------------+-----+
@@ -39,7 +39,7 @@ dfraw.describe().show
 import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
 
 val dfrawIndexer0 = new StringIndexer().setInputCol("Churn").setOutputCol("label")
-val dfraw1 = dfrawIndexer0.fit(dfraw).transform(dfraw)
+val df2 = dfrawIndexer0.fit(df1).transform(df1)
 
 val dfrawIndexer1 = new StringIndexer().setInputCol("Conjuge").setOutputCol("ConjugeCat")
 val dfrawIndexer2 = new StringIndexer().setInputCol("Dependentes").setOutputCol("DependentesCat")
@@ -66,7 +66,7 @@ import org.apache.spark.ml.Pipeline
 
 val pipeline = new Pipeline().setStages(Array(dfrawIndexer1,dfrawIndexer2,dfrawIndexer3,dfrawIndexer4,dfrawIndexer5,dfrawIndexer6,dfrawIndexer7,dfrawIndexer8,dfrawIndexer9,dfrawIndexer10,dfrawIndexer11,dfrawIndexer12,dfrawIndexer13,dfrawIndexer14,va,dt))
 
-val Array(trainingData, testData) = dfraw1.randomSplit(Array(0.7,0.3),11L)
+val Array(trainingData, testData) = df2.randomSplit(Array(0.7,0.3),11L)
 
 val model = pipeline.fit(trainingData)
 
@@ -75,8 +75,29 @@ val pred = model.transform(testData)
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 val bceval = new BinaryClassificationEvaluator()
 
-bceval.evaluate(pred)
-res0: Double = 0.8393090044298548
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res2: Double = 0.8393090044298548
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res3: Double = 0.811529725510497
+
+df2.groupBy("label").count.show
++-----+-----+
+|label|count|
++-----+-----+
+|  0.0| 5174|
+|  1.0| 5174|
++-----+-----+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res4: org.apache.spark.mllib.linalg.Matrix =
+1107.0  272.0
+389.0   1243.0
 
 import org.apache.spark.ml.classification.DecisionTreeClassificationModel
 
@@ -218,8 +239,29 @@ val pred = bestmodel.transform(testData)
 
 val bceval = new BinaryClassificationEvaluator()
 
-bceval.evaluate(pred)
-res6: Double = 0.8355745133336863
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res8: Double = 0.8355745133336863
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res9: Double = 0.810940579718696
+
+df2.groupBy("label").count.show
++-----+-----+
+|label|count|
++-----+-----+
+|  0.0| 5174|
+|  1.0| 5174|
++-----+-----+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res10: org.apache.spark.mllib.linalg.Matrix =
+1096.0  230.0
+400.0   1285.0
 
 println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
 Learned classification tree model:
