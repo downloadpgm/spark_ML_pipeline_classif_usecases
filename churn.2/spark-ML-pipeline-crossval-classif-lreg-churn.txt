@@ -18,6 +18,7 @@ root
  |-- EstimatedSalary: double (nullable = true)
  |-- Exited: integer (nullable = true)
  
+df.show(10)
 +---------+----------+--------+-----------+---------+------+---+------+---------+-------------+---------+--------------+---------------+------+
 |RowNumber|CustomerId| Surname|CreditScore|Geography|Gender|Age|Tenure|  Balance|NumOfProducts|HasCrCard|IsActiveMember|EstimatedSalary|Exited|
 +---------+----------+--------+-----------+---------+------+---+------+---------+-------------+---------+--------------+---------------+------+

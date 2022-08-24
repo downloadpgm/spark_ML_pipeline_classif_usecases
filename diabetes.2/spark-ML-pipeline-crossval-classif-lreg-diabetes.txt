@@ -41,11 +41,97 @@ df.describe().show
 |    max|                17|              199|               122|                99|               846|              67.1|                    2.42|                81|                 1|
 +-------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------------+------------------+------------------+
 
-val df1 = df.withColumn("label", 'Outcome)
+import org.apache.spark.sql.types._
+val df1 = df.withColumn("label", col("Outcome").cast(DoubleType))
 
 import org.apache.spark.ml.feature.{VectorAssembler}
 
 val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age"))
+
+val df2 = va.transform(df1)
+
+df2.printSchema
+root
+ |-- Pregnancies: integer (nullable = true)
+ |-- Glucose: integer (nullable = true)
+ |-- BloodPressure: integer (nullable = true)
+ |-- SkinThickness: integer (nullable = true)
+ |-- Insulin: integer (nullable = true)
+ |-- BMI: double (nullable = true)
+ |-- DiabetesPedigreeFunction: double (nullable = true)
+ |-- Age: integer (nullable = true)
+ |-- Outcome: integer (nullable = true)
+ |-- label: double (nullable = true)
+ |-- features: vector (nullable = true)
+
+df2.show(10)
++-----------+-------+-------------+-------------+-------+----+------------------------+---+-------+-----+--------------------+
+|Pregnancies|Glucose|BloodPressure|SkinThickness|Insulin| BMI|DiabetesPedigreeFunction|Age|Outcome|label|            features|
++-----------+-------+-------------+-------------+-------+----+------------------------+---+-------+-----+--------------------+
+|          6|    148|           72|           35|      0|33.6|                   0.627| 50|      1|  1.0|[6.0,148.0,72.0,3...|
+|          1|     85|           66|           29|      0|26.6|                   0.351| 31|      0|  0.0|[1.0,85.0,66.0,29...|
+|          8|    183|           64|            0|      0|23.3|                   0.672| 32|      1|  1.0|[8.0,183.0,64.0,0...|
+|          1|     89|           66|           23|     94|28.1|                   0.167| 21|      0|  0.0|[1.0,89.0,66.0,23...|
+|          0|    137|           40|           35|    168|43.1|                   2.288| 33|      1|  1.0|[0.0,137.0,40.0,3...|
+|          5|    116|           74|            0|      0|25.6|                   0.201| 30|      0|  0.0|[5.0,116.0,74.0,0...|
+|          3|     78|           50|           32|     88|31.0|                   0.248| 26|      1|  1.0|[3.0,78.0,50.0,32...|
+|         10|    115|            0|            0|      0|35.3|                   0.134| 29|      0|  0.0|[10.0,115.0,0.0,0...|
+|          2|    197|           70|           45|    543|30.5|                   0.158| 53|      1|  1.0|[2.0,197.0,70.0,4...|
+|          8|    125|           96|            0|      0| 0.0|                   0.232| 54|      1|  1.0|[8.0,125.0,96.0,0...|
++-----------+-------+-------------+-------------+-------+----+------------------------+---+-------+-----+--------------------+
+only showing top 10 rows
+
+
+// calculate pearson correlation to check multicolinearity
+
+import org.apache.spark.ml.stat.Correlation
+import org.apache.spark.ml.linalg.Matrix
+import org.apache.spark.sql.Row
+
+val corr = Correlation.corr(df2, "features", "pearson").head match {
+   case Row(coeff: Matrix) => coeff
+}
+corr: org.apache.spark.ml.linalg.Matrix =
+1.0                   0.12945867149927204  0.14128197740713902  ... (8 total)
+0.12945867149927204   1.0                  0.15258958656864816  ...
+0.14128197740713902   0.15258958656864816  1.0                  ...
+-0.08167177444900785  0.05732789073817112  0.20737053840306674  ...
+-0.07353461435162777  0.33135710992021083  0.08893337837319273  ...
+0.017683090727835644  0.22107106945896476  0.28180528884988704  ...
+-0.03352267296261374  0.1373372998283667   0.04126494793008884  ...
+0.5443412284023383    0.26351431982434326  0.2395279464213733   ...
+
+
+corr.toDense.rowIter.foreach( x => println(x.toString))
+[1.0,0.12945867149927204,0.14128197740713902,-0.08167177444900785,-0.07353461435162777,0.017683090727835644,-0.03352267296261374,0.5443412284023383]
+[0.12945867149927204,1.0,0.15258958656864816,0.05732789073817112,0.33135710992021083,0.22107106945896476,0.1373372998283667,0.26351431982434326]
+[0.14128197740713902,0.15258958656864816,1.0,0.20737053840306674,0.08893337837319273,0.28180528884988704,0.04126494793008884,0.2395279464213733]
+[-0.08167177444900785,0.05732789073817112,0.20737053840306674,1.0,0.436782570120013,0.39257320415903274,0.18392757295416215,-0.11397026236773743]
+[-0.07353461435162777,0.33135710992021083,0.08893337837319273,0.436782570120013,1.0,0.19785905649310137,0.18507092916809892,-0.04216295473537272]
+[0.017683090727835644,0.22107106945896476,0.28180528884988704,0.39257320415903274,0.19785905649310137,1.0,0.1406469525451073,0.03624187009231383]
+[-0.03352267296261374,0.1373372998283667,0.04126494793008884,0.18392757295416215,0.18507092916809892,0.1406469525451073,1.0,0.03356131243481167]
+[0.5443412284023383,0.26351431982434326,0.2395279464213733,-0.11397026236773743,-0.04216295473537272,0.03624187009231383,0.03356131243481167,1.0]
+
+corr.toDense.rowIter.foreach( x => {
+  val size = x.size
+  for ( i <- Range(0,size)) { 
+    val elem = x(i)
+    print(f"$elem%.3f\t") 
+  }
+  println
+})
+// "Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age"
+1.000   0.129   0.141   -0.082  -0.074  0.018   -0.034  0.544
+0.129   1.000   0.153   0.057   0.331   0.221   0.137   0.264
+0.141   0.153   1.000   0.207   0.089   0.282   0.041   0.240
+-0.082  0.057   0.207   1.000   0.437   0.393   0.184   -0.114
+-0.074  0.331   0.089   0.437   1.000   0.198   0.185   -0.042
+0.018   0.221   0.282   0.393   0.198   1.000   0.141   0.036
+-0.034  0.137   0.041   0.184   0.185   0.141   1.000   0.034
+0.544   0.264   0.240   -0.114  -0.042  0.036   0.034   1.000
+
+
+// ----- building the logistic regression model
 
 import org.apache.spark.ml.feature.StandardScaler
 val stdScaler = new StandardScaler().
@@ -65,6 +151,9 @@ val pipeline = new Pipeline().setStages(Array(va,stdScaler,lr))
 
 val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
 
+trainingData.cache
+testData.cache
+
 val model = pipeline.fit(trainingData)
 
 val pred = model.transform(testData)
@@ -72,8 +161,29 @@ val pred = model.transform(testData)
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 val bceval = new BinaryClassificationEvaluator()
 
-bceval.evaluate(pred)
-res17: Double = 0.8092515592515606
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res8: Double = 0.8092515592515606
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res9: Double = 0.6754187108853955
+
+df2.groupBy("label").count.show
++-----+-----+
+|label|count|
++-----+-----+
+|  0.0|  500|
+|  1.0|  268|
++-----+-----+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res20: org.apache.spark.mllib.linalg.Matrix =
+135.0  29.0
+21.0   45.0
 
 import org.apache.spark.ml.classification.LogisticRegressionModel
 
@@ -95,7 +205,7 @@ import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
 val trainingSummary = lrmodel.summary
 
 trainingSummary.objectiveHistory
-res12: Array[Double] = Array(0.6537596512496414, 0.508737656763239, 0.4895295425831111, 0.4803183294904275, 0.4799611196723748, 0.47972691025101283, 0.4797021411071503, 0.4796962682594956, 0.47969404410575944, 0.47969394863799003, 0.4796939448689789, 0.4796939447651624, 0.47969394475455335, 0.47969394475144833)
+res22: Array[Double] = Array(0.6537596512496414, 0.508737656763239, 0.4895295425831111, 0.4803183294904275, 0.4799611196723748, 0.47972691025101283, 0.4797021411071503, 0.4796962682594956, 0.47969404410575944, 0.47969394863799003, 0.4796939448689789, 0.4796939447651624, 0.47969394475455335, 0.47969394475144833)
 
 val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
 
@@ -127,30 +237,51 @@ val model = cv.fit(trainingData)
 import org.apache.spark.ml.PipelineModel
 val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
 
-val pred = bestmodel.transform(testData)
-
-val bceval = new BinaryClassificationEvaluator()
-
-bceval.evaluate(pred)
-res9: Double = 0.8092515592515606
-
 import org.apache.spark.ml.classification.LogisticRegressionModel
 val lrmodel = bestmodel.stages(2).asInstanceOf[LogisticRegressionModel]
 
 lrmodel.getRegParam
-res3: Double = 0.01
+res1: Double = 0.01
 
 lrmodel.getMaxIter
-res4: Int = 100
+res2: Int = 100
 
 lrmodel.getThreshold
-res5: Double = 0.5
+res3: Double = 0.5
 
 lrmodel.getFitIntercept
-res6: Boolean = true
+res4: Boolean = true
 
 lrmodel.getStandardization
-res7: Boolean = true
+res5: Boolean = true
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res30: Double = 0.8092515592515606
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res31: Double = 0.6754187108853955
+
+df2.groupBy("label").count.show
++-----+-----+
+|label|count|
++-----+-----+
+|  0.0|  500|
+|  1.0|  268|
++-----+-----+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res33: org.apache.spark.mllib.linalg.Matrix =
+135.0  29.0
+21.0   45.0
 
 println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
 LR Model coefficients:
@@ -168,12 +299,12 @@ import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
 val trainingSummary = lrmodel.summary
 
 trainingSummary.objectiveHistory
-res14: Array[Double] = Array(0.6537596512496414, 0.508737656763239, 0.4895295425831111, 0.4803183294904275, 0.4799611196723748, 0.47972691025101283, 0.4797021411071503, 0.4796962682594956, 0.47969404410575944, 0.47969394863799003, 0.4796939448689789, 0.4796939447651624, 0.47969394475455335, 0.47969394475144833)
+res35: Array[Double] = Array(0.6537596512496414, 0.508737656763239, 0.4895295425831111, 0.4803183294904275, 0.4799611196723748, 0.47972691025101283, 0.4797021411071503, 0.4796962682594956, 0.47969404410575944, 0.47969394863799003, 0.4796939448689789, 0.4796939447651624, 0.47969394475455335, 0.47969394475144833)
 
 val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
 
 binarySummary.areaUnderROC
-res15: Double = 0.8429333493167107
+res36: Double = 0.8429333493167107
 
 binarySummary.accuracy
-res18: Double = 0.7676579925650557
+res37: Double = 0.7676579925650557
