@@ -1,4 +1,4 @@
----- Feature extraction & Data Munging --------------
+---- Exploratory Data Analysis --------------
 
 val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("diabetes/diabetes.csv")
 
@@ -41,6 +41,16 @@ df.describe().show
 |    max|                17|              199|               122|                99|               846|              67.1|                    2.42|                81|                 1|
 +-------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------------+------------------+------------------+
 
+df.groupBy("Outcome").count.show
++-------+-----+
+|Outcome|count|
++-------+-----+
+|      1|  268|
+|      0|  500|
++-------+-----+
+
+---- Feature extraction & Data Munging --------------
+
 import org.apache.spark.sql.types._
 val df1 = df.withColumn("label", col("Outcome").cast(DoubleType))
 
@@ -48,7 +58,7 @@ import org.apache.spark.ml.feature.{VectorAssembler}
 
 val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age"))
 
--------------------
+// ----- building the decision tree model
 
 import org.apache.spark.ml.classification.DecisionTreeClassifier
 val dt = new DecisionTreeClassifier
@@ -63,6 +73,9 @@ testData.cache
 
 val model = pipeline.fit(trainingData)
 
+
+-- collecting metric performance
+
 val pred = model.transform(testData)
 
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
@@ -74,13 +87,6 @@ res2: Double = 0.7674982674982676
 bceval.setMetricName("areaUnderPR").evaluate(pred)
 res3: Double = 0.6555242135673434
 
-df1.groupBy("label").count.show
-+-----+-----+
-|label|count|
-+-----+-----+
-|    1|  268|
-|    0|  500|
-+-----+-----+
 
 val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
 
@@ -92,9 +98,32 @@ res11: org.apache.spark.mllib.linalg.Matrix =
 141.0  35.0
 15.0   39.0
 
+
+-- collecting feature importance
+
 import org.apache.spark.ml.classification.DecisionTreeClassificationModel
 
-val dtmodel = model.stages(1).asInstanceOf[DecisionTreeClassificationModel]
+val dtmodel = model.stages.last.asInstanceOf[DecisionTreeClassificationModel]
+
+val featureImp = va.getInputCols.zip(dtmodel.featureImportances.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++--------------------+--------------------+
+|             feature|          Importance|
++--------------------+--------------------+
+|             Glucose|  0.3753053146756258|
+|                 BMI| 0.23805429071267606|
+|                 Age| 0.14328284318272586|
+|DiabetesPedigreeF...| 0.08564940340072369|
+|       BloodPressure|  0.0784438836865335|
+|         Pregnancies| 0.05295862523551117|
+|             Insulin| 0.02289690432492951|
+|       SkinThickness|0.003408734781274413|
++--------------------+--------------------+
+
 
 println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
 Learned classification tree model:
@@ -179,7 +208,8 @@ Learned classification tree model:
       Else (feature 4 > 108.0)
        Predict: 0.0
 
--------------------
+
+// ----- DT model hyperparameter tunning
 
 import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
 
@@ -190,19 +220,56 @@ addGrid(dt.maxDepth, Array(10,20,30)).build()
 
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 
+
 val cv = new CrossValidator().
 setEstimator(pipeline).
 setEvaluator(new BinaryClassificationEvaluator).
 setEstimatorParamMaps(paramGrid).
 setNumFolds(3)
 
-val model = cv.fit(trainingData)
+val cvmodel = cv.fit(trainingData)
+
+-- CV hyperparameter evaluation
+
+(new BinaryClassificationEvaluator).getMetricName
+res10: String = areaUnderROC
+
+cvmodel.getEstimatorParamMaps.zip(cvmodel.avgMetrics)
+res3: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
+Array(({
+        dtc_eb11f5a58bc1-impurity: gini,
+        dtc_eb11f5a58bc1-maxBins: 32,
+        dtc_eb11f5a58bc1-maxDepth: 10
+},0.6829594541750472), ({
+        dtc_eb11f5a58bc1-impurity: gini,
+        dtc_eb11f5a58bc1-maxBins: 48,
+        dtc_eb11f5a58bc1-maxDepth: 10
+},0.6953787474597024), ({
+        dtc_eb11f5a58bc1-impurity: gini,
+        dtc_eb11f5a58bc1-maxBins: 64,
+        dtc_eb11f5a58bc1-maxDepth: 10
+},0.7085795925408872), ({
+        dtc_eb11f5a58bc1-impurity: entropy,
+        dtc_eb11f5a58bc1-maxBins: 32,
+        dtc_eb11f5a58bc1-maxDepth: 10
+},0.6835426208011638), ({
+        dtc_eb11f5a58bc1-impurity: entropy,
+        dtc_eb11f5a58bc1-maxBins: 48,
+        dtc_eb11f5a58bc1-maxDepth: 10
+},0.7139440173713245), ({
+        dtc_eb11f5a58bc1-impurity: entropy,
+        dtc_eb11f5a58bc1-maxBins: 64,
+        dtc_eb11f5a58bc1-maxDepth: 10
+},0.703307650...
+
+
+-- extract best DT model 
 
 import org.apache.spark.ml.PipelineModel
-val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+val bestmodel = cvmodel.bestModel.asInstanceOf[PipelineModel]
 
 import org.apache.spark.ml.classification.DecisionTreeClassificationModel
-val dtmodel = bestmodel.stages(1).asInstanceOf[DecisionTreeClassificationModel]
+val dtmodel = bestmodel.stages.last.asInstanceOf[DecisionTreeClassificationModel]
 
 dtmodel.getMaxBins
 res0: Int = 48
@@ -215,6 +282,8 @@ res3: Int = 10
 
 val pred = bestmodel.transform(testData)
 
+-- collecting metric performance
+
 val bceval = new BinaryClassificationEvaluator()
 
 bceval.setMetricName("areaUnderROC").evaluate(pred)
@@ -223,13 +292,6 @@ res16: Double = 0.7436763686763688
 bceval.setMetricName("areaUnderPR").evaluate(pred)
 res17: Double = 0.6269005913941122
 
-df1.groupBy("label").count.show
-+-----+-----+
-|label|count|
-+-----+-----+
-|    1|  268|
-|    0|  500|
-+-----+-----+
 
 val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
 
@@ -240,6 +302,28 @@ metrics.confusionMatrix
 res18: org.apache.spark.mllib.linalg.Matrix =
 124.0  28.0
 32.0   46.0
+
+-- collecting feature importance
+
+val featureImp = va.getInputCols.zip(dtmodel.featureImportances.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++--------------------+-------------------+
+|             feature|         Importance|
++--------------------+-------------------+
+|             Glucose| 0.2645057502863585|
+|                 BMI|0.15206637757605346|
+|         Pregnancies|0.14930522894248274|
+|                 Age|0.12338350674191023|
+|       BloodPressure|0.10696824699334317|
+|DiabetesPedigreeF...|0.08815785695323829|
+|       SkinThickness|0.06640840058555657|
+|             Insulin|0.04920463192105709|
++--------------------+-------------------+
+
 
 println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
 Learned classification tree model:
@@ -488,3 +572,4 @@ Learned classification tree model:
        Predict: 1.0
       Else (feature 0 > 3.5)
        Predict: 0.0
+	   

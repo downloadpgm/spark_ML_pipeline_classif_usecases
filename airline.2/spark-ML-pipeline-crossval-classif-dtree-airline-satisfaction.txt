@@ -1,3 +1,5 @@
+---- Exploratory Data Analysis --------------
+
 import org.apache.spark.sql.types._
 
 val schemaAnswer = new StructType().
@@ -130,6 +132,8 @@ df1.groupBy('satisfaction).count.show
 |           satisfied|45025|
 +--------------------+-----+
 
+---- Feature extraction & Data Munging --------------
+
 import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
 
 val dfrawIndexer1 = new StringIndexer().setInputCol("gender").setOutputCol("gender_cat")
@@ -140,6 +144,7 @@ val dfrawIndexer5 = new StringIndexer().setInputCol("satisfaction").setOutputCol
 
 val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("gender_cat","cust_type_cat","age","travel_type_cat","class_cat","flight_distance","inflight_wifi","deprt_arrv_time_conv","ease_online_booking","gate_location","food_and_drink","online_boarding","seat_comfort","inflight_entertain","onboard_service","legroom_service","baggage_handling","checkin_service","inflight_service","cleanliness","deprt_delay_minutes","arrv_delay_minutes"))
 
+// ----- building the decision tree model
 
 import org.apache.spark.ml.classification.DecisionTreeClassifier
 val dt = new DecisionTreeClassifier
@@ -154,8 +159,9 @@ testData.cache
 
 val model = pipeline.fit(trainingData)
 
-val pred = model.transform(testData)
+-- collecting metric performance
 
+val pred = model.transform(testData)
 
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 val bceval = new BinaryClassificationEvaluator()
@@ -166,13 +172,6 @@ res2: Double = 0.8393090044298548
 bceval.setMetricName("areaUnderPR").evaluate(pred)
 res3: Double = 0.811529725510497
 
-df1.groupBy("satisfaction").count.show
-+--------------------+-----+
-|        satisfaction|count|
-+--------------------+-----+
-|neutral or dissat...|58879|
-|           satisfied|45025|
-+--------------------+-----+
 
 val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
 
@@ -184,9 +183,44 @@ res12: org.apache.spark.mllib.linalg.Matrix =
 16283.0  1714.0
 1192.0   11883.0
 
+-- collecting feature importance
+
 import org.apache.spark.ml.classification.DecisionTreeClassificationModel
 
-val dtmodel = model.stages(6).asInstanceOf[DecisionTreeClassificationModel]
+val dtmodel = model.stages.last.asInstanceOf[DecisionTreeClassificationModel]
+
+val featureImp = va.getInputCols.zip(dtmodel.featureImportances.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++--------------------+--------------------+
+|             feature|          Importance|
++--------------------+--------------------+
+|     online_boarding|  0.4843851061820749|
+|       inflight_wifi| 0.22237814828379387|
+|     travel_type_cat| 0.17835355658902216|
+|  inflight_entertain| 0.05966958894453885|
+|     checkin_service|0.019288232715011094|
+|           class_cat|0.014879931351005354|
+|       cust_type_cat|0.013133388250713517|
+|       gate_location|0.004352059056924852|
+|  arrv_delay_minutes|0.001367083031120...|
+|     flight_distance|0.001199370562559...|
+| ease_online_booking|8.448939793888643E-4|
+|     legroom_service|1.486410538466596...|
+|          gender_cat|                 0.0|
+|      food_and_drink|                 0.0|
+|                 age|                 0.0|
+|        seat_comfort|                 0.0|
+|    inflight_service|                 0.0|
+|deprt_arrv_time_conv|                 0.0|
+|     onboard_service|                 0.0|
+|         cleanliness|                 0.0|
++--------------------+--------------------+
+only showing top 20 rows
+
 
 println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
 Learned classification tree model:
@@ -271,7 +305,8 @@ Learned classification tree model:
       Else (feature 17 > 2.5)
        Predict: 1.0
 
--------------------
+
+// ----- DT model hyperparameter tunning
 
 import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
 
@@ -288,13 +323,49 @@ setEvaluator(new BinaryClassificationEvaluator).
 setEstimatorParamMaps(paramGrid).
 setNumFolds(3)
 
-val model = cv.fit(trainingData)
+val cvmodel = cv.fit(trainingData)
+
+-- CV hyperparameter evaluation
+
+(new BinaryClassificationEvaluator).getMetricName
+res10: String = areaUnderROC
+
+cvmodel.getEstimatorParamMaps.zip(cvmodel.avgMetrics)
+res3: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
+Array(({
+        dtc_2e25682f4faf-impurity: gini,
+        dtc_2e25682f4faf-maxBins: 32,
+        dtc_2e25682f4faf-maxDepth: 10
+},0.9587309887958316), ({
+        dtc_2e25682f4faf-impurity: entropy,
+        dtc_2e25682f4faf-maxBins: 32,
+        dtc_2e25682f4faf-maxDepth: 10
+},0.9622043288080993), ({
+        dtc_2e25682f4faf-impurity: gini,
+        dtc_2e25682f4faf-maxBins: 32,
+        dtc_2e25682f4faf-maxDepth: 20
+},0.9643927196258416), ({
+        dtc_2e25682f4faf-impurity: entropy,
+        dtc_2e25682f4faf-maxBins: 32,
+        dtc_2e25682f4faf-maxDepth: 20
+},0.9663759456709212), ({
+        dtc_2e25682f4faf-impurity: gini,
+        dtc_2e25682f4faf-maxBins: 32,
+        dtc_2e25682f4faf-maxDepth: 30
+},0.9630121610745447), ({
+        dtc_2e25682f4faf-impurity: entropy,
+        dtc_2e25682f4faf-maxBins: 32,
+        dtc_2e25682f4faf-maxDepth: 30
+},0.964421168...
+
+
+-- extract best DT model 
 
 import org.apache.spark.ml.PipelineModel
-val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+val bestmodel = cvmodel.bestModel.asInstanceOf[PipelineModel]
 
 import org.apache.spark.ml.classification.DecisionTreeClassificationModel
-val dtmodel = bestmodel.stages(6).asInstanceOf[DecisionTreeClassificationModel]
+val dtmodel = bestmodel.stages.last.asInstanceOf[DecisionTreeClassificationModel]
 
 dtmodel.getMaxBins
 res0: Int = 48
@@ -307,6 +378,8 @@ res3: Int = 20
 
 val pred = bestmodel.transform(testData)
 
+-- collecting metric performance
+
 val bceval = new BinaryClassificationEvaluator()
 
 bceval.setMetricName("areaUnderROC").evaluate(pred)
@@ -315,13 +388,6 @@ res18: Double = 0.9695101218890012
 bceval.setMetricName("areaUnderPR").evaluate(pred)
 res19: Double = 0.9760878520996816
 
-df1.groupBy("satisfaction").count.show
-+--------------------+-----+
-|        satisfaction|count|
-+--------------------+-----+
-|neutral or dissat...|58879|
-|           satisfied|45025|
-+--------------------+-----+
 
 val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
 
@@ -332,5 +398,40 @@ metrics.confusionMatrix
 res20: org.apache.spark.mllib.linalg.Matrix =
 16692.0  818.0
 783.0    12779.0
+
+-- collecting feature importance
+
+val featureImp = va.getInputCols.zip(dtmodel.featureImportances.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++--------------------+--------------------+
+|             feature|          Importance|
++--------------------+--------------------+
+|     online_boarding|    0.31644694937574|
+|       inflight_wifi| 0.19826932299187475|
+|     travel_type_cat|  0.1327796410026087|
+|       cust_type_cat| 0.04872744345952412|
+|           class_cat|0.039185922302677825|
+|     onboard_service| 0.03566720432206381|
+|  inflight_entertain|0.026966670645761668|
+|                 age|0.026838402928584883|
+|    baggage_handling|0.026158561692583977|
+|     checkin_service|0.025166525431027487|
+|       gate_location|0.021095490434201537|
+|     flight_distance| 0.01943475546625644|
+|        seat_comfort|0.016392088871451837|
+|         cleanliness|0.014893943747204028|
+|    inflight_service|0.013000941093476926|
+|     legroom_service|0.007946136613809034|
+|deprt_arrv_time_conv|0.006919280090023144|
+| deprt_delay_minutes|0.006785874208944...|
+|  arrv_delay_minutes|0.006391857139551195|
+|      food_and_drink|0.004942149556408225|
++--------------------+--------------------+
+only showing top 20 rows
+
 
 println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")

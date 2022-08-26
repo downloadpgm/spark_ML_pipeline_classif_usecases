@@ -1,3 +1,4 @@
+---- Exploratory Data Analysis --------------
 
 val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("diabetes_pred/diabetes_data_upload.csv")
 
@@ -49,6 +50,16 @@ df.describe().show
 |    max|                90|  Male|     Yes|       Yes|               Yes|     Yes|       Yes|           Yes|            Yes|    Yes|         Yes|            Yes|            Yes|             Yes|     Yes|    Yes|Positive|
 +-------+------------------+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
 
+df.groupBy("class").count.show
++--------+-----+
+|class   |count|
++--------+-----+
+|Negative|  200|
+|Positive|  320|
++--------+-----+
+
+---- Feature extraction & Data Munging --------------
+
 val df1 = df.na.replace(Array("Polyuria","Polydipsia","sudden weight loss","weakness","Polyphagia","Genital thrush","visual blurring","Itching","Irritability","delayed healing","partial paresis","muscle stiffness","Alopecia","Obesity"),Map("No" -> "0.0", "Yes" -> "1.0")).
       na.replace(Array("class"),Map("Negative" -> "0.0", "Positive" -> "1.0")).
       na.replace(Array("Gender"),Map("Female" -> "0.0", "Male" -> "1.0")).
@@ -87,12 +98,11 @@ root
  |-- class: double (nullable = true)
  |-- label: double (nullable = true)
 
-
 import org.apache.spark.ml.feature.{VectorAssembler}
 
 val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("Age","Gender","Polyuria","Polydipsia","sudden weight loss","weakness","Polyphagia","Genital thrush","visual blurring","Itching","Irritability","delayed healing","partial paresis","muscle stiffness","Alopecia","Obesity"))
 
--------------------
+// ----- building the decision tree model
 
 import org.apache.spark.ml.classification.DecisionTreeClassifier
 val dt = new DecisionTreeClassifier
@@ -107,6 +117,9 @@ testData.cache
 
 val model = pipeline.fit(trainingData)
 
+
+-- collecting metric performance
+
 val pred = model.transform(testData)
 
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
@@ -118,13 +131,6 @@ res7: Double = 0.9532453245324533
 bceval.setMetricName("areaUnderPR").evaluate(pred)
 res8: Double = 0.9827007130503322
 
-df2.groupBy("label").count.show
-+-----+-----+
-|label|count|
-+-----+-----+
-|  0.0|  200|
-|  1.0|  320|
-+-----+-----+
 
 val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
 
@@ -136,9 +142,39 @@ res10: org.apache.spark.mllib.linalg.Matrix =
 54.0  8.0
 0.0   93.0
 
+-- collecting feature importance
+
 import org.apache.spark.ml.classification.DecisionTreeClassificationModel
 
-val dtmodel = model.stages(1).asInstanceOf[DecisionTreeClassificationModel]
+val dtmodel = model.stages.last.asInstanceOf[DecisionTreeClassificationModel]
+
+val featureImp = va.getInputCols.zip(dtmodel.featureImportances.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++------------------+--------------------+
+|           feature|          Importance|
++------------------+--------------------+
+|        Polydipsia|   0.501270755853724|
+|          Polyuria| 0.10864088578082526|
+|               Age| 0.10438265442471978|
+|            Gender| 0.09114753130174733|
+|      Irritability|0.047739238564670945|
+|          Alopecia|0.045855040385245814|
+|  muscle stiffness| 0.03744004263634749|
+|sudden weight loss| 0.03553028957186002|
+|    Genital thrush| 0.01615013162357274|
+|           Obesity|0.011843429857286671|
+|          weakness|                 0.0|
+|   partial paresis|                 0.0|
+|        Polyphagia|                 0.0|
+|   visual blurring|                 0.0|
+|           Itching|                 0.0|
+|   delayed healing|                 0.0|
++------------------+--------------------+
+
 
 println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
 Learned classification tree model:
@@ -199,7 +235,7 @@ Learned classification tree model:
    Else (feature 2 > 0.5)
     Predict: 1.0
 
--------------------
+// ----- DT model hyperparameter tunning
 
 import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
 
@@ -216,13 +252,49 @@ setEvaluator(new BinaryClassificationEvaluator).
 setEstimatorParamMaps(paramGrid).
 setNumFolds(3)
 
-val model = cv.fit(trainingData)
+val cvmodel = cv.fit(trainingData)
+
+-- CV hyperparameter evaluation
+
+(new BinaryClassificationEvaluator).getMetricName
+res6: String = areaUnderROC
+
+cvmodel.getEstimatorParamMaps.zip(cvmodel.avgMetrics)
+res8: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
+Array(({
+        dtc_707b8d38bb25-impurity: gini,
+        dtc_707b8d38bb25-maxBins: 32,
+        dtc_707b8d38bb25-maxDepth: 10
+},0.9614674747695275), ({
+        dtc_707b8d38bb25-impurity: gini,
+        dtc_707b8d38bb25-maxBins: 48,
+        dtc_707b8d38bb25-maxDepth: 10
+},0.9556139705771529), ({
+        dtc_707b8d38bb25-impurity: gini,
+        dtc_707b8d38bb25-maxBins: 64,
+        dtc_707b8d38bb25-maxDepth: 10
+},0.9556139705771529), ({
+        dtc_707b8d38bb25-impurity: entropy,
+        dtc_707b8d38bb25-maxBins: 32,
+        dtc_707b8d38bb25-maxDepth: 10
+},0.9627351251260361), ({
+        dtc_707b8d38bb25-impurity: entropy,
+        dtc_707b8d38bb25-maxBins: 48,
+        dtc_707b8d38bb25-maxDepth: 10
+},0.9612321983739398), ({
+        dtc_707b8d38bb25-impurity: entropy,
+        dtc_707b8d38bb25-maxBins: 64,
+        dtc_707b8d38bb25-maxDepth: 10
+},0.961232198...
+
+
+-- extract best DT model 
 
 import org.apache.spark.ml.PipelineModel
-val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+val bestmodel = cvmodel.bestModel.asInstanceOf[PipelineModel]
 
 import org.apache.spark.ml.classification.DecisionTreeClassificationModel
-val dtmodel = bestmodel.stages(1).asInstanceOf[DecisionTreeClassificationModel]
+val dtmodel = bestmodel.stages.last.asInstanceOf[DecisionTreeClassificationModel]
 
 dtmodel.getMaxBins
 res0: Int = 32
@@ -235,6 +307,8 @@ res3: Int = 10
 
 val pred = bestmodel.transform(testData)
 
+-- collecting metric performance
+
 val bceval = new BinaryClassificationEvaluator()
 
 bceval.setMetricName("areaUnderROC").evaluate(pred)
@@ -243,13 +317,6 @@ res15: Double = 0.9711221122112211
 bceval.setMetricName("areaUnderPR").evaluate(pred)
 res16: Double = 0.9890935162064594
 
-df2.groupBy("label").count.show
-+-----+-----+
-|label|count|
-+-----+-----+
-|  0.0|  200|
-|  1.0|  320|
-+-----+-----+
 
 val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
 
@@ -260,6 +327,36 @@ metrics.confusionMatrix
 res17: org.apache.spark.mllib.linalg.Matrix =
 51.0  5.0
 3.0   96.0
+
+-- collecting feature importance
+
+val featureImp = va.getInputCols.zip(dtmodel.featureImportances.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++------------------+--------------------+
+|           feature|          Importance|
++------------------+--------------------+
+|        Polydipsia| 0.40250331590678046|
+|               Age| 0.13205552839295318|
+|          Polyuria| 0.11461432273686198|
+|            Gender| 0.08302323359303775|
+|      Irritability| 0.07860915566628263|
+|          Alopecia| 0.07056831665496695|
+|   delayed healing|0.033794983456579365|
+|           Itching| 0.02439798774588862|
+|   visual blurring|  0.0170482383963979|
+|    Genital thrush|0.013805107837201276|
+|           Obesity|0.012440741034172687|
+|  muscle stiffness|0.011777469279357692|
+|          weakness| 0.00536159929951954|
+|sudden weight loss|                 0.0|
+|   partial paresis|                 0.0|
+|        Polyphagia|                 0.0|
++------------------+--------------------+
+
 
 println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
 Learned classification tree model:

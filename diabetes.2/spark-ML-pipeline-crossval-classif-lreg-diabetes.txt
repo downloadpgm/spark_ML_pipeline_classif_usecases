@@ -1,4 +1,4 @@
----- Feature extraction & Data Munging --------------
+---- Exploratory Data Analysis --------------
 
 val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("diabetes/diabetes.csv")
 
@@ -40,6 +40,16 @@ df.describe().show
 |    min|                 0|                0|                 0|                 0|                 0|               0.0|                   0.078|                21|                 0|
 |    max|                17|              199|               122|                99|               846|              67.1|                    2.42|                81|                 1|
 +-------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------------+------------------+------------------+
+
+df.groupBy("Outcome").count.show
++-------+-----+
+|Outcome|count|
++-------+-----+
+|      1|  268|
+|      0|  500|
++-------+-----+
+
+---- Feature extraction & Data Munging --------------
 
 import org.apache.spark.sql.types._
 val df1 = df.withColumn("label", col("Outcome").cast(DoubleType))
@@ -130,6 +140,8 @@ corr.toDense.rowIter.foreach( x => {
 -0.034  0.137   0.041   0.184   0.185   0.141   1.000   0.034
 0.544   0.264   0.240   -0.114  -0.042  0.036   0.034   1.000
 
+// there is NO evidence of multicolinearity
+
 
 // ----- building the logistic regression model
 
@@ -147,14 +159,14 @@ lr.setRegParam(0.01).setMaxIter(500).setFitIntercept(true).setFeaturesCol("scale
 import org.apache.spark.ml.Pipeline
 val pipeline = new Pipeline().setStages(Array(va,stdScaler,lr))
 
--------------------
-
 val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
 
 trainingData.cache
 testData.cache
 
 val model = pipeline.fit(trainingData)
+
+-- collecting metric performance
 
 val pred = model.transform(testData)
 
@@ -167,13 +179,6 @@ res8: Double = 0.8092515592515606
 bceval.setMetricName("areaUnderPR").evaluate(pred)
 res9: Double = 0.6754187108853955
 
-df2.groupBy("label").count.show
-+-----+-----+
-|label|count|
-+-----+-----+
-|  0.0|  500|
-|  1.0|  268|
-+-----+-----+
 
 val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
 
@@ -185,20 +190,32 @@ res20: org.apache.spark.mllib.linalg.Matrix =
 135.0  29.0
 21.0   45.0
 
+
+-- collecting feature importance
+
 import org.apache.spark.ml.classification.LogisticRegressionModel
 
-val lrmodel = model.stages(2).asInstanceOf[LogisticRegressionModel]
+val lrmodel = model.stages.last.asInstanceOf[LogisticRegressionModel]
 
-println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
-LR Model coefficients:
-0.5950103131311164
-0.9310099414141454
--0.3632852939641302
-0.11307183618326118
--0.12438114134068462
-0.6831313999874129
-0.2505980838269532
-0.20712712844147407
+val featureImp = va.getInputCols.zip(lrmodel.coefficients.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++--------------------+--------------------+
+|             feature|          Importance|
++--------------------+--------------------+
+|             Glucose|  0.9310099414141454|
+|                 BMI|  0.6831313999874129|
+|         Pregnancies|  0.5950103131311164|
+|DiabetesPedigreeF...|  0.2505980838269532|
+|                 Age| 0.20712712844147407|
+|       SkinThickness| 0.11307183618326118|
+|             Insulin|-0.12438114134068462|
+|       BloodPressure| -0.3632852939641302|
++--------------------+--------------------+
+
 
 import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
 
@@ -215,7 +232,8 @@ res8: Double = 0.8429333493167107
 binarySummary.accuracy
 res18: Double = 0.7676579925650557
 
--------------------
+
+// ----- logistic regression model hyperparameter tunning
 
 import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
 
@@ -232,13 +250,43 @@ setEvaluator(new BinaryClassificationEvaluator).
 setEstimatorParamMaps(paramGrid).
 setNumFolds(3)
 
-val model = cv.fit(trainingData)
+val cvmodel = cv.fit(trainingData)
+
+-- CV hyperparameter evaluation
+
+cvmodel.getEstimatorParamMaps.zip(cvmodel.avgMetrics)
+res6: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
+Array(({
+        logreg_09741b373df4-fitIntercept: true,
+        logreg_09741b373df4-maxIter: 100,
+        logreg_09741b373df4-regParam: 1.0
+},0.816683040948735), ({
+        logreg_09741b373df4-fitIntercept: false,
+        logreg_09741b373df4-maxIter: 100,
+        logreg_09741b373df4-regParam: 1.0
+},0.8167943697377571), ({
+        logreg_09741b373df4-fitIntercept: true,
+        logreg_09741b373df4-maxIter: 100,
+        logreg_09741b373df4-regParam: 0.1
+},0.8297297706101464), ({
+        logreg_09741b373df4-fitIntercept: false,
+        logreg_09741b373df4-maxIter: 100,
+        logreg_09741b373df4-regParam: 0.1
+},0.8300783166760062), ({
+        logreg_09741b373df4-fitIntercept: true,
+        logreg_09741b373df4-maxIter: 100,
+        logreg_09741b373df4-regParam: 0.01
+},0.8306193975797197), ({
+        logreg_09741b373df4-fitIntercept: false,...
+
+
+-- extract best LR model 
 
 import org.apache.spark.ml.PipelineModel
-val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+val bestmodel = cvmodel.bestModel.asInstanceOf[PipelineModel]
 
 import org.apache.spark.ml.classification.LogisticRegressionModel
-val lrmodel = bestmodel.stages(2).asInstanceOf[LogisticRegressionModel]
+val lrmodel = bestmodel.stages.last.asInstanceOf[LogisticRegressionModel]
 
 lrmodel.getRegParam
 res1: Double = 0.01
@@ -257,6 +305,8 @@ res5: Boolean = true
 
 val pred = bestmodel.transform(testData)
 
+-- collecting metric performance
+
 val bceval = new BinaryClassificationEvaluator()
 
 bceval.setMetricName("areaUnderROC").evaluate(pred)
@@ -265,13 +315,6 @@ res30: Double = 0.8092515592515606
 bceval.setMetricName("areaUnderPR").evaluate(pred)
 res31: Double = 0.6754187108853955
 
-df2.groupBy("label").count.show
-+-----+-----+
-|label|count|
-+-----+-----+
-|  0.0|  500|
-|  1.0|  268|
-+-----+-----+
 
 val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
 
@@ -283,16 +326,27 @@ res33: org.apache.spark.mllib.linalg.Matrix =
 135.0  29.0
 21.0   45.0
 
-println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
-LR Model coefficients:
-0.5950103131311164
-0.9310099414141454
--0.3632852939641302
-0.11307183618326118
--0.12438114134068462
-0.6831313999874129
-0.2505980838269532
-0.20712712844147407
+-- collecting feature importance
+
+val featureImp = va.getInputCols.zip(lrmodel.coefficients.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++--------------------+--------------------+
+|             feature|          Importance|
++--------------------+--------------------+
+|             Glucose|  0.9310099414141454|
+|                 BMI|  0.6831313999874129|
+|         Pregnancies|  0.5950103131311164|
+|DiabetesPedigreeF...|  0.2505980838269532|
+|                 Age| 0.20712712844147407|
+|       SkinThickness| 0.11307183618326118|
+|             Insulin|-0.12438114134068462|
+|       BloodPressure| -0.3632852939641302|
++--------------------+--------------------+
+
 
 import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
 
