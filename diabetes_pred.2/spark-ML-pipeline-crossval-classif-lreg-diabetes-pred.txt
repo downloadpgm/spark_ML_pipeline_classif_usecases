@@ -51,7 +51,7 @@ df.describe().show
 |    max|                90|  Male|     Yes|       Yes|               Yes|     Yes|       Yes|           Yes|            Yes|    Yes|         Yes|            Yes|            Yes|             Yes|     Yes|    Yes|Positive|
 +-------+------------------+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
 
-df.groupBy("label").count.show
+df.groupBy("class").count.show
 +--------+-----+
 |class   |count|
 +--------+-----+
@@ -65,7 +65,7 @@ val df1 = df.na.replace(Array("Polyuria","Polydipsia","sudden weight loss","weak
       na.replace(Array("class"),Map("Negative" -> "0.0", "Positive" -> "1.0")).
       na.replace(Array("Gender"),Map("Female" -> "0.0", "Male" -> "1.0")).
       withColumn("label", 'class)
-	  
+  
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
@@ -240,30 +240,6 @@ val Array(trainingData, testData) = df2.randomSplit(Array(0.7,0.3),11L)
 
 val model = pipeline.fit(trainingData)
 
--- collecting metric performance
-
-val pred = model.transform(testData)
-
-import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-val bceval = new BinaryClassificationEvaluator()
-
-bceval.setMetricName("areaUnderROC").evaluate(pred)
-res5: Double = 0.9717638430509716
-
-bceval.setMetricName("areaUnderPR").evaluate(pred)
-res6: Double = 0.9879640674546408
-
-
-val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
-
-import org.apache.spark.mllib.evaluation.MulticlassMetrics
-val metrics = new MulticlassMetrics(validPredicts)
-
-metrics.confusionMatrix
-res8: org.apache.spark.mllib.linalg.Matrix =
-52.0  6.0
-2.0   95.0
-
 -- collecting feature importance
 
 import org.apache.spark.ml.classification.LogisticRegressionModel
@@ -296,6 +272,47 @@ featureImpDF.orderBy($"Importance".desc).show()
 |           Itching|  -0.516832627982378|
 |            Gender| -1.2344954156053858|
 +------------------+--------------------+
+
+
+import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
+
+val trainingSummary = lrmodel.summary
+
+trainingSummary.objectiveHistory
+res5: Array[Double] = Array(0.6730116670092521, 0.33824232040017166, 0.2899609595749758, 0.24511563870522957, 0.2261389515983281, 0.2223248903075804, 0.21995977431666675, 0.21986328991327583, 0.21982346585352386, 0.2197955821748887, 0.21979228387808522, 0.21979191750883667, 0.21979184927343498, 0.21979183631389201, 0.21979183146318645, 0.21979183132081015, 0.21979183063501617, 0.21979183060441884, 0.21979183058260587, 0.21979183058216886)
+
+val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
+
+binarySummary.areaUnderROC
+res6: Double = 0.9799524613748669
+
+binarySummary.accuracy
+res7: Double = 0.9315068493150684
+
+
+-- collecting metric performance
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res5: Double = 0.9717638430509716
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res6: Double = 0.9879640674546408
+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res8: org.apache.spark.mllib.linalg.Matrix =
+52.0  6.0
+2.0   95.0
 
 
 // ----- logistic regression model hyperparameter tunning
@@ -368,29 +385,6 @@ res6: Boolean = true
 lrmodel.getStandardization
 res7: Boolean = true
 
-val pred = bestmodel.transform(testData)
-
--- collecting metric performance
-
-val bceval = new BinaryClassificationEvaluator()
-
-bceval.setMetricName("areaUnderROC").evaluate(pred)
-res11: Double = 0.9717638430509716
-
-bceval.setMetricName("areaUnderPR").evaluate(pred)
-res12: Double = 0.9879640674546408
-
-
-val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
-
-import org.apache.spark.mllib.evaluation.MulticlassMetrics
-val metrics = new MulticlassMetrics(validPredicts)
-
-metrics.confusionMatrix
-res14: org.apache.spark.mllib.linalg.Matrix =
-52.0  6.0
-2.0   95.0
-
 -- collecting feature importance
 
 val featureImp = va.getInputCols.zip(lrmodel.coefficients.toArray)
@@ -419,3 +413,42 @@ featureImpDF.orderBy($"Importance".desc).show()
 |           Itching|  -0.516832627982378|
 |            Gender| -1.2344954156053858|
 +------------------+--------------------+
+
+
+import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
+
+val trainingSummary = lrmodel.summary
+
+trainingSummary.objectiveHistory
+res10: Array[Double] = Array(0.6837368568642356, 0.3927018676028047, 0.37786540204992936, 0.3468306858456029, 0.33892769386903177, 0.3375477290151803, 0.33699293234932187, 0.33681305200742584, 0.33667735065801957, 0.3366131405416979, 0.3365795732578932, 0.3365561824804752, 0.3365429139741436, 0.33653488057421566, 0.3365263717760338, 0.33652098984243056, 0.3365138692665935, 0.3365109576574414, 0.33650825557451136, 0.3365077264455849, 0.3365073505052951, 0.3365073145129253, 0.33650703286036593, 0.3365070165994455, 0.33650700541687717, 0.3365069990639181, 0.3365069979261816, 0.33650699741636425, 0.3365069972671128, 0.33650699715329513, 0.33650699713218696, 0.33650699711641485, 0.33650699711204707, 0.33650699710758364, 0.3365069971053158, 0.3365069971047746, 0.33650699710423265)
+
+val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
+
+binarySummary.areaUnderROC
+res11: Double = 0.9799524613748669
+
+binarySummary.accuracy
+res12: Double = 0.9315068493150684
+
+-- collecting metric performance
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res11: Double = 0.9717638430509716
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res12: Double = 0.9879640674546408
+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res14: org.apache.spark.mllib.linalg.Matrix =
+52.0  6.0
+2.0   95.0

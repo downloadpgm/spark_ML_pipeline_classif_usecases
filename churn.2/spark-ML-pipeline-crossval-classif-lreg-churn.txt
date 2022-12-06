@@ -1,3 +1,4 @@
+---- Exploratory Data Analysis --------------
 
 val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("churn/Churn_Modelling.csv")
 
@@ -66,6 +67,15 @@ df1.groupBy('Gender).count.show
 |  Male| 5457|
 +------+-----+
 
+df1.groupBy('Exited).count.show
++------+-----+
+|Exited|count|
++------+-----+
+|     1| 2037|
+|     0| 7963|
++------+-----+
+
+---- Feature extraction & Data Munging --------------
 
 import org.apache.spark.ml.feature.{StringIndexer, OneHotEncoder, VectorAssembler}
 val dfrawIndexer1 = new StringIndexer().setInputCol("Geography").setOutputCol("GeographyCat")
@@ -174,6 +184,8 @@ corr.toDense.rowIter.foreach( x => {
 0.026   0.003   -0.020  -0.023  0.085   -0.028  -0.010  0.010   -0.012  1.000  -0.011
 -0.001  -0.003  0.010   0.008   -0.007  0.008   0.013   0.014   -0.010  -0.011 1.000
 
+// there is NO evidence of multicolinearity
+
 
 // ----- building the logistic regression model
 
@@ -198,6 +210,52 @@ testData.cache
 
 val model = pipeline.fit(trainingData)
 
+-- collecting feature importance
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+
+val lrmodel = model.stages.last.asInstanceOf[LogisticRegressionModel]
+
+val featureImp = va.getInputCols.zip(lrmodel.coefficients.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++---------------+--------------------+
+|        feature|          Importance|
++---------------+--------------------+
+|         Tenure|  0.7160853652899726|
+|      GenderCat|  0.3031083070542382|
+|            Age| 0.24368790140026414|
+|  NumOfProducts| 0.15529435849765297|
+| IsActiveMember|-0.01578222325438...|
+|  GeographyVect|-0.03235338277593244|
+|      HasCrCard|-0.03451492760977715|
+|    CreditScore|-0.04687018669513266|
+|        Balance|-0.06519910614543585|
+|EstimatedSalary| -0.4822332145289691|
++---------------+--------------------+
+
+
+import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
+
+val trainingSummary = lrmodel.summary
+
+trainingSummary.objectiveHistory
+res8: Array[Double] = Array(0.5055901552273407, 0.4503182011179122, 0.43293726161997476, 0.4320375041230629, 0.4316237717117472, 0.4315890484552938, 0.4315865545488067, 0.43158613378220767, 0.4315861142877281, 0.4315861133449278, 0.4315861133208757, 0.4315861133194459)
+
+val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
+
+binarySummary.areaUnderROC
+res9: Double = 0.772105002873613
+
+binarySummary.accuracy
+res10: Double = 0.810730882974229
+
+
+-- collecting metric performance
+
 val pred = model.transform(testData)
 
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
@@ -209,13 +267,6 @@ res18: Double = 0.7588551798048759
 bceval.setMetricName("areaUnderPR").evaluate(pred)
 res19: Double = 0.4634537186265122
 
-df2.groupBy("label").count.show
-+-----+-----+
-|label|count|
-+-----+-----+
-|  0.0| 7963|
-|  1.0| 2037|
-+-----+-----+
 
 val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
 
@@ -227,25 +278,8 @@ res30: org.apache.spark.mllib.linalg.Matrix =
 2234.0  473.0
 75.0    117.0
 
-import org.apache.spark.ml.classification.LogisticRegressionModel
 
-val lrmodel = model.stages(5).asInstanceOf[LogisticRegressionModel]
-
-println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
-LR Model coefficients:
--0.04687018669513266
--0.03235338277593244
-0.3031083070542382
-0.24368790140026414
-0.7160853652899726
--0.06519910614543585
-0.15529435849765297
--0.03451492760977715
--0.015782223254386687
--0.4822332145289691
-0.012215544968639327
-
--------------------
+// ----- logistic regression model hyperparameter tunning
 
 import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
 
@@ -262,13 +296,43 @@ setEvaluator(new BinaryClassificationEvaluator).
 setEstimatorParamMaps(paramGrid).
 setNumFolds(3)
 
-val model = cv.fit(trainingData)
+val cvmodel = cv.fit(trainingData)
+
+-- CV hyperparameter evaluation
+
+cvmodel.getEstimatorParamMaps.zip(cvmodel.avgMetrics)
+res11: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
+Array(({
+        logreg_b3324cac69f3-fitIntercept: true,
+        logreg_b3324cac69f3-maxIter: 100,
+        logreg_b3324cac69f3-regParam: 0.1
+},0.7692903336638409), ({
+        logreg_b3324cac69f3-fitIntercept: true,
+        logreg_b3324cac69f3-maxIter: 100,
+        logreg_b3324cac69f3-regParam: 0.01
+},0.7686339762430098), ({
+        logreg_b3324cac69f3-fitIntercept: true,
+        logreg_b3324cac69f3-maxIter: 100,
+        logreg_b3324cac69f3-regParam: 0.001
+},0.7681519162397562), ({
+        logreg_b3324cac69f3-fitIntercept: false,
+        logreg_b3324cac69f3-maxIter: 100,
+        logreg_b3324cac69f3-regParam: 0.1
+},0.770973373064565), ({
+        logreg_b3324cac69f3-fitIntercept: false,
+        logreg_b3324cac69f3-maxIter: 100,
+        logreg_b3324cac69f3-regParam: 0.01
+},0.771400072447363), ({
+        logreg_b3324cac69f3-fitIntercept: fal...
+
+
+-- extract best LR model 
 
 import org.apache.spark.ml.PipelineModel
-val bestmodel = model.bestModel.asInstanceOf[PipelineModel]
+val bestmodel = cvmodel.bestModel.asInstanceOf[PipelineModel]
 
 import org.apache.spark.ml.classification.LogisticRegressionModel
-val lrmodel = bestmodel.stages(5).asInstanceOf[LogisticRegressionModel]
+val lrmodel = bestmodel.stages.last.asInstanceOf[LogisticRegressionModel]
 
 lrmodel.getRegParam
 res1: Double = 0.01
@@ -285,6 +349,48 @@ res4: Boolean = false
 lrmodel.getStandardization
 res5: Boolean = true
 
+-- collecting feature importance
+
+val featureImp = va.getInputCols.zip(lrmodel.coefficients.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++---------------+--------------------+
+|        feature|          Importance|
++---------------+--------------------+
+|         Tenure|  0.5038700620804205|
+|      GenderCat| 0.22696223179459057|
+|            Age| 0.15685905656385493|
+|  NumOfProducts| 0.08440960723102985|
+| IsActiveMember|-0.00644093905276...|
+|  GeographyVect|-0.01456384032395...|
+|      HasCrCard|-0.02531456694898...|
+|    CreditScore|-0.03049831269567...|
+|        Balance|-0.03550660396423862|
+|EstimatedSalary| -0.2891502956076117|
++---------------+--------------------+
+
+
+import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
+
+val trainingSummary = lrmodel.summary
+
+trainingSummary.objectiveHistory
+res20: Array[Double] = Array(0.693147180560029, 0.6723645391955108, 0.6436877998195123, 0.6428052464218531, 0.6427445109386422, 0.6427220756524459, 0.6427170553922672, 0.6427169818584233, 0.6427169765157082, 0.6427169764584932, 0.6427169764551509)
+
+val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
+
+binarySummary.areaUnderROC
+res21: Double = 0.7741877917768463
+
+binarySummary.accuracy
+res22: Double = 0.6475144345866779
+
+
+-- collecting metric performance
+
 val pred = bestmodel.transform(testData)
 
 val bceval = new BinaryClassificationEvaluator()
@@ -295,13 +401,6 @@ res38: Double = 0.7603320830060596
 bceval.setMetricName("areaUnderPR").evaluate(pred)
 res39: Double = 0.4544038955621655
 
-df2.groupBy("label").count.show
-+-----+-----+
-|label|count|
-+-----+-----+
-|  0.0| 7963|
-|  1.0| 2037|
-+-----+-----+
 
 val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
 
@@ -313,16 +412,3 @@ res41: org.apache.spark.mllib.linalg.Matrix =
 1406.0  129.0
 903.0   461.0
 
-println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
-LR Model coefficients:
--0.030498312695674958
--0.014563840323956339
-0.22696223179459057
-0.15685905656385493
-0.5038700620804205
--0.03550660396423862
-0.08440960723102985
--0.025314566948983066
--0.006440939052766424
--0.2891502956076117
-0.009595551306131524

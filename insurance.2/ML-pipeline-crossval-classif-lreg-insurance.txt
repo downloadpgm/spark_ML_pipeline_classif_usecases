@@ -1,0 +1,440 @@
+---- Exploratory Data Analysis --------------
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("insurance/train.csv")
+
+df.printSchema
+root
+ |-- id: integer (nullable = true)
+ |-- Gender: string (nullable = true)
+ |-- Age: integer (nullable = true)
+ |-- Driving_License: integer (nullable = true)
+ |-- Region_Code: double (nullable = true)
+ |-- Previously_Insured: integer (nullable = true)
+ |-- Vehicle_Age: string (nullable = true)
+ |-- Vehicle_Damage: string (nullable = true)
+ |-- Annual_Premium: double (nullable = true)
+ |-- Policy_Sales_Channel: double (nullable = true)
+ |-- Vintage: integer (nullable = true)
+ |-- Response: integer (nullable = true)
+
+df.show(10)
++---+------+---+---------------+-----------+------------------+-----------+--------------+--------------+--------------------+-------+--------+
+| id|Gender|Age|Driving_License|Region_Code|Previously_Insured|Vehicle_Age|Vehicle_Damage|Annual_Premium|Policy_Sales_Channel|Vintage|Response|
++---+------+---+---------------+-----------+------------------+-----------+--------------+--------------+--------------------+-------+--------+
+|  1|  Male| 44|              1|       28.0|                 0|  > 2 Years|           Yes|       40454.0|                26.0|    217|       1|
+|  2|  Male| 76|              1|        3.0|                 0|   1-2 Year|            No|       33536.0|                26.0|    183|       0|
+|  3|  Male| 47|              1|       28.0|                 0|  > 2 Years|           Yes|       38294.0|                26.0|     27|       1|
+|  4|  Male| 21|              1|       11.0|                 1|   < 1 Year|            No|       28619.0|               152.0|    203|       0|
+|  5|Female| 29|              1|       41.0|                 1|   < 1 Year|            No|       27496.0|               152.0|     39|       0|
+|  6|Female| 24|              1|       33.0|                 0|   < 1 Year|           Yes|        2630.0|               160.0|    176|       0|
+|  7|  Male| 23|              1|       11.0|                 0|   < 1 Year|           Yes|       23367.0|               152.0|    249|       0|
+|  8|Female| 56|              1|       28.0|                 0|   1-2 Year|           Yes|       32031.0|                26.0|     72|       1|
+|  9|Female| 24|              1|        3.0|                 1|   < 1 Year|            No|       27619.0|               152.0|     28|       0|
+| 10|Female| 32|              1|        6.0|                 1|   < 1 Year|            No|       28771.0|               152.0|     80|       0|
++---+------+---+---------------+-----------+------------------+-----------+--------------+--------------+--------------------+-------+--------+
+only showing top 10 rows
+
+df.describe().show
++-------+------------------+------+------------------+--------------------+------------------+-------------------+-----------+--------------+------------------+--------------------+------------------+-------------------+
+|summary|                id|Gender|               Age|     Driving_License|       Region_Code| Previously_Insured|Vehicle_Age|Vehicle_Damage|    Annual_Premium|Policy_Sales_Channel|           Vintage|           Response|
++-------+------------------+------+------------------+--------------------+------------------+-------------------+-----------+--------------+------------------+--------------------+------------------+-------------------+
+|  count|            381109|381109|            381109|              381109|            381109|             381109|     381109|        381109|            381109|              381109|            381109|             381109|
+|   mean|          190555.0|  null|38.822583565331705|  0.9978693759528114|26.388807401557035| 0.4582101183650871|       null|          null|30564.389581458323|  112.03429465061177|154.34739667654136|0.12256336113815208|
+| stddev|110016.83620776715|  null| 15.51161101809548|0.046109544207799495| 13.22988802578841|0.49825119888722824|       null|          null|17213.155056979947|   54.20399477485719| 83.67130362658658|0.32793576478642744|
+|    min|                 1|Female|                20|                   0|               0.0|                  0|   1-2 Year|            No|            2630.0|                 1.0|                10|                  0|
+|    max|            381109|  Male|                85|                   1|              52.0|                  1|  > 2 Years|           Yes|          540165.0|               163.0|               299|                  1|
++-------+------------------+------+------------------+--------------------+------------------+-------------------+-----------+--------------+------------------+--------------------+------------------+-------------------+
+
+df.groupBy('Gender).count.show
++------+------+
+|Gender| count|
++------+------+
+|Female|175020|
+|  Male|206089|
++------+------+
+
+df.groupBy('Driving_License).count.show  // removed from analysis due to predominantly "1"
++---------------+------+
+|Driving_License| count|
++---------------+------+
+|              1|380297|
+|              0|   812|
++---------------+------+
+
+df.groupBy('Previously_Insured).count.show
++------------------+------+
+|Previously_Insured| count|
++------------------+------+
+|                 1|174628|
+|                 0|206481|
++------------------+------+
+
+df.groupBy('Vehicle_Age).count.show
++-----------+------+
+|Vehicle_Age| count|
++-----------+------+
+|  > 2 Years| 16007|
+|   < 1 Year|164786|
+|   1-2 Year|200316|
++-----------+------+
+
+df.groupBy('Vehicle_Damage).count.show
++--------------+------+
+|Vehicle_Damage| count|
++--------------+------+
+|            No|188696|
+|           Yes|192413|
++--------------+------+
+
+df.groupBy('Response).count.show
++--------+------+
+|Response| count|
++--------+------+
+|       1| 46710|
+|       0|334399|
++--------+------+
+
+
+df.select("Gender","Age","Previously_Insured","Vehicle_Age","Vehicle_Damage","Vintage","Response").show(10)
++------+---+------------------+-----------+--------------+-------+--------+
+|Gender|Age|Previously_Insured|Vehicle_Age|Vehicle_Damage|Vintage|Response|
++------+---+------------------+-----------+--------------+-------+--------+
+|  Male| 44|                 0|  > 2 Years|           Yes|    217|       1|
+|  Male| 76|                 0|   1-2 Year|            No|    183|       0|
+|  Male| 47|                 0|  > 2 Years|           Yes|     27|       1|
+|  Male| 21|                 1|   < 1 Year|            No|    203|       0|
+|Female| 29|                 1|   < 1 Year|            No|     39|       0|
+|Female| 24|                 0|   < 1 Year|           Yes|    176|       0|
+|  Male| 23|                 0|   < 1 Year|           Yes|    249|       0|
+|Female| 56|                 0|   1-2 Year|           Yes|     72|       1|
+|Female| 24|                 1|   < 1 Year|            No|     28|       0|
+|Female| 32|                 1|   < 1 Year|            No|     80|       0|
++------+---+------------------+-----------+--------------+-------+--------+
+only showing top 10 rows
+
+
+import org.apache.spark.sql.types._
+
+val df1 = df.select("Gender","Age","Previously_Insured","Vehicle_Age","Vehicle_Damage","Vintage","Response").
+             withColumn("label", df.col("Response").cast(DoubleType))
+
+df1.describe().show
++-------+------+------------------+-------------------+-----------+--------------+------------------+-------------------+-------------------+
+|summary|Gender|               Age| Previously_Insured|Vehicle_Age|Vehicle_Damage|           Vintage|           Response|              label|
++-------+------+------------------+-------------------+-----------+--------------+------------------+-------------------+-------------------+
+|  count|381109|            381109|             381109|     381109|        381109|            381109|             381109|             381109|
+|   mean|  null|38.822583565331705| 0.4582101183650871|       null|          null|154.34739667654136|0.12256336113815208|0.12256336113815208|
+| stddev|  null| 15.51161101809548|0.49825119888722824|       null|          null| 83.67130362658658|0.32793576478642744|0.32793576478642744|
+|    min|Female|                20|                  0|   1-2 Year|            No|                10|                  0|                0.0|
+|    max|  Male|                85|                  1|  > 2 Years|           Yes|               299|                  1|                1.0|
++-------+------+------------------+-------------------+-----------+--------------+------------------+-------------------+-------------------+
+
+
+---- Feature extraction & Data Munging --------------
+
+import org.apache.spark.ml.feature.{StringIndexer, OneHotEncoder, VectorAssembler}
+
+val dfInd1 = new StringIndexer().setInputCol("Gender").setOutputCol("GenderIdx")
+val dfInd2 = new StringIndexer().setInputCol("Vehicle_Age").setOutputCol("Vehicle_AgeIdx")
+val dfInd3 = new StringIndexer().setInputCol("Vehicle_Damage").setOutputCol("Vehicle_DamageIdx")
+
+val dfOne2 = new OneHotEncoder().setInputCol("Vehicle_AgeIdx").setOutputCol("Vehicle_AgeVect")
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("GenderIdx","Previously_Insured","Vehicle_AgeVect","Vehicle_DamageIdx","Age","Vintage"))
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(dfInd1,dfInd2,dfInd3,dfOne2,va))
+
+val df2 = pipeline.fit(df1).transform(df1)
+
+df2.printSchema
+root
+ |-- Gender: string (nullable = true)
+ |-- Age: integer (nullable = true)
+ |-- Previously_Insured: integer (nullable = true)
+ |-- Vehicle_Age: string (nullable = true)
+ |-- Vehicle_Damage: string (nullable = true)
+ |-- Vintage: integer (nullable = true)
+ |-- Response: integer (nullable = true)
+ |-- label: double (nullable = true)
+ |-- GenderIdx: double (nullable = false)
+ |-- Vehicle_AgeIdx: double (nullable = false)
+ |-- Vehicle_DamageIdx: double (nullable = false)
+ |-- Vehicle_AgeVect: vector (nullable = true)
+ |-- features: vector (nullable = true)
+
+df2.show(10)
++------+---+------------------+-----------+--------------+-------+--------+-----+---------+--------------+-----------------+---------------+--------------------+
+|Gender|Age|Previously_Insured|Vehicle_Age|Vehicle_Damage|Vintage|Response|label|GenderIdx|Vehicle_AgeIdx|Vehicle_DamageIdx|Vehicle_AgeVect|            features|
++------+---+------------------+-----------+--------------+-------+--------+-----+---------+--------------+-----------------+---------------+--------------------+
+|  Male| 44|                 0|  > 2 Years|           Yes|    217|       1|  1.0|      0.0|           2.0|              0.0|      (2,[],[])|(7,[5,6],[44.0,21...|
+|  Male| 76|                 0|   1-2 Year|            No|    183|       0|  0.0|      0.0|           0.0|              1.0|  (2,[0],[1.0])|[0.0,1.0,0.0,1.0,...|
+|  Male| 47|                 0|  > 2 Years|           Yes|     27|       1|  1.0|      0.0|           2.0|              0.0|      (2,[],[])|(7,[5,6],[47.0,27...|
+|  Male| 21|                 1|   < 1 Year|            No|    203|       0|  0.0|      0.0|           1.0|              1.0|  (2,[1],[1.0])|[0.0,0.0,1.0,1.0,...|
+|Female| 29|                 1|   < 1 Year|            No|     39|       0|  0.0|      1.0|           1.0|              1.0|  (2,[1],[1.0])|[1.0,0.0,1.0,1.0,...|
+|Female| 24|                 0|   < 1 Year|           Yes|    176|       0|  0.0|      1.0|           1.0|              0.0|  (2,[1],[1.0])|[1.0,0.0,1.0,0.0,...|
+|  Male| 23|                 0|   < 1 Year|           Yes|    249|       0|  0.0|      0.0|           1.0|              0.0|  (2,[1],[1.0])|(7,[2,5,6],[1.0,2...|
+|Female| 56|                 0|   1-2 Year|           Yes|     72|       1|  1.0|      1.0|           0.0|              0.0|  (2,[0],[1.0])|[1.0,1.0,0.0,0.0,...|
+|Female| 24|                 1|   < 1 Year|            No|     28|       0|  0.0|      1.0|           1.0|              1.0|  (2,[1],[1.0])|[1.0,0.0,1.0,1.0,...|
+|Female| 32|                 1|   < 1 Year|            No|     80|       0|  0.0|      1.0|           1.0|              1.0|  (2,[1],[1.0])|[1.0,0.0,1.0,1.0,...|
++------+---+------------------+-----------+--------------+-------+--------+-----+---------+--------------+-----------------+---------------+--------------------+
+only showing top 10 rows
+
+
+// calculate pearson correlation to check multicolinearity
+
+import org.apache.spark.ml.stat.Correlation
+import org.apache.spark.ml.linalg.Matrix
+import org.apache.spark.sql.Row
+
+val corr = Correlation.corr(df2, "features", "pearson").head match {
+   case Row(coeff: Matrix) => coeff
+}
+corr: org.apache.spark.ml.linalg.Matrix =
+1.0                    -0.14763318901465458    ... (7 total)
+-0.14763318901465458   1.0                     ...
+0.1662796237533659     -0.9187044529428631     ...
+0.09160591787308084    -0.284716998344344      ...
+0.08193215942681609    -0.2790765023157333     ...
+-0.1455450343090122    0.6929102320552705      ...
+0.0025168965793046327  -0.0026323646297304105  ...
+
+
+corr.toDense.rowIter.foreach( x => {
+  val size = x.size
+  for ( i <- Range(0,size)) { 
+    val elem = x(i)
+    print(f"$elem%.3f\t") 
+  }
+  println
+})
+// "GenderIdx","Vehicle_AgeVect","Vehicle_DamageIdx","Previously_Insured","Age","Vintage"
+1.000   -0.148  0.166   0.092   0.082   -0.146  0.003
+-0.148  1.000   -0.919  -0.285  -0.279  0.693   -0.003
+0.166   -0.919  1.000   0.371   0.359   -0.788  0.002
+0.092   -0.285  0.371   1.000   0.824   -0.268  0.002
+0.082   -0.279  0.359   0.824   1.000   -0.255  0.003
+-0.146  0.693   -0.788  -0.268  -0.255  1.000   -0.001
+0.003   -0.003  0.002   0.002   0.003   -0.001  1.000
+
+// Previously_Insured x Vehicle_DamageIdx = 0.824 evidence of multicolinearity
+
+
+// ----- building the logistic regression model
+
+import org.apache.spark.ml.feature.StandardScaler
+val stdScaler = new StandardScaler().
+setWithStd(true).
+setWithMean(true).
+setInputCol("features").
+setOutputCol("scaledFeatures")
+
+import org.apache.spark.ml.classification.LogisticRegression
+val lr = new LogisticRegression
+lr.setRegParam(0.01).setMaxIter(100).setFitIntercept(true).setFeaturesCol("scaledFeatures")
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(dfInd1,dfInd2,dfInd3,dfOne2,va,stdScaler,lr))
+
+val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
+
+trainingData.cache
+testData.cache
+
+val model = pipeline.fit(trainingData)
+
+-- collecting feature importance
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+
+val lrmodel = model.stages.last.asInstanceOf[LogisticRegressionModel]
+
+val featureImp = va.getInputCols.zip(lrmodel.coefficients.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++------------------+--------------------+
+|           feature|          Importance|
++------------------+--------------------+
+|   Vehicle_AgeVect|0.020377435758272822|
+|         GenderIdx|-0.04681003978003...|
+|           Vintage| -0.1977503130852626|
+| Vehicle_DamageIdx|-0.45960812439644105|
+|Previously_Insured| -0.8272142578850181|
+|               Age| -0.8726692796550645|
++------------------+--------------------+
+
+// -----  metrics extracted from model
+
+import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
+
+val trainingSummary = lrmodel.summary
+
+trainingSummary.objectiveHistory
+res4: Array[Double] = Array(0.37227334331158024, 0.337943433483385, 0.3032771354237298, 0.29929593265781845, 0.29066317951899767, 0.2889826426229214, 0.2886940949683408, 0.28866328170391387, 0.2886618686051642, 0.2886610199930223, 0.28866089353439406, 0.2886608606890806, 0.28866086012869596, 0.2886608600916367, 0.28866086007211045, 0.28866086006649216, 0.2886608600625338, 0.28866086005929853)
+
+val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
+
+binarySummary.areaUnderROC
+res15: Double = 0.831913991124495
+
+binarySummary.accuracy
+res6: Double = 0.7243493240459874
+
+
+// -----  metrics on test data
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res17: Double = 0.8300292899734871
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res18: Double = 0.30639716365849634
+
+val predRDD = pred.select("prediction","label").rdd.map( row => (row(0).toString.toDouble,row(1).toString.toDouble)).cache
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(predRDD)
+
+metrics.confusionMatrix
+res11: org.apache.spark.mllib.linalg.Matrix =
+70995.0  29139.0
+2473.0   11472.0
+
+// ----- logistic regression model hyperparameter tunning
+
+import org.apache.spark.ml.classification.LogisticRegression
+
+val lr = new LogisticRegression
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().
+addGrid(lr.regParam, Array(1, 0.1, 0.01, 0.001)).
+addGrid(lr.fitIntercept).
+addGrid(lr.maxIter, Array(10, 20, 40, 100)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(lr).
+setEvaluator(new BinaryClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(dfInd1,dfInd2,dfInd3,dfOne2,va,stdScaler,cv))
+val pipelinemodel = pipeline.fit(trainingData)
+
+import org.apache.spark.ml.tuning.CrossValidatorModel
+val cvmodel = pipelinemodel.stages.last.asInstanceOf[CrossValidatorModel]
+
+-- CV hyperparameter evaluation
+
+cvmodel.getEstimatorParamMaps.zip(cvmodel.avgMetrics)
+Array(({
+        logreg_27c496ace2b1-fitIntercept: true,
+        logreg_27c496ace2b1-maxIter: 10,
+        logreg_27c496ace2b1-regParam: 1.0
+},0.7955118374535833), ({
+        logreg_27c496ace2b1-fitIntercept: true,
+        logreg_27c496ace2b1-maxIter: 20,
+        logreg_27c496ace2b1-regParam: 1.0
+},0.7954005271757213), ({
+        logreg_27c496ace2b1-fitIntercept: true,
+        logreg_27c496ace2b1-maxIter: 40,
+        logreg_27c496ace2b1-regParam: 1.0
+},0.7954005271757213), ({
+        logreg_27c496ace2b1-fitIntercept: true,
+        logreg_27c496ace2b1-maxIter: 100,
+        logreg_27c496ace2b1-regParam: 1.0
+},0.7954005271757213), ({
+        logreg_27c496ace2b1-fitIntercept: false,
+        logreg_27c496ace2b1-maxIter: 10,
+        logreg_27c496ace2b1-regParam: 1.0
+},0.7807481690992496), ({
+        logreg_27c496ace2b1-fitIntercept: false,
+        lo...
+
+-- extract best LR model 
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+val lrmodel = cvmodel.bestModel.asInstanceOf[LogisticRegressionModel]
+
+lrmodel.getRegParam
+res26: Double = 0.001
+
+lrmodel.getMaxIter
+res27: Int = 40
+
+lrmodel.getThreshold
+res3: Double = 0.2
+
+lrmodel.getFitIntercept
+res4: Boolean = true
+
+lrmodel.getStandardization
+res5: Boolean = true
+
+-- collecting feature importance
+
+val featureImp = va.getInputCols.zip(lrmodel.coefficients.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++------------------+--------------------+
+|           feature|          Importance|
++------------------+--------------------+
+|           Vintage|-0.02070380793339254|
+|         GenderIdx|-0.09417370793414981|
+|   Vehicle_AgeVect|-0.19197119020609485|
+| Vehicle_DamageIdx| -1.3893637135859342|
+|Previously_Insured|  -2.019344315891452|
+|               Age|  -2.953807645176226|
++------------------+--------------------+
+
+
+import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
+
+val trainingSummary = lrmodel.summary
+
+trainingSummary.objectiveHistory
+res20: Array[Double] = Array(0.37227334331158024, 0.29708759479848335, 0.294925696726623, 0.2931215380111379, 0.28496420637022035, 0.2838605550467046, 0.28283040662260506, 0.28215539251427935, 0.28165782317943194, 0.2803970672485666, 0.27897920973342577, 0.2787552873195998, 0.27836696268932276, 0.2783489637917956, 0.27828553486923857, 0.278230097757432, 0.27818756035224407, 0.2781003604764377, 0.2780668421022029, 0.2780412968897635, 0.27804037953487204, 0.2780403527419442, 0.2780403518726974, 0.27804035183427406, 0.27804035183379616, 0.27804035183261727, 0.27804035183224046)
+
+val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
+
+binarySummary.areaUnderROC
+res21: Double = 0.8334118812709509
+
+binarySummary.accuracy
+res22: Double = 0.7379320675579523
+
+-- collecting metric performance
+
+val pred = pipelinemodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res23: Double = 0.8313369403752122
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res24: Double = 0.30870065210893416
+
+val predRDD = pred.select("prediction","label").rdd.map( row => (row(0).toString.toDouble,row(1).toString.toDouble)).cache
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(predRDD)
+
+metrics.confusionMatrix
+res25: org.apache.spark.mllib.linalg.Matrix =
+72777.0  27357.0
+2724.0   11221.0

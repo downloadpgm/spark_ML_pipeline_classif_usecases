@@ -1,0 +1,412 @@
+---- Exploratory Data Analysis --------------
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("food_mkt/ml_project1_data.csv")
+
+df.printSchema
+root
+ |-- ID: integer (nullable = true)
+ |-- Year_Birth: integer (nullable = true)
+ |-- Education: string (nullable = true)
+ |-- Marital_Status: string (nullable = true)
+ |-- Income: integer (nullable = true)
+ |-- Kidhome: integer (nullable = true)
+ |-- Teenhome: integer (nullable = true)
+ |-- Dt_Customer: timestamp (nullable = true)
+ |-- Recency: integer (nullable = true)
+ |-- MntWines: integer (nullable = true)
+ |-- MntFruits: integer (nullable = true)
+ |-- MntMeatProducts: integer (nullable = true)
+ |-- MntFishProducts: integer (nullable = true)
+ |-- MntSweetProducts: integer (nullable = true)
+ |-- MntGoldProds: integer (nullable = true)
+ |-- NumDealsPurchases: integer (nullable = true)
+ |-- NumWebPurchases: integer (nullable = true)
+ |-- NumCatalogPurchases: integer (nullable = true)
+ |-- NumStorePurchases: integer (nullable = true)
+ |-- NumWebVisitsMonth: integer (nullable = true)
+ |-- AcceptedCmp3: integer (nullable = true)
+ |-- AcceptedCmp4: integer (nullable = true)
+ |-- AcceptedCmp5: integer (nullable = true)
+ |-- AcceptedCmp1: integer (nullable = true)
+ |-- AcceptedCmp2: integer (nullable = true)
+ |-- Complain: integer (nullable = true)
+ |-- Z_CostContact: integer (nullable = true)
+ |-- Z_Revenue: integer (nullable = true)
+ |-- Response: integer (nullable = true)
+ 
+df.show(10)
++----+----------+----------+--------------+------+-------+--------+-------------------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+
+|  ID|Year_Birth| Education|Marital_Status|Income|Kidhome|Teenhome|        Dt_Customer|Recency|MntWines|MntFruits|MntMeatProducts|MntFishProducts|MntSweetProducts|MntGoldProds|NumDealsPurchases|NumWebPurchases|NumCatalogPurchases|NumStorePurchases|NumWebVisitsMonth|AcceptedCmp3|AcceptedCmp4|AcceptedCmp5|AcceptedCmp1|AcceptedCmp2|Complain|Z_CostContact|Z_Revenue|Response|
++----+----------+----------+--------------+------+-------+--------+-------------------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+
+|5524|      1957|Graduation|        Single| 58138|      0|       0|2012-09-04 00:00:00|     58|     635|       88|            546|            172|              88|          88|                3|              8|                 10|                4|                7|           0|           0|           0|           0|           0|       0|            3|       11|       1|
+|2174|      1954|Graduation|        Single| 46344|      1|       1|2014-03-08 00:00:00|     38|      11|        1|              6|              2|               1|           6|                2|              1|                  1|                2|                5|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+|4141|      1965|Graduation|      Together| 71613|      0|       0|2013-08-21 00:00:00|     26|     426|       49|            127|            111|              21|          42|                1|              8|                  2|               10|                4|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+|6182|      1984|Graduation|      Together| 26646|      1|       0|2014-02-10 00:00:00|     26|      11|        4|             20|             10|               3|           5|                2|              2|                  0|                4|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+|5324|      1981|       PhD|       Married| 58293|      1|       0|2014-01-19 00:00:00|     94|     173|       43|            118|             46|              27|          15|                5|              5|                  3|                6|                5|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+|7446|      1967|    Master|      Together| 62513|      0|       1|2013-09-09 00:00:00|     16|     520|       42|             98|              0|              42|          14|                2|              6|                  4|               10|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+| 965|      1971|Graduation|      Divorced| 55635|      0|       1|2012-11-13 00:00:00|     34|     235|       65|            164|             50|              49|          27|                4|              7|                  3|                7|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+|6177|      1985|       PhD|       Married| 33454|      1|       0|2013-05-08 00:00:00|     32|      76|       10|             56|              3|               1|          23|                2|              4|                  0|                4|                8|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+|4855|      1974|       PhD|      Together| 30351|      1|       0|2013-06-06 00:00:00|     19|      14|        0|             24|              3|               3|           2|                1|              3|                  0|                2|                9|           0|           0|           0|           0|           0|       0|            3|       11|       1|
+|5899|      1950|       PhD|      Together|  5648|      1|       1|2014-03-13 00:00:00|     68|      28|        0|              6|              1|               1|          13|                1|              1|                  0|                0|               20|           1|           0|           0|           0|           0|       0|            3|       11|       0|
++----+----------+----------+--------------+------+-------+--------+-------------------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+
+only showing top 10 rows
+
+df.describe().show()
++-------+------------------+------------------+---------+--------------+------------------+-------------------+------------------+-----------------+------------------+------------------+-----------------+------------------+-----------------+----------------+-----------------+------------------+-------------------+-----------------+-----------------+-------------------+-------------------+-------------------+-------------------+--------------------+-------------------+-------------+---------+-------------------+
+|summary|                ID|        Year_Birth|Education|Marital_Status|            Income|            Kidhome|          Teenhome|          Recency|          MntWines|         MntFruits|  MntMeatProducts|   MntFishProducts| MntSweetProducts|    MntGoldProds|NumDealsPurchases|   NumWebPurchases|NumCatalogPurchases|NumStorePurchases|NumWebVisitsMonth|       AcceptedCmp3|       AcceptedCmp4|       AcceptedCmp5|       AcceptedCmp1|        AcceptedCmp2|           Complain|Z_CostContact|Z_Revenue|           Response|
++-------+------------------+------------------+---------+--------------+------------------+-------------------+------------------+-----------------+------------------+------------------+-----------------+------------------+-----------------+----------------+-----------------+------------------+-------------------+-----------------+-----------------+-------------------+-------------------+-------------------+-------------------+--------------------+-------------------+-------------+---------+-------------------+
+|  count|              2240|              2240|     2240|          2240|              2216|               2240|              2240|             2240|              2240|              2240|             2240|              2240|             2240|            2240|             2240|              2240|               2240|             2240|             2240|               2240|               2240|               2240|               2240|                2240|               2240|         2240|     2240|               2240|
+|   mean| 5592.159821428571|1968.8058035714287|     null|          null| 52247.25135379061|0.44419642857142855|           0.50625|        49.109375| 303.9357142857143|26.302232142857143|           166.95| 37.52544642857143|27.06294642857143|       44.021875|            2.325| 4.084821428571429| 2.6620535714285714|5.790178571428571|5.316517857142857|0.07276785714285715|0.07455357142857143|0.07276785714285715|0.06428571428571428|0.013392857142857142|           0.009375|          3.0|     11.0|0.14910714285714285|
+| stddev|3246.6621975643416|11.984069456885827|     null|          null|25173.076660901414| 0.5383980977345935|0.5445382307698761|28.96245280837821|336.59739260537197|39.773433764578584|225.7153725117536|54.628979402878095|41.28049848785491|52.1674389149973| 1.93223750085598|2.7787141473881007| 2.9231006555397463|3.250958145674428| 2.42664500954729| 0.2598130699218951|0.26272828485356176| 0.2598130699218953|0.24531597433401406| 0.11497560625548417|0.09639116794449748|          0.0|      0.0|0.35627358640847934|
+|    min|                 0|              1893| 2n Cycle|        Absurd|              1730|                  0|                 0|                0|                 0|                 0|                0|                 0|                0|               0|                0|                 0|                  0|                0|                0|                  0|                  0|                  0|                  0|                   0|                  0|            3|       11|                  0|
+|    max|             11191|              1996|      PhD|          YOLO|            666666|                  2|                 2|               99|              1493|               199|             1725|               259|              263|             362|               15|                27|                 28|               13|               20|                  1|                  1|                  1|                  1|                   1|                  1|            3|       11|                  1|
++-------+------------------+------------------+---------+--------------+------------------+-------------------+------------------+-----------------+------------------+------------------+-----------------+------------------+-----------------+----------------+-----------------+------------------+-------------------+-----------------+-----------------+-------------------+-------------------+-------------------+-------------------+--------------------+-------------------+-------------+---------+-------------------+
+ 
+val df1 = df.where("Income is not null").
+withColumn("age",lit(2020)-col("Year_Birth")).withColumn("enrolled_to_date",datediff(current_date(),col("Dt_Customer"))).
+withColumn("label", 'Response).
+drop("ID", "Year_Birth", "Dt_Customer")
+
+df1.printSchema
+root
+ |-- Education: string (nullable = true)
+ |-- Marital_Status: string (nullable = true)
+ |-- Income: integer (nullable = true)
+ |-- Kidhome: integer (nullable = true)
+ |-- Teenhome: integer (nullable = true)
+ |-- Recency: integer (nullable = true)
+ |-- MntWines: integer (nullable = true)
+ |-- MntFruits: integer (nullable = true)
+ |-- MntMeatProducts: integer (nullable = true)
+ |-- MntFishProducts: integer (nullable = true)
+ |-- MntSweetProducts: integer (nullable = true)
+ |-- MntGoldProds: integer (nullable = true)
+ |-- NumDealsPurchases: integer (nullable = true)
+ |-- NumWebPurchases: integer (nullable = true)
+ |-- NumCatalogPurchases: integer (nullable = true)
+ |-- NumStorePurchases: integer (nullable = true)
+ |-- NumWebVisitsMonth: integer (nullable = true)
+ |-- AcceptedCmp3: integer (nullable = true)
+ |-- AcceptedCmp4: integer (nullable = true)
+ |-- AcceptedCmp5: integer (nullable = true)
+ |-- AcceptedCmp1: integer (nullable = true)
+ |-- AcceptedCmp2: integer (nullable = true)
+ |-- Complain: integer (nullable = true)
+ |-- Z_CostContact: integer (nullable = true)
+ |-- Z_Revenue: integer (nullable = true)
+ |-- Response: integer (nullable = true)
+ |-- age: integer (nullable = true)
+ |-- enrolled_to_date: integer (nullable = true)
+ |-- label: integer (nullable = true)
+
+df1.show(10)
++----------+--------------+------+-------+--------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+---+----------------+-----+
+| Education|Marital_Status|Income|Kidhome|Teenhome|Recency|MntWines|MntFruits|MntMeatProducts|MntFishProducts|MntSweetProducts|MntGoldProds|NumDealsPurchases|NumWebPurchases|NumCatalogPurchases|NumStorePurchases|NumWebVisitsMonth|AcceptedCmp3|AcceptedCmp4|AcceptedCmp5|AcceptedCmp1|AcceptedCmp2|Complain|Z_CostContact|Z_Revenue|Response|age|enrolled_to_date|label|
++----------+--------------+------+-------+--------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+---+----------------+-----+
+|Graduation|        Single| 58138|      0|       0|     58|     635|       88|            546|            172|              88|          88|                3|              8|                 10|                4|                7|           0|           0|           0|           0|           0|       0|            3|       11|       1| 63|            3645|    1|
+|Graduation|        Single| 46344|      1|       1|     38|      11|        1|              6|              2|               1|           6|                2|              1|                  1|                2|                5|           0|           0|           0|           0|           0|       0|            3|       11|       0| 66|            3095|    0|
+|Graduation|      Together| 71613|      0|       0|     26|     426|       49|            127|            111|              21|          42|                1|              8|                  2|               10|                4|           0|           0|           0|           0|           0|       0|            3|       11|       0| 55|            3294|    0|
+|Graduation|      Together| 26646|      1|       0|     26|      11|        4|             20|             10|               3|           5|                2|              2|                  0|                4|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0| 36|            3121|    0|
+|       PhD|       Married| 58293|      1|       0|     94|     173|       43|            118|             46|              27|          15|                5|              5|                  3|                6|                5|           0|           0|           0|           0|           0|       0|            3|       11|       0| 39|            3143|    0|
+|    Master|      Together| 62513|      0|       1|     16|     520|       42|             98|              0|              42|          14|                2|              6|                  4|               10|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0| 53|            3275|    0|
+|Graduation|      Divorced| 55635|      0|       1|     34|     235|       65|            164|             50|              49|          27|                4|              7|                  3|                7|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0| 49|            3575|    0|
+|       PhD|       Married| 33454|      1|       0|     32|      76|       10|             56|              3|               1|          23|                2|              4|                  0|                4|                8|           0|           0|           0|           0|           0|       0|            3|       11|       0| 35|            3399|    0|
+|       PhD|      Together| 30351|      1|       0|     19|      14|        0|             24|              3|               3|           2|                1|              3|                  0|                2|                9|           0|           0|           0|           0|           0|       0|            3|       11|       1| 46|            3370|    1|
+|       PhD|      Together|  5648|      1|       1|     68|      28|        0|              6|              1|               1|          13|                1|              1|                  0|                0|               20|           1|           0|           0|           0|           0|       0|            3|       11|       0| 70|            3090|    0|
++----------+--------------+------+-------+--------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+---+----------------+-----+
+only showing top 10 rows
+
+df1.groupBy('Education).count.show
++----------+-----+
+| Education|count|
++----------+-----+
+|  2n Cycle|  200|
+|       PhD|  481|
+|    Master|  365|
+|Graduation| 1116|
+|     Basic|   54|
++----------+-----+
+
+df1.groupBy('Marital_Status).count.show
++--------------+-----+
+|Marital_Status|count|
++--------------+-----+
+|          YOLO|    2|
+|      Together|  573|
+|       Married|  857|
+|        Absurd|    2|
+|         Widow|   76|
+|      Divorced|  232|
+|         Alone|    3|
+|        Single|  471|
++--------------+-----+
+
+df1.groupBy('Response).count.show
++--------+-----+
+|Response|count|
++--------+-----+
+|       1|  333|
+|       0| 1883|
++--------+-----+
+
+
+---- Feature extraction & Data Munging --------------
+
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+
+val types = df1.dtypes
+types: Array[(String, String)] = Array((Education,StringType), (Marital_Status,StringType), (Income,IntegerType), (Kidhome,IntegerType), (Teenhome,IntegerType), (Recency,IntegerType), (MntWines,IntegerType), (MntFruits,IntegerType), (MntMeatProducts,IntegerType), (MntFishProducts,IntegerType), (MntSweetProducts,IntegerType), (MntGoldProds,IntegerType), (NumDealsPurchases,IntegerType), (NumWebPurchases,IntegerType), (NumCatalogPurchases,IntegerType), (NumStorePurchases,IntegerType), (NumWebVisitsMonth,IntegerType), (AcceptedCmp3,IntegerType), (AcceptedCmp4,IntegerType), (AcceptedCmp5,IntegerType), (AcceptedCmp1,IntegerType), (AcceptedCmp2,IntegerType), (Complain,IntegerType), (Z_CostContact,IntegerType), (Z_Revenue,IntegerType), (Response,IntegerType), (age,IntegerType), (enrolled_to_dat...
+
+df1.select(types.map{ case(c,t) =>  if (t == "IntegerType") col(c).cast(DoubleType) else col(c) }: _*)
+res2: org.apache.spark.sql.DataFrame = [Education: string, Marital_Status: string ... 26 more fields]
+
+val df2 = df1.select(types.map{ case(c,t) =>  if (t == "IntegerType") col(c).cast(DoubleType) else col(c) }: _*)
+df2: org.apache.spark.sql.DataFrame = [Education: string, Marital_Status: string ... 26 more fields]
+
+df2.printSchema
+root
+ |-- Education: string (nullable = true)
+ |-- Marital_Status: string (nullable = true)
+ |-- Income: double (nullable = true)
+ |-- Kidhome: double (nullable = true)
+ |-- Teenhome: double (nullable = true)
+ |-- Recency: double (nullable = true)
+ |-- MntWines: double (nullable = true)
+ |-- MntFruits: double (nullable = true)
+ |-- MntMeatProducts: double (nullable = true)
+ |-- MntFishProducts: double (nullable = true)
+ |-- MntSweetProducts: double (nullable = true)
+ |-- MntGoldProds: double (nullable = true)
+ |-- NumDealsPurchases: double (nullable = true)
+ |-- NumWebPurchases: double (nullable = true)
+ |-- NumCatalogPurchases: double (nullable = true)
+ |-- NumStorePurchases: double (nullable = true)
+ |-- NumWebVisitsMonth: double (nullable = true)
+ |-- AcceptedCmp3: double (nullable = true)
+ |-- AcceptedCmp4: double (nullable = true)
+ |-- AcceptedCmp5: double (nullable = true)
+ |-- AcceptedCmp1: double (nullable = true)
+ |-- AcceptedCmp2: double (nullable = true)
+ |-- Complain: double (nullable = true)
+ |-- Z_CostContact: double (nullable = true)
+ |-- Z_Revenue: double (nullable = true)
+ |-- Response: double (nullable = true)
+ |-- age: double (nullable = true)
+ |-- enrolled_to_date: double (nullable = true)
+ |-- label: double (nullable = true)
+
+
+import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
+
+val dfInd1 = new StringIndexer().setInputCol("Education").setOutputCol("EducationCat").setHandleInvalid("skip")
+val dfInd2 = new StringIndexer().setInputCol("Marital_Status").setOutputCol("Marital_StatusCat").setHandleInvalid("skip")
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("EducationCat","Marital_StatusCat","Income","Kidhome","Teenhome","Recency","MntWines","MntFruits","MntMeatProducts","MntFishProducts","MntSweetProducts","MntGoldProds","NumDealsPurchases","NumWebPurchases","NumCatalogPurchases","NumStorePurchases","NumWebVisitsMonth","AcceptedCmp1","AcceptedCmp2","AcceptedCmp3","AcceptedCmp4","AcceptedCmp5","Complain","Z_CostContact","Z_Revenue","age","enrolled_to_date"))
+
+// ----- building the decision tree model
+
+import org.apache.spark.ml.classification.DecisionTreeClassifier
+val dt = new DecisionTreeClassifier
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(dfInd1,dfInd2,va,dt))
+
+val Array(trainingData, testData) = df2.randomSplit(Array(0.7,0.3),11L)
+
+trainingData.cache
+testData.cache
+
+val model = pipeline.fit(trainingData)
+
+-- collecting feature importance
+
+import org.apache.spark.ml.classification.DecisionTreeClassificationModel
+
+val dtmodel = model.stages.last.asInstanceOf[DecisionTreeClassificationModel]
+
+val featureImp = va.getInputCols.zip(dtmodel.featureImportances.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++-------------------+--------------------+
+|            feature|          Importance|
++-------------------+--------------------+
+|       AcceptedCmp5|  0.2631347964012336|
+|       AcceptedCmp3|  0.1540735824308377|
+|            Recency|  0.1346644530950254|
+|   enrolled_to_date|  0.1182575297861186|
+|       AcceptedCmp1| 0.09763759019033354|
+|  Marital_StatusCat| 0.03743164655644228|
+|    MntMeatProducts| 0.03341168980729867|
+|   MntSweetProducts| 0.03068272181954633|
+|  NumWebVisitsMonth|0.026140449031731097|
+|           MntWines| 0.02262172983004453|
+|          MntFruits|0.021729151521375077|
+|       EducationCat|0.021719227062533666|
+|                age|0.013481465514323178|
+|    NumWebPurchases|0.012671549048638433|
+|NumCatalogPurchases| 0.01234241790451795|
+|             Income|                 0.0|
+|            Kidhome|                 0.0|
+|           Teenhome|                 0.0|
+|       MntGoldProds|                 0.0|
+|    MntFishProducts|                 0.0|
++-------------------+--------------------+
+only showing top 20 rows
+
+
+-- collecting metric performance
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res3: Double = 0.285084219858156
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res4: Double = 0.08156489078055086
+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res16: org.apache.spark.mllib.linalg.Matrix =
+540.0  58.0
+24.0   22.0
+
+
+// ----- DT model hyperparameter tunning
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().
+addGrid(dt.maxBins, Array(32, 48, 64)).
+addGrid(dt.impurity, Array("gini", "entropy")).
+addGrid(dt.maxDepth, Array(10,20,30)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(new BinaryClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val cvmodel = cv.fit(trainingData)
+
+-- CV hyperparameter evaluation
+
+(new BinaryClassificationEvaluator).getMetricName
+res10: String = areaUnderROC
+
+cvmodel.getEstimatorParamMaps.zip(cvmodel.avgMetrics)
+res17: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
+Array(({
+        dtc_d9a7b6c33b73-impurity: gini,
+        dtc_d9a7b6c33b73-maxBins: 32,
+        dtc_d9a7b6c33b73-maxDepth: 10
+},0.6551845485402508), ({
+        dtc_d9a7b6c33b73-impurity: entropy,
+        dtc_d9a7b6c33b73-maxBins: 32,
+        dtc_d9a7b6c33b73-maxDepth: 10
+},0.7147779831907847), ({
+        dtc_d9a7b6c33b73-impurity: gini,
+        dtc_d9a7b6c33b73-maxBins: 48,
+        dtc_d9a7b6c33b73-maxDepth: 10
+},0.5067516711270872), ({
+        dtc_d9a7b6c33b73-impurity: entropy,
+        dtc_d9a7b6c33b73-maxBins: 48,
+        dtc_d9a7b6c33b73-maxDepth: 10
+},0.7225523550518579), ({
+        dtc_d9a7b6c33b73-impurity: gini,
+        dtc_d9a7b6c33b73-maxBins: 64,
+        dtc_d9a7b6c33b73-maxDepth: 10
+},0.5942649554607883), ({
+        dtc_d9a7b6c33b73-impurity: entropy,
+        dtc_d9a7b6c33b73-maxBins: 64,
+        dtc_d9a7b6c33b73-maxDepth: 10
+},0.68945227...
+
+
+-- extract best DT model 
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = cvmodel.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.DecisionTreeClassificationModel
+val dtmodel = bestmodel.stages.last.asInstanceOf[DecisionTreeClassificationModel]
+
+dtmodel.getMaxBins
+res0: Int = 32
+
+dtmodel.getImpurity
+res2: String = gini
+
+dtmodel.getMaxDepth
+res3: Int = 20
+
+-- collecting feature importance
+
+val featureImp = va.getInputCols.zip(dtmodel.featureImportances.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++-------------------+--------------------+
+|            feature|          Importance|
++-------------------+--------------------+
+|       AcceptedCmp5| 0.11783048262125954|
+|  Marital_StatusCat|  0.0956916762518907|
+|   enrolled_to_date| 0.08392423800201419|
+|            Recency| 0.07610544476369842|
+|       MntGoldProds| 0.06988444390369644|
+|       AcceptedCmp3| 0.06899340119704105|
+|    MntMeatProducts| 0.06278144173922807|
+|       EducationCat| 0.05636938521274116|
+|       AcceptedCmp1| 0.05307551011103769|
+|           MntWines| 0.04750706073888295|
+|             Income| 0.04010555511316953|
+|          MntFruits| 0.03760377939527149|
+|                age|0.034253599069792626|
+|NumCatalogPurchases| 0.02734179614319566|
+|  NumWebVisitsMonth|0.025825823401282547|
+|   MntSweetProducts| 0.02164179323717754|
+|    MntFishProducts|0.020266159411973267|
+|  NumStorePurchases|0.019399268499761212|
+|           Teenhome|0.017780451544234615|
+|    NumWebPurchases|0.011337179425816926|
++-------------------+--------------------+
+only showing top 20 rows
+
+
+-- collecting metric performance
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res22: Double = 0.7037344858156028
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res23: Double = 0.3853577372135599
+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res24: org.apache.spark.mllib.linalg.Matrix =
+501.0  41.0
+63.0   39.0

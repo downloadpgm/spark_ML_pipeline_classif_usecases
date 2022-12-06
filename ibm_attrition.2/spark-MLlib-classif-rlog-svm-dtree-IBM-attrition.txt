@@ -1,25 +1,130 @@
 ---- Feature extraction & Data Munging --------------
 
-val rdd2x = sc.textFile("spark/data/attrition/HR-Employee-Attrition.csv").map( x => x.split(","))
+val hdr = sc.textFile("spark/data/attrition/HR-Employee-Attrition.csv").map( x => x.split(",")).take(1)(0)
 
-rdd2x.first
-res1: Array[String] = Array(Age, Attrition, BusinessTravel, DailyRate, Department, DistanceFromHome, Education, EducationField, EmployeeCount, EmployeeNumber, EnvironmentSatisfaction, Gender, HourlyRate, JobInvolvement, JobLevel, JobRole, JobSatisfaction, MaritalStatus, MonthlyIncome, MonthlyRate, NumCompaniesWorked, Over18, OverTime, PercentSalaryHike, PerformanceRating, RelationshipSatisfaction, StandardHours, StockOptionLevel, TotalWorkingYears, TrainingTimesLastYear, WorkLifeBalance, YearsAtCompany, YearsInCurrentRole, YearsSinceLastPromotion, YearsWithCurrManager)
+val rdd2x = sc.textFile("spark/data/attrition/HR-Employee-Attrition.csv")
 
-val rdd1x = rdd2x.filter( x => x(2) != "BusinessTravel" )
+rdd2x.take(5).mkString("\n")
+res9: String =
+Age,Attrition,BusinessTravel,DailyRate,Department,DistanceFromHome,Education,EducationField,EmployeeCount,EmployeeNumber,EnvironmentSatisfaction,Gender,HourlyRate,JobInvolvement,JobLevel,JobRole,JobSatisfaction,MaritalStatus,MonthlyIncome,MonthlyRate,NumCompaniesWorked,Over18,OverTime,PercentSalaryHike,PerformanceRating,RelationshipSatisfaction,StandardHours,StockOptionLevel,TotalWorkingYears,TrainingTimesLastYear,WorkLifeBalance,YearsAtCompany,YearsInCurrentRole,YearsSinceLastPromotion,YearsWithCurrManager
+41,Yes,Travel_Rarely,1102,Sales,1,2,Life Sciences,1,1,2,Female,94,3,2,Sales Executive,4,Single,5993,19479,8,Y,Yes,11,3,1,80,0,8,0,1,6,4,0,5
+49,No,Travel_Frequently,279,Research & Development,8,1,Life Sciences,1,2,3,Male,61,2,2,Research Scientist,2,Married,5130,24907,1,...
+
+val rdd1x = rdd2x.filter( x => ! x.contains("BusinessTravel")).map( x => x.split(","))
+
+rdd1x.count
+res14: Long = 1470
+
+val orderingDesc = Ordering.by[(String, Int), Int](_._2)
+
+// BusinessTravel
+rdd1x.map( x => x(2)).distinct.count
+res13: Long = 3
+
+rdd1x.map( x => (x(2),1)).reduceByKey( _+_ ).top(10)(orderingDesc).mkString("\n")
+res18: String =
+(Travel_Rarely,1043)
+(Travel_Frequently,277)
+(Non-Travel,150)
+
+// Department
+rdd1x.map( x => x(4)).distinct.count
+res21: Long = 3
+
+rdd1x.map( x => (x(4),1)).reduceByKey( _+_ ).top(10)(orderingDesc).mkString("\n")
+res22: String =
+(Research & Development,961)
+(Sales,446)
+(Human Resources,63)
+
+// Education
+rdd1x.map( x => x(6)).distinct.count
+res23: Long = 5
+
+scala> rdd1x.map( x => (x(6),1)).reduceByKey( _+_ ).top(10)(orderingDesc).mkString("\n")
+res24: String =
+(3,572)
+(4,398)
+(2,282)
+(1,170)
+(5,48)
+
+// EducationField
+rdd1x.map( x => x(7)).distinct.count
+res26: Long = 6
+
+scala> rdd1x.map( x => (x(7),1)).reduceByKey( _+_ ).top(10)(orderingDesc).mkString("\n")
+res27: String =
+(Life Sciences,606)
+(Medical,464)
+(Marketing,159)
+(Technical Degree,132)
+(Other,82)
+(Human Resources,27)
+
+// Gender
+rdd1x.map( x => x(11)).distinct.count
+res29: Long = 2
+
+scala> rdd1x.map( x => (x(11),1)).reduceByKey( _+_ ).top(10)(orderingDesc).mkString("\n")
+res30: String =
+(Male,882)
+(Female,588)
+
+// JobLevel
+rdd1x.map( x => x(14)).distinct.count
+res31: Long = 5
+
+scala> rdd1x.map( x => (x(14),1)).reduceByKey( _+_ ).top(10)(orderingDesc).mkString("\n")
+res32: String =
+(1,543)
+(2,534)
+(3,218)
+(4,106)
+(5,69)
+
+// JobRole
+rdd1x.map( x => x(15)).distinct.count
+res33: Long = 9
+
+scala> rdd1x.map( x => (x(15),1)).reduceByKey( _+_ ).top(10)(orderingDesc).mkString("\n")
+res34: String =
+(Sales Executive,326)
+(Research Scientist,292)
+(Laboratory Technician,259)
+(Manufacturing Director,145)
+(Healthcare Representative,131)
+(Manager,102)
+(Sales Representative,83)
+(Research Director,80)
+(Human Resources,52)
+
+// MaritalStatus
+rdd1x.map( x => x(17)).distinct.count
+res35: Long = 3
+
+scala> rdd1x.map( x => (x(17),1)).reduceByKey( _+_ ).top(10)(orderingDesc).mkString("\n")
+res36: String =
+(Married,673)
+(Single,470)
+(Divorced,327)
+
 
 rdd1x.map( x => Array(x(2),x(4),x(7),x(11),x(15),x(17),x(22),x(6),x(0),x(5),x(10),x(13),x(16),x(18),x(20),x(24),x(25),x(27),x(28),x(29),x(30),x(31),x(32),x(33),x(34),x(1))).take(2)
-res5: Array[Array[String]] = Array(Array(Travel_Rarely, Sales, Life Sciences, Female, Sales Executive, Single, Yes, 2, 41, 1, 2, 3, 4, 5993, 8, 3, 1, 0, 8, 0, 1, 6, 4, 0, 5, Yes), Array(Travel_Frequently, Research & Development, Life Sciences, Male, Research Scientist, Married, No, 1, 49, 8, 3, 2, 2, 5130, 1, 4, 4, 1, 10, 3, 3, 10, 7, 1, 7, No))
+res11: Array[Array[String]] = Array(Array(Travel_Rarely, Sales, Life Sciences, Female, Sales Executive, Single, Yes, 2, 41, 1, 2, 3, 4, 5993, 8, 3, 1, 0, 8, 0, 1, 6, 4, 0, 5, Yes), Array(Travel_Frequently, Research & Development, Life Sciences, Male, Research Scientist, Married, No, 1, 49, 8, 3, 2, 2, 5130, 1, 4, 4, 1, 10, 3, 3, 10, 7, 1, 7, No))
 
-val rdd = rdd1x.map( x => Array(x(2),x(4),x(7),x(11),x(15),x(17),x(22),x(6),x(0),x(5),x(10),x(13),x(16),x(18),x(20),x(24),x(25),x(27),x(28),x(29),x(30),x(31),x(32),x(33),x(34),x(1)))
+val rdd = rdd1x.map( x => Array(x(2),x(4),x(7),x(11),x(15),x(17),x(22),x(0),x(5),x(10),x(13),x(16),x(18),x(20),x(24),x(25),x(27),x(28),x(29),x(30),x(31),x(32),x(33),x(34),x(1)))
 
 rdd.take(2)
-res6: Array[Array[String]] = Array(Array(Travel_Rarely, Sales, Life Sciences, Female, Sales Executive, Single, Yes, 2, 41, 1, 2, 3, 4, 5993, 8, 3, 1, 0, 8, 0, 1, 6, 4, 0, 5, Yes), Array(Travel_Frequently, Research & Development, Life Sciences, Male, Research Scientist, Married, No, 1, 49, 8, 3, 2, 2, 5130, 1, 4, 4, 1, 10, 3, 3, 10, 7, 1, 7, No))
+res43: Array[Array[String]] = Array(Array(Travel_Rarely, Sales, Life Sciences, Female, Sales Executive, Single, Yes, 41, 1, 2, 3, 4, 5993, 8, 3, 1, 0, 8, 0, 1, 6, 4, 0, 5, Yes), Array(Travel_Frequently, Research & Development, Life Sciences, Male, Research Scientist, Married, No, 49, 8, 3, 2, 2, 5130, 1, 4, 4, 1, 10, 3, 3, 10, 7, 1, 7, No))
 
 
 ---- Conversion to 1-to-k binary encoding vectors 
 
 def oneHotEncColumns(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int):org.apache.spark.rdd.RDD[Array[Double]] = {
+  print(hdr(idx) + " : ")
   val categories = rddx.map(r => r(idx)).distinct.zipWithIndex.collectAsMap
+  println(categories)
   val numCategories = categories.size
   val vetcateg = rddx.map(r => {
     val categoryIdx = categories(r(idx)).toInt
@@ -42,7 +147,15 @@ def mergeArray(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int*):org.apa
 }
 
 val rdd1 = rdd.map( x => x.toArray )
+
 val concat = mergeArray(rdd1,0,1,2,3,4,5,6)
+Age : Map(Travel_Rarely -> 2, Non-Travel -> 0, Travel_Frequently -> 1)
+Attrition : Map(Research & Development -> 2, Sales -> 1, Human Resources -> 0)
+BusinessTravel : Map(Marketing -> 2, Medical -> 4, Other -> 1, Life Sciences -> 5, Technical Degree -> 3, Human Resources -> 0)
+DailyRate : Map(Male -> 1, Female -> 0)
+Department : Map(Sales Representative -> 7, Healthcare Representative -> 2, Laboratory Technician -> 6, Sales Executive -> 1, Research Director -> 8, Manager -> 5, Manufacturing Director -> 3, Research Scientist -> 4, Human Resources -> 0)
+DistanceFromHome : Map(Divorced -> 2, Single -> 0, Married -> 1)
+Education : Map(No -> 0, Yes -> 1)
 
 concat.take(2)
 res5: Array[Array[Double]] = Array(Array(0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0), Array(0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0))
@@ -54,12 +167,12 @@ val rdd2 = rdd1.map( x => x.slice(7,x.size)).map( y => y.map( x => {
                      try { x.toDouble } catch { case _ : Throwable => categories(x).toString.toDouble } }))
 
 rdd2.take(2)
-res6: Array[Array[Double]] = Array(Array(2.0, 41.0, 1.0, 2.0, 3.0, 4.0, 5993.0, 8.0, 3.0, 1.0, 0.0, 8.0, 0.0, 1.0, 6.0, 4.0, 0.0, 5.0, 1.0), Array(1.0, 49.0, 8.0, 3.0, 2.0, 2.0, 5130.0, 1.0, 4.0, 4.0, 1.0, 10.0, 3.0, 3.0, 10.0, 7.0, 1.0, 7.0, 0.0))
+res44: Array[Array[Double]] = Array(Array(41.0, 1.0, 2.0, 3.0, 4.0, 5993.0, 8.0, 3.0, 1.0, 0.0, 8.0, 0.0, 1.0, 6.0, 4.0, 0.0, 5.0, 1.0), Array(49.0, 8.0, 3.0, 2.0, 2.0, 5130.0, 1.0, 4.0, 4.0, 1.0, 10.0, 3.0, 3.0, 10.0, 7.0, 1.0, 7.0, 0.0))
 
 val vect = concat.zip(rdd2).map(x => (x._1.toList ++ x._2.toList).toArray)
 
 vect.take(2)
-res7: Array[Array[Double]] = Array(Array(0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 2.0, 41.0, 1.0, 2.0, 3.0, 4.0, 5993.0, 8.0, 3.0, 1.0, 0.0, 8.0, 0.0, 1.0, 6.0, 4.0, 0.0, 5.0, 1.0), Array(0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 49.0, 8.0, 3.0, 2.0, 2.0, 5130.0, 1.0, 4.0, 4.0, 1.0, 10.0, 3.0, 3.0, 10.0, 7.0, 1.0, 7.0, 0.0))
+res45: Array[Array[Double]] = Array(Array(0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 41.0, 1.0, 2.0, 3.0, 4.0, 5993.0, 8.0, 3.0, 1.0, 0.0, 8.0, 0.0, 1.0, 6.0, 4.0, 0.0, 5.0, 1.0), Array(0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 49.0, 8.0, 3.0, 2.0, 2.0, 5130.0, 1.0, 4.0, 4.0, 1.0, 10.0, 3.0, 3.0, 10.0, 7.0, 1.0, 7.0, 0.0))
 
 val categ_travel = rdd.map( x => x(0)).distinct.zipWithIndex.collectAsMap
 categ_travel: scala.collection.Map[String,Long] = Map(Travel_Rarely -> 2, Non-Travel -> 0, Travel_Frequently -> 1)
@@ -87,7 +200,7 @@ val rdd2_dt = rdd.map( x => Array(categ_travel(x(0)),categ_dept(x(1)),categ_educ
                   zip(rdd2).map(x => (x._1.toList ++ x._2.toList).toArray)
 
 rdd2_dt.take(2)
-res9: Array[Array[Double]] = Array(Array(2.0, 1.0, 5.0, 1.0, 1.0, 0.0, 1.0, 2.0, 41.0, 1.0, 2.0, 3.0, 4.0, 5993.0, 8.0, 3.0, 1.0, 0.0, 8.0, 0.0, 1.0, 6.0, 4.0, 0.0, 5.0, 1.0), Array(1.0, 2.0, 5.0, 0.0, 2.0, 1.0, 0.0, 1.0, 49.0, 8.0, 3.0, 2.0, 2.0, 5130.0, 1.0, 4.0, 4.0, 1.0, 10.0, 3.0, 3.0, 10.0, 7.0, 1.0, 7.0, 0.0))
+res46: Array[Array[Double]] = Array(Array(2.0, 1.0, 5.0, 0.0, 1.0, 0.0, 1.0, 41.0, 1.0, 2.0, 3.0, 4.0, 5993.0, 8.0, 3.0, 1.0, 0.0, 8.0, 0.0, 1.0, 6.0, 4.0, 0.0, 5.0, 1.0), Array(1.0, 2.0, 5.0, 1.0, 4.0, 1.0, 0.0, 49.0, 8.0, 3.0, 2.0, 2.0, 5130.0, 1.0, 4.0, 4.0, 1.0, 10.0, 3.0, 3.0, 10.0, 7.0, 1.0, 7.0, 0.0))
 
 val data = vect.zip(rdd2_dt)
 
@@ -113,6 +226,7 @@ val testSet = test_rdd.map( x => {
  })
 
 trainSet.cache
+testSet.cache
 
 ---- MLlib logistic regression --------------
 
@@ -120,52 +234,18 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 
-def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
-  println("iter, step -> pred / total, AuPR, AuROC") 
-  for(numIter <- iterNums; step <- stepSizes) {
-    val model = new LogisticRegressionWithSGD
-	model.optimizer.setNumIterations(numIter).setStepSize(step)
-	val lr = model.run(train)
-    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
-    val metrics = new BinaryClassificationMetrics(validPredicts)
-    println("%d, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
-  }
-}
+val model = new LogisticRegressionWithSGD
+model.optimizer.setNumIterations(100).setRegParam(0.01)
+val lr = model.run(trainSet)
 
-iterateLRwSGD(Array(100,300,500),Array(0.1, 0.01, 0.001), trainSet, testSet)
-iter, step -> pred / total, AuPR, AuROC
-100, 0.100 -> 374 / 451, 0.1707, 0.5000
-100, 0.010 -> 374 / 451, 0.1707, 0.5000
-100, 0.001 -> 374 / 451, 0.1707, 0.5000
-300, 0.100 -> 374 / 451, 0.1707, 0.5000
-300, 0.010 -> 374 / 451, 0.1707, 0.5000
-300, 0.001 -> 374 / 451, 0.1707, 0.5000
-500, 0.100 -> 374 / 451, 0.1707, 0.5000
-500, 0.010 -> 374 / 451, 0.1707, 0.5000
-500, 0.001 -> 77 / 451, 0.1707, 0.5000
+val validPredicts = testSet.map(x => (lr.predict(x.features),x.label))
+val metrics = new BinaryClassificationMetrics(validPredicts)
 
----- MLlib SVM regression --------------
+metrics.areaUnderPR
+res54: Double = 0.17073170731707318
 
-import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.classification.SVMWithSGD
-import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
-
-def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
-  println("iter -> pred / total, AuPR, AuROC") 
-  for(numIter <- iterNums) {
-	val lr = SVMWithSGD.train(train, numIter)
-    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
-    val metrics = new BinaryClassificationMetrics(validPredicts)
-    println("%d -> %d / %d, %.4f, %.4f".format(numIter, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
-  }
-}
-
-iterateSVM(Array(100,300,500), trainSet, testSet)
-iter -> pred / total, AuPR, AuROC
-100 -> 374 / 451, 0.1707, 0.5000
-300 -> 370 / 451, 0.2379, 0.5101
-500 -> 374 / 451, 0.1707, 0.5000
-
+metrics.areaUnderROC
+res55: Double = 0.5
 
 ----- Estimation is not so good. But analyze the individual statistics and standardize 
 
@@ -175,17 +255,17 @@ val vectors = trainSet.map{ case LabeledPoint(x,y) => y }
 val matrix = new RowMatrix(vectors)
 val matrixSummary = matrix.computeColumnSummaryStatistics
 
-matrixSummary.max
-res3: org.apache.spark.mllib.linalg.Vector = [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,5.0,60.0,29.0,4.0,4.0,4.0,19999.0,9.0,4.0,4.0,3.0,40.0,6.0,4.0,37.0,18.0,15.0,17.0]
+scala> matrixSummary.max.toArray.foreach( x => print(f"$x%.2f\t"))
+1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00     1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    60.00   29.00   4.00     4.00    4.00    19999.00        9.00    4.00    4.00    3.00    40.00   6.00    4.00    37.00   18.00   15.00    17.00
 
-matrixSummary.min
-res4: org.apache.spark.mllib.linalg.Vector = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,18.0,1.0,1.0,1.0,1.0,1051.0,0.0,3.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0]
+scala> matrixSummary.min.toArray.foreach( x => print(f"$x%.2f\t"))
+0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00     0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    18.00   1.00    1.00     1.00    1.00    1051.00 0.00    3.00    1.00    0.00    0.00    0.00    1.00    0.00    0.00    0.00    0.00
 
-matrixSummary.mean
-res17: org.apache.spark.mllib.linalg.Vector = [0.0971540726202159,0.1874386653581943,0.7154072620215898,0.03631010794896958,0.31108930323846906,0.6526005888125613,0.016683022571148183,0.053974484789008834,0.1069676153091266,0.08635917566241413,0.32482826300294404,0.4111874386653582,0.5848871442590775,0.029440628066732092,0.22080471050049066,0.08243375858684986,0.08832188420019627,0.20019627085377822,0.0647693817468106,0.19627085377821393,0.06378802747791953,0.053974484789008834,0.323846908734053,0.4524043179587831,0.2237487733071639,0.267909715407262,2.93817468105986,36.65947006869481,8.988223748773304,2.714425907752699,2.739941118743868,2.7536800785083413,6324.155053974482,2.606476938174679,3.1521099116781164,2.7409224730127586,0.791952894995093,10.935230618253199,2.7742885181550556,2....
+scala> matrixSummary.mean.toArray.foreach( x => print(f"$x%.2f\t"))
+0.10    0.19    0.72    0.04    0.31    0.65    0.02    0.05    0.11    0.09    0.32    0.41    0.58    0.03    0.22     0.08    0.09    0.20    0.06    0.20    0.06    0.05    0.32    0.45    0.22    0.27    36.66   8.99    2.71     2.74    2.75    6324.16 2.61    3.15    2.74    0.79    10.94   2.77    2.74    6.88    4.20    2.23    4.02
 
-matrixSummary.variance
-res18: org.apache.spark.mllib.linalg.Vector = [0.08780132299665877,0.15245502447601658,0.20379971118493226,0.03502605698024374,0.21452327197780482,0.22693576467548793,0.016420813964921885,0.05111139816955257,0.09561938107200904,0.07897877459892688,0.21953029955405257,0.24235016031357065,0.24303267389154204,0.028601946127699448,0.17221899817032377,0.07571273504784344,0.08060022634772332,0.1602750105558244,0.060633812185373774,0.15790356507304246,0.05977777820622321,0.05111139816955257,0.21918518675615176,0.2479780053251483,0.17385587395478058,0.19632676590748277,0.9892976472561607,81.29158753815044,63.88001835460245,1.1826109421964994,0.5187469513429516,1.2310154221076564,2.156966162622933E7,5.957954078789829,0.12909917847730065,1.1469582837675527,0.7228821353034968,57.56751004008323,1.7...
+scala> matrixSummary.variance.toArray.foreach( x => print(f"$x%.2f\t"))
+0.09    0.15    0.20    0.04    0.21    0.23    0.02    0.05    0.10    0.08    0.22    0.24    0.24    0.03    0.17     0.08    0.08    0.16    0.06    0.16    0.06    0.05    0.22    0.25    0.17    0.20    81.29   63.88   1.18     0.52    1.23    21569661.63     5.96    0.13    1.15    0.72    57.57   1.71    0.50    36.33   12.81   10.33    12.25
 
 ----- Standardizing features ------------------------------
 
@@ -196,38 +276,82 @@ val trainScaled = trainSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.f
 val testScaled = testSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.features)))
 
 trainScaled.cache
+testScaled.cache
 
------ with MLlib logistic regression ----------------------
+---- MLlib logistic regression STD --------------
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 
-def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
-  println("iter, step -> pred / total, AuPR, AuROC") 
-  for(numIter <- iterNums; step <- stepSizes) {
+val model = new LogisticRegressionWithSGD
+model.optimizer.setNumIterations(100).setRegParam(0.01)
+val lr = model.run(trainScaled)
+
+val validPredicts = testScaled.map(x => (lr.predict(x.features),x.label))
+val metrics = new BinaryClassificationMetrics(validPredicts)
+
+metrics.areaUnderPR
+res71: Double = 0.29960511033681764
+
+metrics.areaUnderROC
+res72: Double = 0.7394957983193277
+
+---------------------------------------
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+
+def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], regSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("iter, step, reg  -> pred / total, AuPR, AuROC") 
+  for(numIter <- iterNums; step <- stepSizes; reg <- regSizes) {
     val model = new LogisticRegressionWithSGD
-	model.optimizer.setNumIterations(numIter).setStepSize(step)
+	model.optimizer.setNumIterations(numIter).setStepSize(step).setRegParam(reg)
 	val lr = model.run(train)
     val validPredicts = test.map(x => (lr.predict(x.features),x.label))
     val metrics = new BinaryClassificationMetrics(validPredicts)
-    println("%d, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+    println("%d, %5.3f, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, reg, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
   }
 }
 
-iterateLRwSGD(Array(100,300,500),Array(0.1, 0.01, 0.001), trainScaled, testScaled)
-iter, step -> pred / total, AuPR, AuROC
-100, 0.100 -> 294 / 451, 0.3038, 0.7385  *
-100, 0.010 -> 280 / 451, 0.2809, 0.7095
-100, 0.001 -> 280 / 451, 0.2809, 0.7095
-300, 0.100 -> 293 / 451, 0.2999, 0.7320
-300, 0.010 -> 280 / 451, 0.2809, 0.7095
-300, 0.001 -> 280 / 451, 0.2809, 0.7095
-500, 0.100 -> 293 / 451, 0.2999, 0.7320
-500, 0.010 -> 280 / 451, 0.2809, 0.7095
-500, 0.001 -> 280 / 451, 0.2809, 0.7095
+iterateLRwSGD(Array(10, 20, 40, 100),Array(1, 0.1, 0.01, 0.001),Array(0.1, 0.01), trainScaled, testScaled)
+iter, step, reg  -> pred / total, AuPR, AuROC
+10, 1.000, 0.100 -> 293 / 451, 0.3025, 0.7372
+10, 1.000, 0.010 -> 292 / 451, 0.2986, 0.7307
+10, 0.100, 0.100 -> 286 / 451, 0.2857, 0.7124
+10, 0.100, 0.010 -> 286 / 451, 0.2857, 0.7124
+10, 0.010, 0.100 -> 278 / 451, 0.2760, 0.7017
+10, 0.010, 0.010 -> 278 / 451, 0.2760, 0.7017
+10, 0.001, 0.100 -> 278 / 451, 0.2760, 0.7017
+10, 0.001, 0.010 -> 278 / 451, 0.2760, 0.7017
+20, 1.000, 0.100 -> 291 / 451, 0.2998, 0.7345
+20, 1.000, 0.010 -> 291 / 451, 0.3023, 0.7397
+20, 0.100, 0.100 -> 285 / 451, 0.2844, 0.7110
+20, 0.100, 0.010 -> 285 / 451, 0.2844, 0.7110
+20, 0.010, 0.100 -> 278 / 451, 0.2760, 0.7017
+20, 0.010, 0.010 -> 278 / 451, 0.2760, 0.7017
+20, 0.001, 0.100 -> 278 / 451, 0.2760, 0.7017
+20, 0.001, 0.010 -> 278 / 451, 0.2760, 0.7017
+40, 1.000, 0.100 -> 290 / 451, 0.2985, 0.7332
+40, 1.000, 0.010 -> 292 / 451, 0.3087, 0.7513
+40, 0.100, 0.100 -> 287 / 451, 0.2870, 0.7137
+40, 0.100, 0.010 -> 286 / 451, 0.2857, 0.7124
+40, 0.010, 0.100 -> 278 / 451, 0.2760, 0.7017
+40, 0.010, 0.010 -> 278 / 451, 0.2760, 0.7017
+40, 0.001, 0.100 -> 278 / 451, 0.2760, 0.7017
+40, 0.001, 0.010 -> 278 / 451, 0.2760, 0.7017
+100, 1.000, 0.100 -> 290 / 451, 0.2985, 0.7332
+100, 1.000, 0.010 -> 287 / 451, 0.2996, 0.7395
+100, 0.100, 0.100 -> 289 / 451, 0.2870, 0.7112
+100, 0.100, 0.010 -> 289 / 451, 0.2870, 0.7112
+100, 0.010, 0.100 -> 278 / 451, 0.2760, 0.7017
+100, 0.010, 0.010 -> 278 / 451, 0.2760, 0.7017
+100, 0.001, 0.100 -> 278 / 451, 0.2760, 0.7017
+100, 0.001, 0.010 -> 278 / 451, 0.2760, 0.7017
 
------ with MLlib SVM regression ----------------------
+
+----- with MLlib SVM regression STD ----------------------
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.classification.SVMWithSGD
@@ -243,11 +367,12 @@ def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoi
   }
 }
 
-scala> iterateSVM(Array(100,300,500), trainScaled, testScaled)
+iterateSVM(Array(10, 20, 40, 100), trainScaled, testScaled)
 iter -> pred / total, AuPR, AuROC
-100 -> 295 / 451, 0.3001, 0.7296
-300 -> 300 / 451, 0.2993, 0.7208
-500 -> 300 / 451, 0.2993, 0.7208
+10 -> 294 / 451, 0.3038, 0.7385
+20 -> 297 / 451, 0.3106, 0.7477
+40 -> 299 / 451, 0.3134, 0.7504
+100 -> 298 / 451, 0.3043, 0.7336
 
 
 ----- MLlib DecisionTree regression --------------
@@ -267,6 +392,7 @@ val testSet = test_rdd.map( x => {
  })
 
 trainSet.cache
+testSet.cache
 
 import org.apache.spark.mllib.tree.DecisionTree
 import org.apache.spark.mllib.tree.model.DecisionTreeModel
@@ -274,7 +400,7 @@ import org.apache.spark.mllib.tree.model.DecisionTreeModel
 val categoricalFeaturesInfo = Map[Int, Int](0->3, 1->3, 2->6, 3->2, 4->9, 5->3, 6->2)
 
 def iterateDTC(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
-  println("impurity, depth, bin -> pred / total, accuracy") 
+  println("impurity, depth, bin -> pred / total, AuPR, AuROC") 
   for(impurity <- Array("gini", "entropy"); numDepth <- depthNums; numBin <- binNums ) {
     val model = DecisionTree.trainClassifier(train, 2, categoricalFeaturesInfo, impurity, numDepth, numBin)
     val validPredicts = test.map(x => (model.predict(x.features),x.label))
@@ -284,35 +410,35 @@ def iterateDTC(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoint]
 }
 
 iterateDTC(Array(10,20,30), Array(32,48,64), trainSet, testSet)
-impurity, depth, bin -> pred / total, accuracy
-gini, 10, 32 -> 352 / 451, 0.2876, 0.5995
-gini, 10, 48 -> 356 / 451, 0.3012, 0.6049
-gini, 10, 64 -> 359 / 451, 0.3232, 0.6243
-gini, 20, 32 -> 349 / 451, 0.2900, 0.6110
-gini, 20, 48 -> 352 / 451, 0.3063, 0.6253
-gini, 20, 64 -> 357 / 451, 0.3295, 0.6423 *
-gini, 30, 32 -> 349 / 451, 0.2900, 0.6110
-gini, 30, 48 -> 352 / 451, 0.3063, 0.6253
-gini, 30, 64 -> 357 / 451, 0.3295, 0.6423
-entropy, 10, 32 -> 357 / 451, 0.3048, 0.6062
-entropy, 10, 48 -> 356 / 451, 0.3012, 0.6049
-entropy, 10, 64 -> 359 / 451, 0.3300, 0.6346
-entropy, 20, 32 -> 357 / 451, 0.3086, 0.6113
-entropy, 20, 48 -> 356 / 451, 0.3050, 0.6100
-entropy, 20, 64 -> 359 / 451, 0.3300, 0.6346
-entropy, 30, 32 -> 357 / 451, 0.3086, 0.6113
-entropy, 30, 48 -> 356 / 451, 0.3050, 0.6100
-entropy, 30, 64 -> 359 / 451, 0.3300, 0.6346
+impurity, depth, bin -> pred / total, AuPR, AuROC
+gini, 10, 32 -> 355 / 451, 0.2976, 0.6035
+gini, 10, 48 -> 360 / 451, 0.3164, 0.6102
+gini, 10, 64 -> 363 / 451, 0.3393, 0.6297
+gini, 20, 32 -> 355 / 451, 0.3089, 0.6190
+gini, 20, 48 -> 353 / 451, 0.3023, 0.6163
+gini, 20, 64 -> 362 / 451, 0.3479, 0.6490  *
+gini, 30, 32 -> 355 / 451, 0.3089, 0.6190
+gini, 30, 48 -> 353 / 451, 0.3023, 0.6163
+gini, 30, 64 -> 362 / 451, 0.3479, 0.6490
+entropy, 10, 32 -> 354 / 451, 0.2981, 0.6073
+entropy, 10, 48 -> 353 / 451, 0.2909, 0.6008
+entropy, 10, 64 -> 355 / 451, 0.3160, 0.6293
+entropy, 20, 32 -> 352 / 451, 0.2915, 0.6047
+entropy, 20, 48 -> 351 / 451, 0.2845, 0.5982
+entropy, 20, 64 -> 353 / 451, 0.3059, 0.6215
+entropy, 30, 32 -> 352 / 451, 0.2915, 0.6047
+entropy, 30, 48 -> 351 / 451, 0.2845, 0.5982
+entropy, 30, 64 -> 353 / 451, 0.3059, 0.6215
 
 
 val model = DecisionTree.trainClassifier(trainSet, 2, categoricalFeaturesInfo, "gini", 20, 64)
 
 model.toDebugString
-res25: String =
-"DecisionTreeModel classifier of depth 15 with 251 nodes
+res27: String =
+"DecisionTreeModel classifier of depth 15 with 253 nodes
   If (feature 6 in {0.0})
-   If (feature 8 <= 21.5)
-    If (feature 13 <= 1688.5)
+   If (feature 7 <= 21.5)
+    If (feature 12 <= 1688.5)
      If (feature 3 in {0.0})
       Predict: 0.0
      Else (feature 3 not in {0.0})
@@ -320,20 +446,20 @@ res25: String =
        Predict: 0.0
       Else (feature 0 not in {0.0})
        Predict: 1.0
-    Else (feature 13 > 1688.5)
-     If (feature 22 <= 0.5)
+    Else (feature 12 > 1688.5)
+     If (feature 21 <= 0.5)
       Predict: 1.0
-     Else (feature 22 > 0.5)
+     Else (feature 21 > 0.5)
       If (feature 3 in {1.0})
        Predict: 0.0
       Else (feature 3 not in {1.0})
-       If (feature 11 <= 2.5)
+       If (feature 10 <= 2.5)
         Predict: 1.0
-       Else (feature 11 > 2.5)
+       Else (feature 10 > 2.5)
         Predict: 0.0
-   Else (feature 8 > 21.5)
-    If (feature 11 <= 1.5)
-     If (feature 14 <= 6.5)
+   Else (feature 7 > 21.5)
+    If (feature 10 <= 1.5)
+     If (feature 13 <= 6.5)
       If (feature 4 in {0.0,5.0,1.0,6.0,2.0,3.0,8.0,4.0})
        If (featur...
 
@@ -341,12 +467,12 @@ res25: String =
 val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
 
 validPredicts.take(20)
-res26: Array[(Double, Double)] = Array((0.0,1.0), (1.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (1.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0))
+res28: Array[(Double, Double)] = Array((0.0,1.0), (1.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (1.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0))
 
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 val metrics = new BinaryClassificationMetrics(validPredicts)
-validPredicts.filter(x => x._1 == x._2).count  // 357
+validPredicts.filter(x => x._1 == x._2).count  // 362
 validPredicts.count                            // 451
-model.getClass.getSimpleName
-metrics.areaUnderPR   // 0.3295107482099352
-metrics.areaUnderROC  // 0.6422841864018335
+
+metrics.areaUnderPR   // 0.34790690695697113
+metrics.areaUnderROC  // 0.6489686783804431

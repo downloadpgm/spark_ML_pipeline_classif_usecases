@@ -117,31 +117,6 @@ testData.cache
 
 val model = pipeline.fit(trainingData)
 
-
--- collecting metric performance
-
-val pred = model.transform(testData)
-
-import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-val bceval = new BinaryClassificationEvaluator()
-
-bceval.setMetricName("areaUnderROC").evaluate(pred)
-res7: Double = 0.9532453245324533
-
-bceval.setMetricName("areaUnderPR").evaluate(pred)
-res8: Double = 0.9827007130503322
-
-
-val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
-
-import org.apache.spark.mllib.evaluation.MulticlassMetrics
-val metrics = new MulticlassMetrics(validPredicts)
-
-metrics.confusionMatrix
-res10: org.apache.spark.mllib.linalg.Matrix =
-54.0  8.0
-0.0   93.0
-
 -- collecting feature importance
 
 import org.apache.spark.ml.classification.DecisionTreeClassificationModel
@@ -175,65 +150,30 @@ featureImpDF.orderBy($"Importance".desc).show()
 |   delayed healing|                 0.0|
 +------------------+--------------------+
 
+-- collecting metric performance
 
-println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
-Learned classification tree model:
- DecisionTreeClassificationModel (uid=dtc_678a749ff467) of depth 5 with 37 nodes
-  If (feature 3 <= 0.5)
-   If (feature 2 <= 0.5)
-    If (feature 1 <= 0.5)
-     If (feature 14 <= 0.5)
-      If (feature 0 <= 34.5)
-       Predict: 0.0
-      Else (feature 0 > 34.5)
-       Predict: 1.0
-     Else (feature 14 > 0.5)
-      If (feature 0 <= 28.5)
-       Predict: 1.0
-      Else (feature 0 > 28.5)
-       Predict: 0.0
-    Else (feature 1 > 0.5)
-     If (feature 10 <= 0.5)
-      If (feature 0 <= 65.5)
-       Predict: 0.0
-      Else (feature 0 > 65.5)
-       Predict: 0.0
-     Else (feature 10 > 0.5)
-      If (feature 7 <= 0.5)
-       Predict: 0.0
-      Else (feature 7 > 0.5)
-       Predict: 1.0
-   Else (feature 2 > 0.5)
-    If (feature 0 <= 63.5)
-     If (feature 15 <= 0.5)
-      Predict: 1.0
-     Else (feature 15 > 0.5)
-      If (feature 13 <= 0.5)
-       Predict: 0.0
-      Else (feature 13 > 0.5)
-       Predict: 1.0
-    Else (feature 0 > 63.5)
-     If (feature 4 <= 0.5)
-      Predict: 0.0
-     Else (feature 4 > 0.5)
-      Predict: 1.0
-  Else (feature 3 > 0.5)
-   If (feature 2 <= 0.5)
-    If (feature 10 <= 0.5)
-     If (feature 13 <= 0.5)
-      If (feature 0 <= 47.5)
-       Predict: 1.0
-      Else (feature 0 > 47.5)
-       Predict: 1.0
-     Else (feature 13 > 0.5)
-      If (feature 0 <= 58.5)
-       Predict: 0.0
-      Else (feature 0 > 58.5)
-       Predict: 1.0
-    Else (feature 10 > 0.5)
-     Predict: 1.0
-   Else (feature 2 > 0.5)
-    Predict: 1.0
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res7: Double = 0.9532453245324533
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res8: Double = 0.9827007130503322
+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res10: org.apache.spark.mllib.linalg.Matrix =
+54.0  8.0
+0.0   93.0
+
 
 // ----- DT model hyperparameter tunning
 
@@ -305,29 +245,6 @@ res2: String = entropy
 dtmodel.getMaxDepth
 res3: Int = 10
 
-val pred = bestmodel.transform(testData)
-
--- collecting metric performance
-
-val bceval = new BinaryClassificationEvaluator()
-
-bceval.setMetricName("areaUnderROC").evaluate(pred)
-res15: Double = 0.9711221122112211
-
-bceval.setMetricName("areaUnderPR").evaluate(pred)
-res16: Double = 0.9890935162064594
-
-
-val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
-
-import org.apache.spark.mllib.evaluation.MulticlassMetrics
-val metrics = new MulticlassMetrics(validPredicts)
-
-metrics.confusionMatrix
-res17: org.apache.spark.mllib.linalg.Matrix =
-51.0  5.0
-3.0   96.0
-
 -- collecting feature importance
 
 val featureImp = va.getInputCols.zip(dtmodel.featureImportances.toArray)
@@ -357,92 +274,25 @@ featureImpDF.orderBy($"Importance".desc).show()
 |        Polyphagia|                 0.0|
 +------------------+--------------------+
 
+-- collecting metric performance
 
-println(s"Learned classification tree model:\n ${dtmodel.toDebugString}")
-Learned classification tree model:
- DecisionTreeClassificationModel (uid=dtc_678a749ff467) of depth 8 with 57 nodes
-  If (feature 3 <= 0.5)
-   If (feature 2 <= 0.5)
-    If (feature 1 <= 0.5)
-     If (feature 14 <= 0.5)
-      If (feature 0 <= 34.5)
-       If (feature 8 <= 0.5)
-        Predict: 0.0
-       Else (feature 8 > 0.5)
-        Predict: 1.0
-      Else (feature 0 > 34.5)
-       If (feature 10 <= 0.5)
-        Predict: 1.0
-       Else (feature 10 > 0.5)
-        Predict: 0.0
-     Else (feature 14 > 0.5)
-      If (feature 0 <= 28.5)
-       Predict: 1.0
-      Else (feature 0 > 28.5)
-       Predict: 0.0
-    Else (feature 1 > 0.5)
-     If (feature 10 <= 0.5)
-      If (feature 14 <= 0.5)
-       Predict: 0.0
-      Else (feature 14 > 0.5)
-       If (feature 9 <= 0.5)
-        If (feature 0 <= 43.5)
-         If (feature 0 <= 37.5)
-          Predict: 1.0
-         Else (feature 0 > 37.5)
-          Predict: 0.0
-        Else (feature 0 > 43.5)
-         Predict: 1.0
-       Else (feature 9 > 0.5)
-        Predict: 0.0
-     Else (feature 10 > 0.5)
-      If (feature 7 <= 0.5)
-       If (feature 0 <= 42.5)
-        If (feature 0 <= 40.5)
-         Predict: 0.0
-        Else (feature 0 > 40.5)
-         Predict: 1.0
-       Else (feature 0 > 42.5)
-        Predict: 0.0
-      Else (feature 7 > 0.5)
-       Predict: 1.0
-   Else (feature 2 > 0.5)
-    If (feature 11 <= 0.5)
-     Predict: 1.0
-    Else (feature 11 > 0.5)
-     If (feature 14 <= 0.5)
-      Predict: 1.0
-     Else (feature 14 > 0.5)
-      If (feature 15 <= 0.5)
-       If (feature 0 <= 71.0)
-        If (feature 5 <= 0.5)
-         If (feature 0 <= 40.5)
-          Predict: 1.0
-         Else (feature 0 > 40.5)
-          Predict: 0.0
-        Else (feature 5 > 0.5)
-         Predict: 1.0
-       Else (feature 0 > 71.0)
-        Predict: 0.0
-      Else (feature 15 > 0.5)
-       Predict: 0.0
-  Else (feature 3 > 0.5)
-   If (feature 2 <= 0.5)
-    If (feature 10 <= 0.5)
-     If (feature 13 <= 0.5)
-      If (feature 0 <= 47.5)
-       Predict: 1.0
-      Else (feature 0 > 47.5)
-       If (feature 0 <= 49.5)
-        Predict: 0.0
-       Else (feature 0 > 49.5)
-        Predict: 1.0
-     Else (feature 13 > 0.5)
-      If (feature 0 <= 58.5)
-       Predict: 0.0
-      Else (feature 0 > 58.5)
-       Predict: 1.0
-    Else (feature 10 > 0.5)
-     Predict: 1.0
-   Else (feature 2 > 0.5)
-    Predict: 1.0
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res15: Double = 0.9711221122112211
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res16: Double = 0.9890935162064594
+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res17: org.apache.spark.mllib.linalg.Matrix =
+51.0  5.0
+3.0   96.0

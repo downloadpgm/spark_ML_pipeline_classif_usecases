@@ -166,31 +166,6 @@ testData.cache
 
 val model = pipeline.fit(trainingData)
 
--- collecting metric performance
-
-val pred = model.transform(testData)
-
-import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-val bceval = new BinaryClassificationEvaluator()
-
-bceval.setMetricName("areaUnderROC").evaluate(pred)
-res8: Double = 0.8092515592515606
-
-bceval.setMetricName("areaUnderPR").evaluate(pred)
-res9: Double = 0.6754187108853955
-
-
-val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
-
-import org.apache.spark.mllib.evaluation.MulticlassMetrics
-val metrics = new MulticlassMetrics(validPredicts)
-
-metrics.confusionMatrix
-res20: org.apache.spark.mllib.linalg.Matrix =
-135.0  29.0
-21.0   45.0
-
-
 -- collecting feature importance
 
 import org.apache.spark.ml.classification.LogisticRegressionModel
@@ -231,6 +206,30 @@ res8: Double = 0.8429333493167107
 
 binarySummary.accuracy
 res18: Double = 0.7676579925650557
+
+-- collecting metric performance
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res8: Double = 0.8092515592515606
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res9: Double = 0.6754187108853955
+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res20: org.apache.spark.mllib.linalg.Matrix =
+135.0  29.0
+21.0   45.0
 
 
 // ----- logistic regression model hyperparameter tunning
@@ -303,29 +302,6 @@ res4: Boolean = true
 lrmodel.getStandardization
 res5: Boolean = true
 
-val pred = bestmodel.transform(testData)
-
--- collecting metric performance
-
-val bceval = new BinaryClassificationEvaluator()
-
-bceval.setMetricName("areaUnderROC").evaluate(pred)
-res30: Double = 0.8092515592515606
-
-bceval.setMetricName("areaUnderPR").evaluate(pred)
-res31: Double = 0.6754187108853955
-
-
-val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
-
-import org.apache.spark.mllib.evaluation.MulticlassMetrics
-val metrics = new MulticlassMetrics(validPredicts)
-
-metrics.confusionMatrix
-res33: org.apache.spark.mllib.linalg.Matrix =
-135.0  29.0
-21.0   45.0
-
 -- collecting feature importance
 
 val featureImp = va.getInputCols.zip(lrmodel.coefficients.toArray)
@@ -362,3 +338,27 @@ res36: Double = 0.8429333493167107
 
 binarySummary.accuracy
 res37: Double = 0.7676579925650557
+
+-- collecting metric performance
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res30: Double = 0.8092515592515606
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res31: Double = 0.6754187108853955
+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.confusionMatrix
+res33: org.apache.spark.mllib.linalg.Matrix =
+135.0  29.0
+21.0   45.0
+
