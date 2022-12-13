@@ -258,12 +258,12 @@ featureImpDF.orderBy($"Importance".desc).show()
 +------------------+--------------------+
 |           feature|          Importance|
 +------------------+--------------------+
-|   Vehicle_AgeVect|0.020377435758272822|
-|         GenderIdx|-0.04681003978003...|
-|           Vintage| -0.1977503130852626|
-| Vehicle_DamageIdx|-0.45960812439644105|
-|Previously_Insured| -0.8272142578850181|
-|               Age| -0.8726692796550645|
+|   Vehicle_AgeVect|0.023106591961439268|
+|         GenderIdx|-0.04158566782003466|
+|           Vintage|-0.19969071075167913|
+| Vehicle_DamageIdx|  -0.457489538486766|
+|               Age| -0.8311999890611236|
+|Previously_Insured| -0.8688144767274414|
 +------------------+--------------------+
 
 // -----  metrics extracted from model
@@ -273,15 +273,15 @@ import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
 val trainingSummary = lrmodel.summary
 
 trainingSummary.objectiveHistory
-res4: Array[Double] = Array(0.37227334331158024, 0.337943433483385, 0.3032771354237298, 0.29929593265781845, 0.29066317951899767, 0.2889826426229214, 0.2886940949683408, 0.28866328170391387, 0.2886618686051642, 0.2886610199930223, 0.28866089353439406, 0.2886608606890806, 0.28866086012869596, 0.2886608600916367, 0.28866086007211045, 0.28866086006649216, 0.2886608600625338, 0.28866086005929853)
+res9: Array[Double] = Array(0.3708846226233835, 0.33685430214030465, 0.30227544437873005, 0.298320219708928, 0.2896949257733661, 0.28804458032757, 0.28775879283092826, 0.2877324176315952, 0.2877305733436464, 0.2877297600713503, 0.2877296412298722, 0.2877295232400794, 0.2877295218682795, 0.28772952181166794, 0.28772952180114564, 0.2877295217984978, 0.2877295217949088, 0.28772952179227873)
 
 val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
 
 binarySummary.areaUnderROC
-res15: Double = 0.831913991124495
+res10: Double = 0.8317853026115388
 
 binarySummary.accuracy
-res6: Double = 0.7243493240459874
+res11: Double = 0.8780032324474727
 
 
 // -----  metrics on test data
@@ -292,20 +292,23 @@ import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 val bceval = new BinaryClassificationEvaluator()
 
 bceval.setMetricName("areaUnderROC").evaluate(pred)
-res17: Double = 0.8300292899734871
+res12: Double = 0.8302504393136768
 
 bceval.setMetricName("areaUnderPR").evaluate(pred)
-res18: Double = 0.30639716365849634
+res13: Double = 0.3100637714079966
 
-val predRDD = pred.select("prediction","label").rdd.map( row => (row(0).toString.toDouble,row(1).toString.toDouble)).cache
+val predRDD = pred.select("prediction","label").rdd.map( row => (row.getDouble(0),row.getDouble(1))).cache
 
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
 val metrics = new MulticlassMetrics(predRDD)
 
+metrics.accuracy
+res16: Double = 0.8761163249969416
+
 metrics.confusionMatrix
-res11: org.apache.spark.mllib.linalg.Matrix =
-70995.0  29139.0
-2473.0   11472.0
+res15: org.apache.spark.mllib.linalg.Matrix =
+100261.0  0.0
+14177.0   0.0
 
 // ----- logistic regression model hyperparameter tunning
 
@@ -368,19 +371,17 @@ import org.apache.spark.ml.classification.LogisticRegressionModel
 val lrmodel = cvmodel.bestModel.asInstanceOf[LogisticRegressionModel]
 
 lrmodel.getRegParam
-res26: Double = 0.001
+res18: Double = 0.001
 
 lrmodel.getMaxIter
-res27: Int = 40
+res19: Int = 20
 
 lrmodel.getThreshold
-res3: Double = 0.2
+res20: Double = 0.5
 
 lrmodel.getFitIntercept
-res4: Boolean = true
+res21: Boolean = true
 
-lrmodel.getStandardization
-res5: Boolean = true
 
 -- collecting feature importance
 
@@ -393,12 +394,12 @@ featureImpDF.orderBy($"Importance".desc).show()
 +------------------+--------------------+
 |           feature|          Importance|
 +------------------+--------------------+
-|           Vintage|-0.02070380793339254|
-|         GenderIdx|-0.09417370793414981|
-|   Vehicle_AgeVect|-0.19197119020609485|
-| Vehicle_DamageIdx| -1.3893637135859342|
-|Previously_Insured|  -2.019344315891452|
-|               Age|  -2.953807645176226|
+|           Vintage| -0.0208215833288414|
+|         GenderIdx|-0.08796767948011633|
+|   Vehicle_AgeVect|-0.17125731567159422|
+| Vehicle_DamageIdx|  -1.381189395073796|
+|               Age|  -2.029771252312052|
+|Previously_Insured| -2.9362784665081922|
 +------------------+--------------------+
 
 
@@ -407,15 +408,15 @@ import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
 val trainingSummary = lrmodel.summary
 
 trainingSummary.objectiveHistory
-res20: Array[Double] = Array(0.37227334331158024, 0.29708759479848335, 0.294925696726623, 0.2931215380111379, 0.28496420637022035, 0.2838605550467046, 0.28283040662260506, 0.28215539251427935, 0.28165782317943194, 0.2803970672485666, 0.27897920973342577, 0.2787552873195998, 0.27836696268932276, 0.2783489637917956, 0.27828553486923857, 0.278230097757432, 0.27818756035224407, 0.2781003604764377, 0.2780668421022029, 0.2780412968897635, 0.27804037953487204, 0.2780403527419442, 0.2780403518726974, 0.27804035183427406, 0.27804035183379616, 0.27804035183261727, 0.27804035183224046)
+res23: Array[Double] = Array(0.3708846226233835, 0.2961173280863467, 0.29391827708070684, 0.29209736867850306, 0.2839053747256762, 0.2828173599616276, 0.2818193941585891, 0.2811563132670453, 0.2806811251305354, 0.27941988851761546, 0.27802118417441674, 0.2778109900855152, 0.2774251450946239, 0.27740787833600455, 0.27734641800864474, 0.2773252425021461, 0.2772497716265444, 0.2772175428585191, 0.2771567628111116, 0.27712182615825354, 0.27711763357859964)
 
 val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
 
 binarySummary.areaUnderROC
-res21: Double = 0.8334118812709509
+res24: Double = 0.8332566420801288
 
 binarySummary.accuracy
-res22: Double = 0.7379320675579523
+res25: Double = 0.8780032324474727
 
 -- collecting metric performance
 
@@ -424,17 +425,20 @@ val pred = pipelinemodel.transform(testData)
 val bceval = new BinaryClassificationEvaluator()
 
 bceval.setMetricName("areaUnderROC").evaluate(pred)
-res23: Double = 0.8313369403752122
+res26: Double = 0.8316437801928718
 
 bceval.setMetricName("areaUnderPR").evaluate(pred)
-res24: Double = 0.30870065210893416
+res27: Double = 0.312444305972456
 
-val predRDD = pred.select("prediction","label").rdd.map( row => (row(0).toString.toDouble,row(1).toString.toDouble)).cache
+val validPredicts = pred.select("prediction","label").rdd.map( row => (row.getDouble(0),row.getDouble(1))).cache
 
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
-val metrics = new MulticlassMetrics(predRDD)
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.accuracy
+res28: Double = 0.8761163249969416
 
 metrics.confusionMatrix
-res25: org.apache.spark.mllib.linalg.Matrix =
-72777.0  27357.0
-2724.0   11221.0
+res29: org.apache.spark.mllib.linalg.Matrix =
+100261.0  0.0
+14177.0   0.0

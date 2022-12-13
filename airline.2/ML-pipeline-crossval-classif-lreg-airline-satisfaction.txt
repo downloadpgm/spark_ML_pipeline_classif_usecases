@@ -395,10 +395,11 @@ addGrid(lr.fitIntercept).
 addGrid(lr.maxIter, Array(10, 20, 40, 100)).build()
 
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bce = new BinaryClassificationEvaluator
 
 val cv = new CrossValidator().
 setEstimator(lr).
-setEvaluator(new BinaryClassificationEvaluator).
+setEvaluator(bce.setMetricName("areaUnderROC")).
 setEstimatorParamMaps(paramGrid).
 setNumFolds(3)
 
@@ -516,7 +517,7 @@ res36: Double = 0.9248339856650016
 bceval.setMetricName("areaUnderPR").evaluate(pred)
 res37: Double = 0.9287203586129098
 
-val predRDD = pred.select("prediction","label").rdd.map( row => (row(0).toString.toDouble,row(1).toString.toDouble)).cache
+val predRDD = pred.select("prediction","label").rdd.map( row => (row.getDouble(0),row.getDouble(1))).cache
 
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
 val metrics = new MulticlassMetrics(predRDD)

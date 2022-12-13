@@ -1,1 +1,0 @@
-wget https://github.com/downloadpgm/spark_big_datasets/raw/main/food_inspections/food-inspections.csv.zip

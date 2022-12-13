@@ -253,6 +253,9 @@ val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDo
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
 val metrics = new MulticlassMetrics(validPredicts)
 
+metrics.accuracy
+
+
 metrics.confusionMatrix
 res15: org.apache.spark.mllib.linalg.Matrix =
 100103.0  13925.0

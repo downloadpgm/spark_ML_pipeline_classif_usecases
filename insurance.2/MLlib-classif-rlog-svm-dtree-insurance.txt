@@ -127,6 +127,8 @@ vect.take(10).map( x => x.mkString(",")).foreach(println)
 0.0,1.0,1.0,0.0,0.0,0.0,32.0,80.0,0.0
 
 
+---- Splitting dataset as train/test sets  --------------
+
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.regression.LabeledPoint
 
@@ -144,37 +146,8 @@ val testSet = sets(1)
 trainSet.cache
 testSet.cache
 
----- MLlib logistic regression --------------
 
-import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
-import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
-
-val model = new LogisticRegressionWithSGD
-model.optimizer.setNumIterations(100).setRegParam(0.01)
-val lr = model.run(trainSet)
-
-val validPredicts = testSet.map(x => (lr.predict(x.features),x.label))
-val metrics = new BinaryClassificationMetrics(validPredicts)
-
-metrics.areaUnderPR
-res9: Double = 0.12155356753218416
-
-metrics.areaUnderROC
-res15: Double = 0.5
-
-import org.apache.spark.mllib.evaluation.MulticlassMetrics
-val metrics1 = new MulticlassMetrics(validPredicts)
-
-metrics1.accuracy
-res12: Double = 0.8784464324678158
-
-metrics1.confusionMatrix
-res11: org.apache.spark.mllib.linalg.Matrix =
-100648.0  0.0
-13927.0   0.0
-
------ Estimation is not so good. But analyze the individual statistics and standardize 
+----- Analyze the individual statistics and possibly standardize 
 
 import org.apache.spark.mllib.linalg.distributed.RowMatrix
 
@@ -194,6 +167,7 @@ matrixSummary.mean.toArray.foreach( x => print(f"$x%.2f\t"))
 matrixSummary.variance.toArray.foreach( x => print(f"$x%.2f\t"))
 0.25    0.25    0.25    0.04    0.25    0.25    240.45  6997.90
 
+
 ----- Standardizing features ------------------------------
 
 import org.apache.spark.mllib.feature.StandardScaler
@@ -204,6 +178,7 @@ val testScaled = testSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.fea
 
 trainScaled.cache
 testScaled.cache
+
 
 ---- MLlib logistic regression STD --------------
 
@@ -234,6 +209,7 @@ metrics1.confusionMatrix
 res19: org.apache.spark.mllib.linalg.Matrix =
 55093.0  45555.0
 174.0    13753.0
+
 
 ---- Hyperparameter tunning with logistic regression STD --------------
 
@@ -317,6 +293,7 @@ metrics1.confusionMatrix
 res28: org.apache.spark.mllib.linalg.Matrix =
 53914.0  46734.0
 160.0    13767.0
+
 
 ----- Hyperparameter tunning with SVM regression STD ----------------------
 

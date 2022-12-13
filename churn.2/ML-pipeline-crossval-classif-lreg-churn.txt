@@ -1,0 +1,406 @@
+---- Exploratory Data Analysis --------------
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("churn/Churn_Modelling.csv")
+
+df.printSchema
+root
+ |-- RowNumber: integer (nullable = true)
+ |-- CustomerId: integer (nullable = true)
+ |-- Surname: string (nullable = true)
+ |-- CreditScore: integer (nullable = true)
+ |-- Geography: string (nullable = true)
+ |-- Gender: string (nullable = true)
+ |-- Age: integer (nullable = true)
+ |-- Tenure: integer (nullable = true)
+ |-- Balance: double (nullable = true)
+ |-- NumOfProducts: integer (nullable = true)
+ |-- HasCrCard: integer (nullable = true)
+ |-- IsActiveMember: integer (nullable = true)
+ |-- EstimatedSalary: double (nullable = true)
+ |-- Exited: integer (nullable = true)
+ 
+df.show(10)
++---------+----------+--------+-----------+---------+------+---+------+---------+-------------+---------+--------------+---------------+------+
+|RowNumber|CustomerId| Surname|CreditScore|Geography|Gender|Age|Tenure|  Balance|NumOfProducts|HasCrCard|IsActiveMember|EstimatedSalary|Exited|
++---------+----------+--------+-----------+---------+------+---+------+---------+-------------+---------+--------------+---------------+------+
+|        1|  15634602|Hargrave|        619|   France|Female| 42|     2|      0.0|            1|        1|             1|      101348.88|     1|
+|        2|  15647311|    Hill|        608|    Spain|Female| 41|     1| 83807.86|            1|        0|             1|      112542.58|     0|
+|        3|  15619304|    Onio|        502|   France|Female| 42|     8| 159660.8|            3|        1|             0|      113931.57|     1|
+|        4|  15701354|    Boni|        699|   France|Female| 39|     1|      0.0|            2|        0|             0|       93826.63|     0|
+|        5|  15737888|Mitchell|        850|    Spain|Female| 43|     2|125510.82|            1|        1|             1|        79084.1|     0|
+|        6|  15574012|     Chu|        645|    Spain|  Male| 44|     8|113755.78|            2|        1|             0|      149756.71|     1|
+|        7|  15592531|Bartlett|        822|   France|  Male| 50|     7|      0.0|            2|        1|             1|        10062.8|     0|
+|        8|  15656148|  Obinna|        376|  Germany|Female| 29|     4|115046.74|            4|        1|             0|      119346.88|     1|
+|        9|  15792365|      He|        501|   France|  Male| 44|     4|142051.07|            2|        0|             1|        74940.5|     0|
+|       10|  15592389|      H?|        684|   France|  Male| 27|     2|134603.88|            1|        1|             1|       71725.73|     0|
++---------+----------+--------+-----------+---------+------+---+------+---------+-------------+---------+--------------+---------------+------+
+only showing top 10 rows
+
+import org.apache.spark.sql.types._
+
+val df1 = df.drop("RowNumber","CustomerId","Surname").withColumn("label", col("Exited").cast(DoubleType))
+
+df1.describe().show
++-------+-----------------+---------+------+------------------+------------------+-----------------+------------------+-------------------+-------------------+-----------------+-------------------+-------------------+
+|summary|      CreditScore|Geography|Gender|               Age|            Tenure|          Balance|     NumOfProducts|          HasCrCard|     IsActiveMember|  EstimatedSalary|             Exited|              label|
++-------+-----------------+---------+------+------------------+------------------+-----------------+------------------+-------------------+-------------------+-----------------+-------------------+-------------------+
+|  count|            10000|    10000| 10000|             10000|             10000|            10000|             10000|              10000|              10000|            10000|              10000|              10000|
+|   mean|         650.5288|     null|  null|           38.9218|            5.0128|76485.88928799961|            1.5302|             0.7055|             0.5151|100090.2398809998|             0.2037|             0.2037|
+| stddev|96.65329873613035|     null|  null|10.487806451704587|2.8921743770496837|62397.40520238599|0.5816543579989917|0.45584046447513327|0.49979692845891815|57510.49281769821|0.40276858399486065|0.40276858399486065|
+|    min|              350|   France|Female|                18|                 0|              0.0|                 1|                  0|                  0|            11.58|                  0|                  0|
+|    max|              850|    Spain|  Male|                92|                10|        250898.09|                 4|                  1|                  1|        199992.48|                  1|                  1|
++-------+-----------------+---------+------+------------------+------------------+-----------------+------------------+-------------------+-------------------+-----------------+-------------------+-------------------+
+
+df1.groupBy('Geography).count.show
++---------+-----+
+|Geography|count|
++---------+-----+
+|  Germany| 2509|
+|   France| 5014|
+|    Spain| 2477|
++---------+-----+
+
+df1.groupBy('Gender).count.show
++------+-----+
+|Gender|count|
++------+-----+
+|Female| 4543|
+|  Male| 5457|
++------+-----+
+
+df1.groupBy('Exited).count.show
++------+-----+
+|Exited|count|
++------+-----+
+|     1| 2037|
+|     0| 7963|
++------+-----+
+
+---- Feature extraction & Data Munging --------------
+
+import org.apache.spark.ml.feature.{StringIndexer, OneHotEncoder, VectorAssembler}
+val dfInd1 = new StringIndexer().setInputCol("Geography").setOutputCol("GeographyCat")
+val dfInd2 = new StringIndexer().setInputCol("Gender").setOutputCol("GenderCat")
+
+val dfOne1 = new OneHotEncoder().setInputCol("GeographyCat").setOutputCol("GeographyVect")
+
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("CreditScore","GeographyVect","GenderCat","Age","Tenure","Balance","NumOfProducts","HasCrCard","IsActiveMember","EstimatedSalary"))
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(dfInd1,dfInd2,dfOne1,va))
+
+val df2 = pipeline.fit(df1).transform(df1)
+
+df2.printSchema
+root
+ |-- CreditScore: integer (nullable = true)
+ |-- Geography: string (nullable = true)
+ |-- Gender: string (nullable = true)
+ |-- Age: integer (nullable = true)
+ |-- Tenure: integer (nullable = true)
+ |-- Balance: double (nullable = true)
+ |-- NumOfProducts: integer (nullable = true)
+ |-- HasCrCard: integer (nullable = true)
+ |-- IsActiveMember: integer (nullable = true)
+ |-- EstimatedSalary: double (nullable = true)
+ |-- Exited: integer (nullable = true)
+ |-- label: double (nullable = true)
+ |-- GeographyCat: double (nullable = false)
+ |-- GenderCat: double (nullable = false)
+ |-- GeographyVect: vector (nullable = true)
+ |-- features: vector (nullable = true)
+ 
+df2.show(10)
++-----------+---------+------+---+------+---------+-------------+---------+--------------+---------------+------+-----+------------+---------+-------------+--------------------+
+|CreditScore|Geography|Gender|Age|Tenure|  Balance|NumOfProducts|HasCrCard|IsActiveMember|EstimatedSalary|Exited|label|GeographyCat|GenderCat|GeographyVect|            features|
++-----------+---------+------+---+------+---------+-------------+---------+--------------+---------------+------+-----+------------+---------+-------------+--------------------+
+|        619|   France|Female| 42|     2|      0.0|            1|        1|             1|      101348.88|     1|  1.0|         0.0|      1.0|(2,[0],[1.0])|[619.0,1.0,0.0,1....|
+|        608|    Spain|Female| 41|     1| 83807.86|            1|        0|             1|      112542.58|     0|  0.0|         2.0|      1.0|    (2,[],[])|[608.0,0.0,0.0,1....|
+|        502|   France|Female| 42|     8| 159660.8|            3|        1|             0|      113931.57|     1|  1.0|         0.0|      1.0|(2,[0],[1.0])|[502.0,1.0,0.0,1....|
+|        699|   France|Female| 39|     1|      0.0|            2|        0|             0|       93826.63|     0|  0.0|         0.0|      1.0|(2,[0],[1.0])|[699.0,1.0,0.0,1....|
+|        850|    Spain|Female| 43|     2|125510.82|            1|        1|             1|        79084.1|     0|  0.0|         2.0|      1.0|    (2,[],[])|[850.0,0.0,0.0,1....|
+|        645|    Spain|  Male| 44|     8|113755.78|            2|        1|             0|      149756.71|     1|  1.0|         2.0|      0.0|    (2,[],[])|[645.0,0.0,0.0,0....|
+|        822|   France|  Male| 50|     7|      0.0|            2|        1|             1|        10062.8|     0|  0.0|         0.0|      0.0|(2,[0],[1.0])|[822.0,1.0,0.0,0....|
+|        376|  Germany|Female| 29|     4|115046.74|            4|        1|             0|      119346.88|     1|  1.0|         1.0|      1.0|(2,[1],[1.0])|[376.0,0.0,1.0,1....|
+|        501|   France|  Male| 44|     4|142051.07|            2|        0|             1|        74940.5|     0|  0.0|         0.0|      0.0|(2,[0],[1.0])|[501.0,1.0,0.0,0....|
+|        684|   France|  Male| 27|     2|134603.88|            1|        1|             1|       71725.73|     0|  0.0|         0.0|      0.0|(2,[0],[1.0])|[684.0,1.0,0.0,0....|
++-----------+---------+------+---+------+---------+-------------+---------+--------------+---------------+------+-----+------------+---------+-------------+--------------------+
+only showing top 10 rows
+
+
+// calculate pearson correlation to check multicolinearity
+
+import org.apache.spark.ml.stat.Correlation
+import org.apache.spark.ml.linalg.Matrix
+import org.apache.spark.sql.Row
+
+val corr = Correlation.corr(df2, "features", "pearson").head match {
+   case Row(coeff: Matrix) => coeff
+}
+corr: org.apache.spark.ml.linalg.Matrix =
+1.0                     -0.00892806744555411    ... (11 total)
+-0.00892806744555411    1.0                     ...
+0.005537552606590046    -0.5803586473920944     ...
+0.002856620120427291    -0.006772454170695236   ...
+-0.0039649055254079475  -0.039207742286934      ...
+8.41941818619243E-4     -0.0028477826836909082  ...
+0.006268381615997115    -0.2313290456182561     ...
+0.012237879283174609    0.0012300751632348906   ...
+-0.005458482094660445   0.0024672242386183005   ...
+0.0256513232831288      0.003316965944457328    ...
+-0.0013842928680308172  -0.0033316418411606353  ...
+
+
+corr.toDense.rowIter.foreach( x => {
+  val size = x.size
+  for ( i <- Range(0,size)) { 
+    val elem = x(i)
+    print(f"$elem%.3f\t") 
+  }
+  println
+})
+// "CreditScore","GeographyVect","GenderCat","Age","Tenure","Balance","NumOfProducts","HasCrCard","IsActiveMember","EstimatedSalary"
+1.000   -0.009  0.006   0.003   -0.004  0.001   0.006   0.012   -0.005  0.026  -0.001
+-0.009  1.000   -0.580  -0.007  -0.039  -0.003  -0.231  0.001   0.002   0.003  -0.003
+0.006   -0.580  1.000   0.025   0.047   -0.001  0.401   -0.010  0.011   -0.020 0.010
+0.003   -0.007  0.025   1.000   0.028   -0.015  -0.012  0.022   -0.006  -0.023 0.008
+-0.004  -0.039  0.047   0.028   1.000   -0.010  0.028   -0.031  -0.012  0.085  -0.007
+0.001   -0.003  -0.001  -0.015  -0.010  1.000   -0.012  0.013   0.023   -0.028 0.008
+0.006   -0.231  0.401   -0.012  0.028   -0.012  1.000   -0.304  -0.015  -0.010 0.013
+0.012   0.001   -0.010  0.022   -0.031  0.013   -0.304  1.000   0.003   0.010  0.014
+-0.005  0.002   0.011   -0.006  -0.012  0.023   -0.015  0.003   1.000   -0.012 -0.010
+0.026   0.003   -0.020  -0.023  0.085   -0.028  -0.010  0.010   -0.012  1.000  -0.011
+-0.001  -0.003  0.010   0.008   -0.007  0.008   0.013   0.014   -0.010  -0.011 1.000
+
+// there is NO evidence of multicolinearity
+
+
+// ----- building the logistic regression model
+
+import org.apache.spark.ml.feature.StandardScaler
+val stdScaler = new StandardScaler().
+setWithStd(true).
+setWithMean(true).
+setInputCol("features").
+setOutputCol("scaledFeatures")
+
+import org.apache.spark.ml.classification.LogisticRegression
+val lr = new LogisticRegression
+lr.setRegParam(0.01).setMaxIter(100).setFitIntercept(true).setFeaturesCol("scaledFeatures")
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(dfInd1,dfInd2,dfOne1,va,stdScaler,lr))
+
+val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
+
+trainingData.cache
+testData.cache
+
+val model = pipeline.fit(trainingData)
+
+-- collecting feature importance
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+
+val lrmodel = model.stages.last.asInstanceOf[LogisticRegressionModel]
+
+val featureImp = va.getInputCols.zip(lrmodel.coefficients.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++---------------+--------------------+
+|        feature|          Importance|
++---------------+--------------------+
+|         Tenure|  0.7160853652899726|
+|      GenderCat|  0.3031083070542382|
+|            Age| 0.24368790140026414|
+|  NumOfProducts| 0.15529435849765297|
+| IsActiveMember|-0.01578222325438...|
+|  GeographyVect|-0.03235338277593244|
+|      HasCrCard|-0.03451492760977715|
+|    CreditScore|-0.04687018669513266|
+|        Balance|-0.06519910614543585|
+|EstimatedSalary| -0.4822332145289691|
++---------------+--------------------+
+
+// -----  metrics extracted from model
+
+import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
+
+val trainingSummary = lrmodel.summary
+
+trainingSummary.objectiveHistory
+res4: Array[Double] = Array(0.5055901552273407, 0.4503182011179122, 0.43293726161997476, 0.4320375041230629, 0.4316237717117472, 0.4315890484552938, 0.4315865545488067, 0.43158613378220767, 0.4315861142877281, 0.4315861133449278, 0.4315861133208757, 0.4315861133194459)
+
+val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
+
+binarySummary.areaUnderROC
+res5: Double = 0.772105002873613
+
+binarySummary.accuracy
+res6: Double = 0.810730882974229
+
+
+// -----  metrics on test data
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res7: Double = 0.7588551798048759
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res8: Double = 0.4634537186265122
+
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.accuracy
+res9: Double = 0.8109692997585374
+
+metrics.confusionMatrix
+res10: org.apache.spark.mllib.linalg.Matrix =
+2234.0  473.0
+75.0    117.0
+
+
+// ----- logistic regression model hyperparameter tunning
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().
+addGrid(lr.regParam, Array(1, 0.1, 0.01, 0.001)).
+addGrid(lr.fitIntercept).
+addGrid(lr.maxIter, Array(10, 20, 40, 100)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bce = new BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(pipeline).
+setEvaluator(bce.setMetricName("areaUnderROC")).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+val cvmodel = cv.fit(trainingData)
+
+-- CV hyperparameter evaluation
+
+cvmodel.getEstimatorParamMaps.zip(cvmodel.avgMetrics)
+res11: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
+Array(({
+        logreg_b3324cac69f3-fitIntercept: true,
+        logreg_b3324cac69f3-maxIter: 100,
+        logreg_b3324cac69f3-regParam: 0.1
+},0.7692903336638409), ({
+        logreg_b3324cac69f3-fitIntercept: true,
+        logreg_b3324cac69f3-maxIter: 100,
+        logreg_b3324cac69f3-regParam: 0.01
+},0.7686339762430098), ({
+        logreg_b3324cac69f3-fitIntercept: true,
+        logreg_b3324cac69f3-maxIter: 100,
+        logreg_b3324cac69f3-regParam: 0.001
+},0.7681519162397562), ({
+        logreg_b3324cac69f3-fitIntercept: false,
+        logreg_b3324cac69f3-maxIter: 100,
+        logreg_b3324cac69f3-regParam: 0.1
+},0.770973373064565), ({
+        logreg_b3324cac69f3-fitIntercept: false,
+        logreg_b3324cac69f3-maxIter: 100,
+        logreg_b3324cac69f3-regParam: 0.01
+},0.771400072447363), ({
+        logreg_b3324cac69f3-fitIntercept: fal...
+
+
+-- extract best LR model 
+
+import org.apache.spark.ml.PipelineModel
+val bestmodel = cvmodel.bestModel.asInstanceOf[PipelineModel]
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+val lrmodel = bestmodel.stages.last.asInstanceOf[LogisticRegressionModel]
+
+lrmodel.getRegParam
+res11: Double = 0.01
+
+lrmodel.getMaxIter
+res12: Int = 10
+
+lrmodel.getThreshold
+res13: Double = 0.5
+
+lrmodel.getFitIntercept
+res14: Boolean = false
+
+-- collecting feature importance
+
+val featureImp = va.getInputCols.zip(lrmodel.coefficients.toArray)
+
+val columns = Array("feature", "Importance")
+val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
+
+featureImpDF.orderBy($"Importance".desc).show()
++---------------+--------------------+
+|        feature|          Importance|
++---------------+--------------------+
+|         Tenure|  0.5038700620804205|
+|      GenderCat| 0.22696223179459057|
+|            Age| 0.15685905656385493|
+|  NumOfProducts| 0.08440960723102985|
+| IsActiveMember|-0.00644093905276...|
+|  GeographyVect|-0.01456384032395...|
+|      HasCrCard|-0.02531456694898...|
+|    CreditScore|-0.03049831269567...|
+|        Balance|-0.03550660396423862|
+|EstimatedSalary| -0.2891502956076117|
++---------------+--------------------+
+
+
+import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
+
+val trainingSummary = lrmodel.summary
+
+trainingSummary.objectiveHistory
+res16: Array[Double] = Array(0.693147180560029, 0.6723645391955108, 0.6436877998195123, 0.6428052464218531, 0.6427445109386422, 0.6427220756524459, 0.6427170553922672, 0.6427169818584233, 0.6427169765157082, 0.6427169764584932, 0.6427169764551509)
+
+val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
+
+binarySummary.areaUnderROC
+res17: Double = 0.7741877917768463
+
+binarySummary.accuracy
+res18: Double = 0.6475144345866779
+
+
+-- collecting metric performance
+
+val pred = bestmodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res19: Double = 0.7603320830060596
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res20: Double = 0.4544038955621655
+
+val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+
+metrics.accuracy
+res21: Double = 0.6440151776474646
+
+metrics.confusionMatrix
+res22: org.apache.spark.mllib.linalg.Matrix =
+1406.0  129.0
+903.0   461.0
+

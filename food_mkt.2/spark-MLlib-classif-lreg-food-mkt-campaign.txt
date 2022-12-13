@@ -1,157 +1,56 @@
 ---- Feature extraction & Data Munging --------------
 
-val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("food_mkt/ml_project1_data.csv")
+val rdd = sc.textFile("spark/data/ifood_mkt/ml_project1_data.csv").map( x => x.split(","))
 
-scala> df.printSchema
-root
- |-- ID: integer (nullable = true)
- |-- Year_Birth: integer (nullable = true)
- |-- Education: string (nullable = true)
- |-- Marital_Status: string (nullable = true)
- |-- Income: integer (nullable = true)
- |-- Kidhome: integer (nullable = true)
- |-- Teenhome: integer (nullable = true)
- |-- Dt_Customer: timestamp (nullable = true)
- |-- Recency: integer (nullable = true)
- |-- MntWines: integer (nullable = true)
- |-- MntFruits: integer (nullable = true)
- |-- MntMeatProducts: integer (nullable = true)
- |-- MntFishProducts: integer (nullable = true)
- |-- MntSweetProducts: integer (nullable = true)
- |-- MntGoldProds: integer (nullable = true)
- |-- NumDealsPurchases: integer (nullable = true)
- |-- NumWebPurchases: integer (nullable = true)
- |-- NumCatalogPurchases: integer (nullable = true)
- |-- NumStorePurchases: integer (nullable = true)
- |-- NumWebVisitsMonth: integer (nullable = true)
- |-- AcceptedCmp3: integer (nullable = true)
- |-- AcceptedCmp4: integer (nullable = true)
- |-- AcceptedCmp5: integer (nullable = true)
- |-- AcceptedCmp1: integer (nullable = true)
- |-- AcceptedCmp2: integer (nullable = true)
- |-- Complain: integer (nullable = true)
- |-- Z_CostContact: integer (nullable = true)
- |-- Z_Revenue: integer (nullable = true)
- |-- Response: integer (nullable = true)
+rdd.take(2)
+res1: Array[Array[String]] = Array(Array(ID, Year_Birth, Education, Marital_Status, Income, Kidhome, Teenhome, Dt_Customer, Recency, MntWines, MntFruits, MntMeatProducts, MntFishProducts, MntSweetProducts, MntGoldProds, NumDealsPurchases, NumWebPurchases, NumCatalogPurchases, NumStorePurchases, NumWebVisitsMonth, AcceptedCmp3, AcceptedCmp4, AcceptedCmp5, AcceptedCmp1, AcceptedCmp2, Complain, Z_CostContact, Z_Revenue, Response), Array(5524, 1957, Graduation, Single, 58138, 0, 0, 2012-09-04, 58, 635, 88, 546, 172, 88, 88, 3, 8, 10, 4, 7, 0, 0, 0, 0, 0, 0, 3, 11, 1))
 
-scala> df.show
-20/10/22 17:10:40 WARN Utils: Truncated the string representation of a plan since it was too large. This behavior can be adjusted by setting 'spark.debug.maxToStringFields' in SparkEnv.conf.
-+----+----------+----------+--------------+------+-------+--------+-------------------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+
-|  ID|Year_Birth| Education|Marital_Status|Income|Kidhome|Teenhome|        Dt_Customer|Recency|MntWines|MntFruits|MntMeatProducts|MntFishProducts|MntSweetProducts|MntGoldProds|NumDealsPurchases|NumWebPurchases|NumCatalogPurchases|NumStorePurchases|NumWebVisitsMonth|AcceptedCmp3|AcceptedCmp4|AcceptedCmp5|AcceptedCmp1|AcceptedCmp2|Complain|Z_CostContact|Z_Revenue|Response|
-+----+----------+----------+--------------+------+-------+--------+-------------------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+
-|5524|      1957|Graduation|        Single| 58138|      0|       0|2012-09-04 00:00:00|     58|     635|       88|            546|            172|              88|          88|                3|              8|                 10|                4|                7|           0|           0|           0|           0|           0|       0|            3|       11|       1|
-|2174|      1954|Graduation|        Single| 46344|      1|       1|2014-03-08 00:00:00|     38|      11|        1|              6|              2|               1|           6|                2|              1|                  1|                2|                5|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-|4141|      1965|Graduation|      Together| 71613|      0|       0|2013-08-21 00:00:00|     26|     426|       49|            127|            111|              21|          42|                1|              8|                  2|               10|                4|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-|6182|      1984|Graduation|      Together| 26646|      1|       0|2014-02-10 00:00:00|     26|      11|        4|             20|             10|               3|           5|                2|              2|                  0|                4|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-|5324|      1981|       PhD|       Married| 58293|      1|       0|2014-01-19 00:00:00|     94|     173|       43|            118|             46|              27|          15|                5|              5|                  3|                6|                5|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-|7446|      1967|    Master|      Together| 62513|      0|       1|2013-09-09 00:00:00|     16|     520|       42|             98|              0|              42|          14|                2|              6|                  4|               10|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-| 965|      1971|Graduation|      Divorced| 55635|      0|       1|2012-11-13 00:00:00|     34|     235|       65|            164|             50|              49|          27|                4|              7|                  3|                7|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-|6177|      1985|       PhD|       Married| 33454|      1|       0|2013-05-08 00:00:00|     32|      76|       10|             56|              3|               1|          23|                2|              4|                  0|                4|                8|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-|4855|      1974|       PhD|      Together| 30351|      1|       0|2013-06-06 00:00:00|     19|      14|        0|             24|              3|               3|           2|                1|              3|                  0|                2|                9|           0|           0|           0|           0|           0|       0|            3|       11|       1|
-|5899|      1950|       PhD|      Together|  5648|      1|       1|2014-03-13 00:00:00|     68|      28|        0|              6|              1|               1|          13|                1|              1|                  0|                0|               20|           1|           0|           0|           0|           0|       0|            3|       11|       0|
-|1994|      1983|Graduation|       Married|  null|      1|       0|2013-11-15 00:00:00|     11|       5|        5|              6|              0|               2|           1|                1|              1|                  0|                2|                7|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-| 387|      1976|     Basic|       Married|  7500|      0|       0|2012-11-13 00:00:00|     59|       6|       16|             11|             11|               1|          16|                1|              2|                  0|                3|                8|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-|2125|      1959|Graduation|      Divorced| 63033|      0|       0|2013-11-15 00:00:00|     82|     194|       61|            480|            225|             112|          30|                1|              3|                  4|                8|                2|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-|8180|      1952|    Master|      Divorced| 59354|      1|       1|2013-11-15 00:00:00|     53|     233|        2|             53|              3|               5|          14|                3|              6|                  1|                5|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-|2569|      1987|Graduation|       Married| 17323|      0|       0|2012-10-10 00:00:00|     38|       3|       14|             17|              6|               1|           5|                1|              1|                  0|                3|                8|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-|2114|      1946|       PhD|        Single| 82800|      0|       0|2012-11-24 00:00:00|     23|    1006|       22|            115|             59|              68|          45|                1|              7|                  6|               12|                3|           0|           0|           1|           1|           0|       0|            3|       11|       1|
-|9736|      1980|Graduation|       Married| 41850|      1|       1|2012-12-24 00:00:00|     51|      53|        5|             19|              2|              13|           4|                3|              3|                  0|                3|                8|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-|4939|      1946|Graduation|      Together| 37760|      0|       0|2012-08-31 00:00:00|     20|      84|        5|             38|            150|              12|          28|                2|              4|                  1|                6|                7|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-|6565|      1949|    Master|       Married| 76995|      0|       1|2013-03-28 00:00:00|     91|    1012|       80|            498|              0|              16|         176|                2|             11|                  4|                9|                5|           0|           0|           0|           1|           0|       0|            3|       11|       0|
-|2278|      1985|  2n Cycle|        Single| 33812|      1|       0|2012-11-03 00:00:00|     86|       4|       17|             19|             30|              24|          39|                2|              2|                  1|                3|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0|
-+----+----------+----------+--------------+------+-------+--------+-------------------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+
+val hdr = rdd.take(1)(0)
+hdr: Array[String] = Array(ID, Year_Birth, Education, Marital_Status, Income, Kidhome, Teenhome, Dt_Customer, Recency, MntWines, MntFruits, MntMeatProducts, MntFishProducts, MntSweetProducts, MntGoldProds, NumDealsPurchases, NumWebPurchases, NumCatalogPurchases, NumStorePurchases, NumWebVisitsMonth, AcceptedCmp3, AcceptedCmp4, AcceptedCmp5, AcceptedCmp1, AcceptedCmp2, Complain, Z_CostContact, Z_Revenue, Response)
 
-df.groupBy("Response").count.show
-+--------+-----+
-|Response|count|
-+--------+-----+
-|       1|  334|
-|       0| 1906|
-+--------+-----+
+val rdd1 = rdd.filter( x => ! x.contains("Year_Birth"))
 
-val df1 = df.withColumn("age",lit(2020)-col("Year_Birth")).withColumn("enrolled_to_date",datediff(current_date(),col("Dt_Customer")))
+rdd1.take(10).map( x => x.mkString(", ")).foreach(println)
+5524, 1957, Graduation, Single, 58138, 0, 0, 2012-09-04, 58, 635, 88, 546, 172, 88, 88, 3, 8, 10, 4, 7, 0, 0, 0, 0, 0, 0, 3, 11, 1
+2174, 1954, Graduation, Single, 46344, 1, 1, 2014-03-08, 38, 11, 1, 6, 2, 1, 6, 2, 1, 1, 2, 5, 0, 0, 0, 0, 0, 0, 3, 11, 0
+4141, 1965, Graduation, Together, 71613, 0, 0, 2013-08-21, 26, 426, 49, 127, 111, 21, 42, 1, 8, 2, 10, 4, 0, 0, 0, 0, 0, 0, 3, 11, 0
+6182, 1984, Graduation, Together, 26646, 1, 0, 2014-02-10, 26, 11, 4, 20, 10, 3, 5, 2, 2, 0, 4, 6, 0, 0, 0, 0, 0, 0, 3, 11, 0
+5324, 1981, PhD, Married, 58293, 1, 0, 2014-01-19, 94, 173, 43, 118, 46, 27, 15, 5, 5, 3, 6, 5, 0, 0, 0, 0, 0, 0, 3, 11, 0
+7446, 1967, Master, Together, 62513, 0, 1, 2013-09-09, 16, 520, 42, 98, 0, 42, 14, 2, 6, 4, 10, 6, 0, 0, 0, 0, 0, 0, 3, 11, 0
+965, 1971, Graduation, Divorced, 55635, 0, 1, 2012-11-13, 34, 235, 65, 164, 50, 49, 27, 4, 7, 3, 7, 6, 0, 0, 0, 0, 0, 0, 3, 11, 0
+6177, 1985, PhD, Married, 33454, 1, 0, 2013-05-08, 32, 76, 10, 56, 3, 1, 23, 2, 4, 0, 4, 8, 0, 0, 0, 0, 0, 0, 3, 11, 0
+4855, 1974, PhD, Together, 30351, 1, 0, 2013-06-06, 19, 14, 0, 24, 3, 3, 2, 1, 3, 0, 2, 9, 0, 0, 0, 0, 0, 0, 3, 11, 1
+5899, 1950, PhD, Together, 5648, 1, 1, 2014-03-13, 68, 28, 0, 6, 1, 1, 13, 1, 1, 0, 0, 20, 1, 0, 0, 0, 0, 0, 3, 11, 0
 
-scala> df1.printSchema
-root
- |-- ID: integer (nullable = true)
- |-- Year_Birth: integer (nullable = true)
- |-- Education: string (nullable = true)
- |-- Marital_Status: string (nullable = true)
- |-- Income: integer (nullable = true)
- |-- Kidhome: integer (nullable = true)
- |-- Teenhome: integer (nullable = true)
- |-- Dt_Customer: timestamp (nullable = true)
- |-- Recency: integer (nullable = true)
- |-- MntWines: integer (nullable = true)
- |-- MntFruits: integer (nullable = true)
- |-- MntMeatProducts: integer (nullable = true)
- |-- MntFishProducts: integer (nullable = true)
- |-- MntSweetProducts: integer (nullable = true)
- |-- MntGoldProds: integer (nullable = true)
- |-- NumDealsPurchases: integer (nullable = true)
- |-- NumWebPurchases: integer (nullable = true)
- |-- NumCatalogPurchases: integer (nullable = true)
- |-- NumStorePurchases: integer (nullable = true)
- |-- NumWebVisitsMonth: integer (nullable = true)
- |-- AcceptedCmp3: integer (nullable = true)
- |-- AcceptedCmp4: integer (nullable = true)
- |-- AcceptedCmp5: integer (nullable = true)
- |-- AcceptedCmp1: integer (nullable = true)
- |-- AcceptedCmp2: integer (nullable = true)
- |-- Complain: integer (nullable = true)
- |-- Z_CostContact: integer (nullable = true)
- |-- Z_Revenue: integer (nullable = true)
- |-- Response: integer (nullable = true)
- |-- age: integer (nullable = true)
- |-- enrolled_to_date: integer (nullable = true)
+// Education
+rdd1.map( x => (x(2),1)).reduceByKey(_+_).take(10)
+res3: Array[(String, Int)] = Array((Graduation,1127), (PhD,486), (Basic,54), (Master,370), (2n Cycle,203))
 
- 
-scala> df1.show
-+----+----------+----------+--------------+------+-------+--------+-------------------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+---+----------------+
-|  ID|Year_Birth| Education|Marital_Status|Income|Kidhome|Teenhome|        Dt_Customer|Recency|MntWines|MntFruits|MntMeatProducts|MntFishProducts|MntSweetProducts|MntGoldProds|NumDealsPurchases|NumWebPurchases|NumCatalogPurchases|NumStorePurchases|NumWebVisitsMonth|AcceptedCmp3|AcceptedCmp4|AcceptedCmp5|AcceptedCmp1|AcceptedCmp2|Complain|Z_CostContact|Z_Revenue|Response|age|enrolled_to_date|
-+----+----------+----------+--------------+------+-------+--------+-------------------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+---+----------------+
-|5524|      1957|Graduation|        Single| 58138|      0|       0|2012-09-04 00:00:00|     58|     635|       88|            546|            172|              88|          88|                3|              8|                 10|                4|                7|           0|           0|           0|           0|           0|       0|            3|       11|       1| 63|            2970|
-|2174|      1954|Graduation|        Single| 46344|      1|       1|2014-03-08 00:00:00|     38|      11|        1|              6|              2|               1|           6|                2|              1|                  1|                2|                5|           0|           0|           0|           0|           0|       0|            3|       11|       0| 66|            2420|
-|4141|      1965|Graduation|      Together| 71613|      0|       0|2013-08-21 00:00:00|     26|     426|       49|            127|            111|              21|          42|                1|              8|                  2|               10|                4|           0|           0|           0|           0|           0|       0|            3|       11|       0| 55|            2619|
-|6182|      1984|Graduation|      Together| 26646|      1|       0|2014-02-10 00:00:00|     26|      11|        4|             20|             10|               3|           5|                2|              2|                  0|                4|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0| 36|            2446|
-|5324|      1981|       PhD|       Married| 58293|      1|       0|2014-01-19 00:00:00|     94|     173|       43|            118|             46|              27|          15|                5|              5|                  3|                6|                5|           0|           0|           0|           0|           0|       0|            3|       11|       0| 39|            2468|
-|7446|      1967|    Master|      Together| 62513|      0|       1|2013-09-09 00:00:00|     16|     520|       42|             98|              0|              42|          14|                2|              6|                  4|               10|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0| 53|            2600|
-| 965|      1971|Graduation|      Divorced| 55635|      0|       1|2012-11-13 00:00:00|     34|     235|       65|            164|             50|              49|          27|                4|              7|                  3|                7|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0| 49|            2900|
-|6177|      1985|       PhD|       Married| 33454|      1|       0|2013-05-08 00:00:00|     32|      76|       10|             56|              3|               1|          23|                2|              4|                  0|                4|                8|           0|           0|           0|           0|           0|       0|            3|       11|       0| 35|            2724|
-|4855|      1974|       PhD|      Together| 30351|      1|       0|2013-06-06 00:00:00|     19|      14|        0|             24|              3|               3|           2|                1|              3|                  0|                2|                9|           0|           0|           0|           0|           0|       0|            3|       11|       1| 46|            2695|
-|5899|      1950|       PhD|      Together|  5648|      1|       1|2014-03-13 00:00:00|     68|      28|        0|              6|              1|               1|          13|                1|              1|                  0|                0|               20|           1|           0|           0|           0|           0|       0|            3|       11|       0| 70|            2415|
-|1994|      1983|Graduation|       Married|  null|      1|       0|2013-11-15 00:00:00|     11|       5|        5|              6|              0|               2|           1|                1|              1|                  0|                2|                7|           0|           0|           0|           0|           0|       0|            3|       11|       0| 37|            2533|
-| 387|      1976|     Basic|       Married|  7500|      0|       0|2012-11-13 00:00:00|     59|       6|       16|             11|             11|               1|          16|                1|              2|                  0|                3|                8|           0|           0|           0|           0|           0|       0|            3|       11|       0| 44|            2900|
-|2125|      1959|Graduation|      Divorced| 63033|      0|       0|2013-11-15 00:00:00|     82|     194|       61|            480|            225|             112|          30|                1|              3|                  4|                8|                2|           0|           0|           0|           0|           0|       0|            3|       11|       0| 61|            2533|
-|8180|      1952|    Master|      Divorced| 59354|      1|       1|2013-11-15 00:00:00|     53|     233|        2|             53|              3|               5|          14|                3|              6|                  1|                5|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0| 68|            2533|
-|2569|      1987|Graduation|       Married| 17323|      0|       0|2012-10-10 00:00:00|     38|       3|       14|             17|              6|               1|           5|                1|              1|                  0|                3|                8|           0|           0|           0|           0|           0|       0|            3|       11|       0| 33|            2934|
-|2114|      1946|       PhD|        Single| 82800|      0|       0|2012-11-24 00:00:00|     23|    1006|       22|            115|             59|              68|          45|                1|              7|                  6|               12|                3|           0|           0|           1|           1|           0|       0|            3|       11|       1| 74|            2889|
-|9736|      1980|Graduation|       Married| 41850|      1|       1|2012-12-24 00:00:00|     51|      53|        5|             19|              2|              13|           4|                3|              3|                  0|                3|                8|           0|           0|           0|           0|           0|       0|            3|       11|       0| 40|            2859|
-|4939|      1946|Graduation|      Together| 37760|      0|       0|2012-08-31 00:00:00|     20|      84|        5|             38|            150|              12|          28|                2|              4|                  1|                6|                7|           0|           0|           0|           0|           0|       0|            3|       11|       0| 74|            2974|
-|6565|      1949|    Master|       Married| 76995|      0|       1|2013-03-28 00:00:00|     91|    1012|       80|            498|              0|              16|         176|                2|             11|                  4|                9|                5|           0|           0|           0|           1|           0|       0|            3|       11|       0| 71|            2765|
-|2278|      1985|  2n Cycle|        Single| 33812|      1|       0|2012-11-03 00:00:00|     86|       4|       17|             19|             30|              24|          39|                2|              2|                  1|                3|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0| 35|            2910|
-+----+----------+----------+--------------+------+-------+--------+-------------------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+---+----------------+
+// Marital_Status
+rdd1.map( x => (x(3),1)).reduceByKey(_+_).take(10)
+res4: Array[(String, Int)] = Array((Single,480), (Married,864), (Together,580), (Widow,77), (Divorced,232), (YOLO,2), (Alone,3), (Absurd,2))
 
-val rdd = df1.where("Income is not null").
-              select("Education","Marital_Status","age","Income","Kidhome","Teenhome","enrolled_to_date","Recency","MntWines","MntFruits","MntMeatProducts","MntFishProducts","MntSweetProducts","MntGoldProds","NumDealsPurchases","NumWebPurchases","NumCatalogPurchases","NumStorePurchases","NumWebVisitsMonth","AcceptedCmp3","AcceptedCmp4","AcceptedCmp5","AcceptedCmp1","AcceptedCmp2","Complain","Response").
-			  rdd.map( x => x.toSeq.toArray )
-			  
-val rdd1 = rdd.map( x => x.map( y => y.toString ))
+// Response
+rdd1.map( x => (x(28),1)).reduceByKey(_+_).take(10)
+res7: Array[(String, Int)] = Array((0,1906), (1,334))
 
-rdd1.take(5)
-res3: Array[Array[String]] = Array(Array(Graduation, Single, 63, 58138, 0, 0, 3493, 58, 635, 88, 546, 172, 88, 88, 3, 8, 10, 4, 7, 0, 0, 0, 0, 0, 0, 1), Array(Graduation, Single, 66, 46344, 1, 1, 2943, 38, 11, 1, 6, 2, 1, 6, 2, 1, 1, 2, 5, 0, 0, 0, 0, 0, 0, 0), Array(Graduation, Together, 55, 71613, 0, 0, 3142, 26, 426, 49, 127, 111, 21, 42, 1, 8, 2, 10, 4, 0, 0, 0, 0, 0, 0, 0), Array(Graduation, Together, 36, 26646, 1, 0, 2969, 26, 11, 4, 20, 10, 3, 5, 2, 2, 0, 4, 6, 0, 0, 0, 0, 0, 0, 0), Array(PhD, Married, 39, 58293, 1, 0, 2991, 94, 173, 43, 118, 46, 27, 15, 5, 5, 3, 6, 5, 0, 0, 0, 0, 0, 0, 0))
 
 ---- Conversion to 1-to-k binary encoding vectors 
 
 def oneHotEncColumns(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int):org.apache.spark.rdd.RDD[Array[Double]] = {
   val categories = rddx.map(r => r(idx)).distinct.zipWithIndex.collectAsMap
+  print(hdr(idx) + " : ")
+  println(categories)
   val numCategories = categories.size
   val vetcateg = rddx.map(r => {
     val categoryIdx = categories(r(idx)).toInt
-	val categoryFeatures = if (numCategories > 2) Array.ofDim[Double](numCategories) else Array.ofDim[Double](1)
-	if (numCategories > 2) categoryFeatures(categoryIdx) = 1.0 else categoryFeatures(0) = categoryIdx
+    val categoryFeatures = if (numCategories > 2) Array.ofDim[Double](numCategories - 1) else Array.ofDim[Double](1)
+    if (numCategories > 2) { 
+      if (categoryIdx > 0) categoryFeatures(categoryIdx - 1) = 1.0
+    }
+    else categoryFeatures(0) = categoryIdx
     categoryFeatures
-	})
+    })
   vetcateg
 }
 
@@ -166,79 +65,260 @@ def mergeArray(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int*):org.apa
   arr1
 }
 
-val concat = mergeArray(rdd1,0,1)
+val concat = mergeArray(rdd1,2,3)
+Education : Map(Graduation -> 0, Basic -> 2, 2n Cycle -> 4, Master -> 3, PhD -> 1)
+Marital_Status : Map(Widow -> 3, Together -> 2, Absurd -> 7, Alone -> 6, Divorced -> 4, YOLO -> 5, Single -> 0, Married -> 1)
+concat: org.apache.spark.rdd.RDD[Array[Double]] = MapPartitionsRDD[28] at map at <console>:30
 
-val rdd2 = rdd1.map( x => x.slice(2,x.size)).map( x => x.map( y => y.toDouble))
+concat.take(2)
+res9: Array[Array[Double]] = Array(Array(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), Array(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+
+import java.time._
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit;
+
+val rdd2 = rdd1.map( x => {
+  val dt1 = LocalDate.parse(x(7),DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+  val dt2 = LocalDate.parse("2022-12-12",DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+  val numdays = ChronoUnit.DAYS.between(dt1, dt2)
+
+  val y = Array(2020 - x(1).toString.toDouble) ++ x.slice(4,7) ++ Array(numdays) ++ x.slice(8,x.size)
+  y.map( z => { 
+                val t = z.toString
+                if (t == "") 0.0 else t.toDouble
+       })
+})
+
+rdd2.take(2)
+res9: Array[Array[Double]] = Array(Array(63.0, 58138.0, 0.0, 0.0, 3751.0, 58.0, 635.0, 88.0, 546.0, 172.0, 88.0, 88.0, 3.0, 8.0, 10.0, 4.0, 7.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 1.0), Array(66.0, 46344.0, 1.0, 1.0, 3201.0, 38.0, 11.0, 1.0, 6.0, 2.0, 1.0, 6.0, 2.0, 1.0, 1.0, 2.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0))
 
 val vect = concat.zip(rdd2).map(x => (x._1.toList ++ x._2.toList).toArray)
 
-vect.take(5)
-res4: Array[Array[Double]] = Array(Array(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 63.0, 58138.0, 0.0, 0.0, 3493.0, 58.0, 635.0, 88.0, 546.0, 172.0, 88.0, 88.0, 3.0, 8.0, 10.0, 4.0, 7.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0), Array(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 66.0, 46344.0, 1.0, 1.0, 2943.0, 38.0, 11.0, 1.0, 6.0, 2.0, 1.0, 6.0, 2.0, 1.0, 1.0, 2.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), Array(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 55.0, 71613.0, 0.0, 0.0, 3142.0, 26.0, 426.0, 49.0, 127.0, 111.0, 21.0, 42.0, 1.0, 8.0, 2.0, 10.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), Array(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 36.0, 26646.0, 1.0, 0.0, 2969.0, 26.0, 11.0, 4.0, 20.0, 10.0, 3.0, ...
+vect.take(10).map( x => x.mkString(", ")).foreach(println)
+0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 63.0, 58138.0, 0.0, 0.0, 3751.0, 58.0, 635.0, 88.0, 546.0, 172.0, 88.0, 88.0, 3.0, 8.0, 10.0, 4.0, 7.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 1.0
+0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 66.0, 46344.0, 1.0, 1.0, 3201.0, 38.0, 11.0, 1.0, 6.0, 2.0, 1.0, 6.0, 2.0, 1.0, 1.0, 2.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 55.0, 71613.0, 0.0, 0.0, 3400.0, 26.0, 426.0, 49.0, 127.0, 111.0, 21.0, 42.0, 1.0, 8.0, 2.0, 10.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 36.0, 26646.0, 1.0, 0.0, 3227.0, 26.0, 11.0, 4.0, 20.0, 10.0, 3.0, 5.0, 2.0, 2.0, 0.0, 4.0, 6.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 39.0, 58293.0, 1.0, 0.0, 3249.0, 94.0, 173.0, 43.0, 118.0, 46.0, 27.0, 15.0, 5.0, 5.0, 3.0, 6.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 53.0, 62513.0, 0.0, 1.0, 3381.0, 16.0, 520.0, 42.0, 98.0, 0.0, 42.0, 14.0, 2.0, 6.0, 4.0, 10.0, 6.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 49.0, 55635.0, 0.0, 1.0, 3681.0, 34.0, 235.0, 65.0, 164.0, 50.0, 49.0, 27.0, 4.0, 7.0, 3.0, 7.0, 6.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 35.0, 33454.0, 1.0, 0.0, 3505.0, 32.0, 76.0, 10.0, 56.0, 3.0, 1.0, 23.0, 2.0, 4.0, 0.0, 4.0, 8.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 46.0, 30351.0, 1.0, 0.0, 3476.0, 19.0, 14.0, 0.0, 24.0, 3.0, 3.0, 2.0, 1.0, 3.0, 0.0, 2.0, 9.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 1.0
+1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 70.0, 5648.0, 1.0, 1.0, 3196.0, 68.0, 28.0, 0.0, 6.0, 1.0, 1.0, 13.0, 1.0, 1.0, 0.0, 0.0, 20.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
 
-val categ_education = rdd1.map(x => x(0)).distinct.zipWithIndex.collectAsMap
-categ_education: scala.collection.Map[String,Long] = Map(Graduation -> 0, Basic -> 2, 2n Cycle -> 4, Master -> 3, PhD -> 1)
 
-val categ_marital = rdd1.map(x => x(1)).distinct.zipWithIndex.collectAsMap
-categ_marital: scala.collection.Map[String,Long] = Map(Widow -> 6, Together -> 5, Alone -> 3, Absurd -> 0, Divorced -> 7, YOLO -> 2, Single -> 1, Married -> 4)
-
-val rdd_aux = rdd1.map( x => Array(categ_education(x(0)).toDouble,categ_marital(x(1)).toDouble))
-
-val rdd2_dt = rdd_aux.zip(rdd2).map(x => (x._1.toList ++ x._2.toList).toArray)
-
-val data = vect.zip(rdd2_dt)
-
-val sets = data.randomSplit(Array(0.7,0.3), 11L)
-val train_rdd = sets(0)
-val test_rdd = sets(1)
+---- calculate cosine column similarities to check multicolinearity
 
 import org.apache.spark.mllib.linalg.Vectors
-import org.apache.spark.mllib.regression.LabeledPoint  
+import org.apache.spark.mllib.linalg.Matrix
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
 
-val trainSet = train_rdd.map( x => {
-   val x1 = x._1
-   val l1 = x1(x1.size - 1)
-   val f1 = x1.slice(0,x1.size - 1)
-   LabeledPoint(l1,Vectors.dense(f1))
+val vectors = vect.map( x => Vectors.dense(x.slice(0, x.size-1)))
+val matrix = new RowMatrix(vectors)
+
+val colsims = matrix.columnSimilarities()
+val mat1 = colsims.toRowMatrix
+
+import org.apache.spark.mllib.linalg.distributed.MatrixEntry
+val transformedRDD = colsims.entries.map{case MatrixEntry(row: Long, col:Long, sim:Double) => ((row,col),sim)}
+
+val rep = transformedRDD.sortBy(_._1).map(x => ((x._1._1,x._1._2),x._2))
+
+var i = -1.0
+var j = 0.0
+
+rep.foreach( x => {
+  val sim = x._2
+  if (x._1._1 != i) { println
+    i = x._1._1
+    j = i + 1
+    while (j < x._1._2) { 
+      print("0.00 ")
+      j = j + 1
+    }
+    print(f"$sim%.2f ")
+  } else {
+      j = j + 1
+      while (j < x._1._2) { 
+        print("0.00 ")
+        j = j + 1
+      }
+      print(f"$sim%.2f ")
+    }
+})
+
+
+
+
+---- Splitting dataset as train/test sets  --------------
+
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
+
+val data = vect.map(x => {
+   val arr_size = x.size - 1
+   val l = x(arr_size)
+   val f = x.slice(0, arr_size)
+   LabeledPoint(l, Vectors.dense(f))
  })
- 
-val testSet = test_rdd.map( x => {
-   val x1 = x._1
-   val l1 = x1(x1.size - 1)
-   val f1 = x1.slice(0,x1.size - 1)
-   LabeledPoint(l1,Vectors.dense(f1))
- })
+
+val sets = data.randomSplit(Array(0.7,0.3), 11L)
+val trainSet = sets(0)
+val testSet = sets(1)
 
 trainSet.cache
+testSet.cache
 
----- MLlib logistic regression --------------
+
+----- Analyze the individual statistics and possibly standardize 
+
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+
+val vectors = trainSet.map{ case LabeledPoint(x,y) => y }
+val matrix = new RowMatrix(vectors)
+val matrixSummary = matrix.computeColumnSummaryStatistics
+
+matrixSummary.max.toArray.foreach( x => print(f"$x%.2f\t"))
+1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    127.00  666666.00   2.00    2.00    3787.00 99.00   1493.00 199.00  1582.00 259.00  263.00  362.00  15.00   27.00       22.00   13.00   20.00   1.00    1.00    1.00    1.00    1.00    1.00    3.00    11.00
+
+matrixSummary.min.toArray.foreach( x => print(f"$x%.2f\t"))
+0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    24.00   0.000.00    0.00    3088.00 0.00    0.00    0.00    1.00    0.00    0.00    0.00    0.00    0.00    0.000.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    3.00    11.00
+
+matrixSummary.mean.toArray.foreach( x => print(f"$x%.2f\t"))
+0.21    0.02    0.16    0.09    0.38    0.26    0.04    0.10    0.00    0.00    0.00    50.82   52037.93    0.44    0.49    3443.19 49.41   298.84  26.23   165.94  38.36   28.69   44.83   2.26    4.082.63    5.80    5.27    0.07    0.07    0.08    0.06    0.01    0.01    3.00    11.00
+
+matrixSummary.variance.toArray.foreach( x => print(f"$x%.2f\t"))
+0.17    0.02    0.14    0.08    0.24    0.19    0.04    0.09    0.00    0.00    0.00    144.87  718114889.92        0.28    0.29    41149.18        824.74  110060.14       1531.51 47318.61        3026.91     1828.86 2759.28 3.37    7.55    7.78    10.54   5.71    0.07    0.06    0.07    0.06    0.010.01    0.00    0.00
+
+
+----- Standardizing features ------------------------------
+
+import org.apache.spark.mllib.feature.StandardScaler
+val vectors = trainSet.map(lp => lp.features)
+val scaler = new StandardScaler(withMean = true, withStd = true).fit(vectors)
+val trainScaled = trainSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.features)))
+val testScaled = testSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.features)))
+
+trainScaled.cache
+testScaled.cache
+
+---- MLlib logistic regression STD --------------
+
+import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+
+val model = new LogisticRegressionWithSGD
+model.optimizer.setNumIterations(100).setRegParam(0.01)
+val lr = model.run(trainScaled)
+
+val validPredicts = testScaled.map(x => (lr.predict(x.features),x.label))
+
+import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
+val metrics = new BinaryClassificationMetrics(validPredicts)
+
+metrics.areaUnderPR
+res16: Double = 0.35062471612581747
+
+metrics.areaUnderROC
+res17: Double = 0.801683262209578
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics1 = new MulticlassMetrics(validPredicts)
+
+metrics1.accuracy
+res18: Double = 0.7165932452276065
+
+metrics1.confusionMatrix
+res19: org.apache.spark.mllib.linalg.Matrix =
+385.0  185.0
+8.0    103.0
+
+
+---- Hyperparameter tunning with logistic regression STD --------------
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 
-def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
-  println("iter, step -> pred / total, AuPR, AuROC") 
-  for(numIter <- iterNums; step <- stepSizes) {
+def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], regSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("iter, step, reg  -> pred / total, AuPR, AuROC") 
+  for(numIter <- iterNums; step <- stepSizes; reg <- regSizes) {
     val model = new LogisticRegressionWithSGD
-	model.optimizer.setNumIterations(numIter).setStepSize(step)
+	model.optimizer.setNumIterations(numIter).setStepSize(step).setRegParam(reg)
 	val lr = model.run(train)
     val validPredicts = test.map(x => (lr.predict(x.features),x.label))
     val metrics = new BinaryClassificationMetrics(validPredicts)
-    println("%d, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+    println("%d, %5.3f, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, reg, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
   }
 }
 
-iterateLRwSGD(Array(100,300,500),Array(1, 0.1, 0.01), trainSet, testSet)
-iter, step -> pred / total, AuPR, AuROC
-100, 1.000 -> 553 / 644, 0.1413, 0.5000
-100, 0.100 -> 553 / 644, 0.1413, 0.5000
-100, 0.010 -> 553 / 644, 0.1413, 0.5000
-300, 1.000 -> 103 / 644, 0.1428, 0.5063
-300, 0.100 -> 98 / 644, 0.1429, 0.5063
-300, 0.010 -> 553 / 644, 0.1413, 0.5000
-500, 1.000 -> 208 / 644, 0.1547, 0.5461
-500, 0.100 -> 553 / 644, 0.1413, 0.5000
-500, 0.010 -> 553 / 644, 0.1413, 0.5000
+iterateLRwSGD(Array(10, 20, 40, 100),Array(1, 0.1, 0.01, 0.001),Array(0.1, 0.01), trainScaled, testScaled)
+iter, step, reg  -> pred / total, AuPR, AuROC
+10, 1.000, 0.100 -> 493 / 681, 0.3456, 0.7843
+10, 1.000, 0.010 -> 491 / 681, 0.3450, 0.7862
+10, 0.100, 0.100 -> 465 / 681, 0.2882, 0.7090
+10, 0.100, 0.010 -> 466 / 681, 0.2892, 0.7098
+10, 0.010, 0.100 -> 455 / 681, 0.2674, 0.6784
+10, 0.010, 0.010 -> 455 / 681, 0.2674, 0.6784
+10, 0.001, 0.100 -> 453 / 681, 0.2618, 0.6694
+10, 0.001, 0.010 -> 453 / 681, 0.2618, 0.6694
+20, 1.000, 0.100 -> 491 / 681, 0.3487, 0.7934
+20, 1.000, 0.010 -> 487 / 681, 0.3476, 0.7972
+20, 0.100, 0.100 -> 472 / 681, 0.2972, 0.7187
+20, 0.100, 0.010 -> 472 / 681, 0.2972, 0.7187
+20, 0.010, 0.100 -> 455 / 681, 0.2674, 0.6784
+20, 0.010, 0.010 -> 455 / 681, 0.2674, 0.6784
+20, 0.001, 0.100 -> 453 / 681, 0.2618, 0.6694
+20, 0.001, 0.010 -> 453 / 681, 0.2618, 0.6694
+40, 1.000, 0.100 -> 495 / 681, 0.3574, 0.8042
+40, 1.000, 0.010 -> 488 / 681, 0.3506, 0.8017
+40, 0.100, 0.100 -> 473 / 681, 0.3021, 0.7269
+40, 0.100, 0.010 -> 475 / 681, 0.3042, 0.7286
+40, 0.010, 0.100 -> 455 / 681, 0.2674, 0.6784
+40, 0.010, 0.010 -> 455 / 681, 0.2674, 0.6784
+40, 0.001, 0.100 -> 453 / 681, 0.2618, 0.6694
+40, 0.001, 0.010 -> 453 / 681, 0.2618, 0.6694
+100, 1.000, 0.100 -> 495 / 681, 0.3574, 0.8042 *
+100, 1.000, 0.010 -> 488 / 681, 0.3506, 0.8017
+100, 0.100, 0.100 -> 493 / 681, 0.3363, 0.7662
+100, 0.100, 0.010 -> 494 / 681, 0.3394, 0.7707
+100, 0.010, 0.100 -> 455 / 681, 0.2674, 0.6784
+100, 0.010, 0.010 -> 455 / 681, 0.2674, 0.6784
+100, 0.001, 0.100 -> 453 / 681, 0.2618, 0.6694
+100, 0.001, 0.010 -> 453 / 681, 0.2618, 0.6694
+
+
+
+val model = new LogisticRegressionWithSGD
+model.optimizer.setNumIterations(100).setStepSize(1.0).setRegParam(0.1)
+
+val lr = model.run(trainScaled)
+
+val validPredicts = testScaled.map(x => (lr.predict(x.features),x.label))
+
+validPredicts.take(20)
+res26: Array[(Double, Double)] = Array((0.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (1.0,0.0), (0.0,0.0), (1.0,1.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (1.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+
+metrics.areaUnderPR
+res27: Double = 0.3573780544790919
+
+metrics.areaUnderROC
+res28: Double = 0.8041963015647225
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics1 = new MulticlassMetrics(validPredicts)
+
+metrics1.accuracy
+res29: Double = 0.7268722466960352
+
+metrics1.confusionMatrix
+res30: org.apache.spark.mllib.linalg.Matrix =
+393.0  177.0
+9.0    102.0
+
 
 ---- MLlib SVM regression --------------
 
@@ -256,120 +336,89 @@ def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoi
   }
 }
 
-iterateSVM(Array(100,300,500), trainSet, testSet)
+iterateSVM(Array(10, 20, 40, 100), trainScaled, testScaled)
 iter -> pred / total, AuPR, AuROC
-100 -> 553 / 644, 0.1413, 0.5000
-300 -> 553 / 644, 0.1413, 0.5000
-500 -> 553 / 644, 0.1413, 0.5000
-
----- Analyzing statistics for standardization ---------------------
-
-import org.apache.spark.mllib.linalg.Matrix
-import org.apache.spark.mllib.linalg.distributed.RowMatrix
-
-val vectors = trainSet.map{ case LabeledPoint(x,y) => y }
-val matrix = new RowMatrix(vectors)
-val matrixSummary = matrix.computeColumnSummaryStatistics()
-
-matrixSummary.max
-res24: org.apache.spark.mllib.linalg.Vector = [1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.0,1.0,1.0,1.0,1.0,1.0,121.0,162397.0,2.0,2.0,3529.0,99.0,1493.0,199.0,1725.0,259.0,262.0,321.0,15.0,27.0,28.0,13.0,20.0,1.0,1.0,1.0,1.0,1.0,1.0]
-
-matrixSummary.min
-res25: org.apache.spark.mllib.linalg.Vector = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,24.0,1730.0,0.0,0.0,2830.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
-
-matrixSummary.mean
-res26: org.apache.spark.mllib.linalg.Vector = [0.4917302798982188,0.22900763358778625,0.02862595419847328,0.16030534351145037,0.09033078880407125,0.001272264631043257,0.2099236641221374,0.0,0.001272264631043257,0.3988549618320611,0.2474554707379135,0.03307888040712468,0.10814249363867684,51.062340966921155,51422.50000000002,0.4465648854961836,0.5031806615776087,3188.0540712468237,49.31997455470737,296.37468193384166,25.9033078880407,163.09414758269736,35.49872773536893,26.03180661577606,42.22519083969468,2.3441475826972016,4.064249363867683,2.589058524173026,5.714376590330782,5.367684478371493,0.0693384223918575,0.07697201017811704,0.07188295165394402,0.05534351145038168,0.013994910941475827,0.011450381679389313]
-
-matrixSummary.variance
-res27: org.apache.spark.mllib.linalg.Vector = [0.25009070250711446,0.1766755263579866,0.02782420882308638,0.13469322306499967,0.08222344238690127,0.001271454787229735,0.16596129270508891,0.0,0.001271454787229735,0.2399223035845307,0.1863397975066529,0.03200502751039434,0.09650908725743153,144.23162990785588,4.470995754621258E8,0.2867673140558117,0.2947066178816759,39826.186125998815,837.4398808395814,109676.86588945964,1561.3413767020904,48658.16044949569,2772.209419131431,1648.775563124895,2496.4673981176034,3.7777314817064434,7.407072447007862,7.917588673848356,10.079411259744473,5.635568664227419,0.06457168170546629,0.07109254409194643,0.06675826000197602,0.05231388574399541,0.013807837020552218,0.011326475575920428]
+10 -> 519 / 681, 0.3567, 0.7600
+20 -> 529 / 681, 0.3710, 0.7651 *
+40 -> 533 / 681, 0.3664, 0.7468
+100 -> 552 / 681, 0.3968, 0.7490
 
 
------ Standardizing features ------------------------------
+val model = SVMWithSGD.train(trainScaled, 20)
 
-import org.apache.spark.mllib.feature.StandardScaler
-val vectors = trainSet.map(lp => lp.features)
-val scaler = new StandardScaler(withMean = true, withStd = true).fit(vectors)
-val trainScaled = trainSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.features)))
-val testScaled = testSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.features)))
+val validPredicts = testScaled.map(x => (model.predict(x.features),x.label))
 
-trainScaled.cache
+validPredicts.take(20)
+res48: Array[(Double, Double)] = Array((0.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (1.0,0.0), (0.0,0.0), (0.0,1.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0))
 
------ with MLlib logistic regression ----------------------
-
-
-import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
 
-def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
-  println("iter, step -> pred / total, AuPR, AuROC") 
-  for(numIter <- iterNums; step <- stepSizes) {
-    val model = new LogisticRegressionWithSGD
-	model.optimizer.setNumIterations(numIter).setStepSize(step)
-	val lr = model.run(train)
-    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
-    val metrics = new BinaryClassificationMetrics(validPredicts)
-    println("%d, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
-  }
-}
+metrics.areaUnderPR
+res49: Double = 0.37095187506986016
 
-iterateLRwSGD(Array(100,300,500),Array(1, 0.1, 0.01), trainScaled, testScaled)
-iter, step -> pred / total, AuPR, AuROC
-100, 1.000 -> 470 / 644, 0.3319, 0.8197
-100, 0.100 -> 459 / 644, 0.3068, 0.7868
-100, 0.010 -> 415 / 644, 0.2478, 0.7149
-300, 1.000 -> 472 / 644, 0.3345, 0.8215 *
-300, 0.100 -> 459 / 644, 0.3068, 0.7868
-300, 0.010 -> 415 / 644, 0.2478, 0.7149
-500, 1.000 -> 472 / 644, 0.3345, 0.8215
-500, 0.100 -> 459 / 644, 0.3068, 0.7868
-500, 0.010 -> 415 / 644, 0.2478, 0.7149
+metrics.areaUnderROC
+res50: Double = 0.7651019440493124
 
------ with MLlib SVM regression ----------------------
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics1 = new MulticlassMetrics(validPredicts)
 
-import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.classification.SVMWithSGD
-import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+metrics1.accuracy
+res51: Double = 0.7767988252569751
 
-def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
-  println("iter -> pred / total, AuPR, AuROC") 
-  for(numIter <- iterNums) {
-	val lr = SVMWithSGD.train(train, numIter)
-    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
-    val metrics = new BinaryClassificationMetrics(validPredicts)
-    println("%d -> %d / %d, %.4f, %.4f".format(numIter, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
-  }
-}
+metrics1.confusionMatrix
+res52: org.apache.spark.mllib.linalg.Matrix =
+446.0  124.0
+28.0   83.0
 
-scala> iterateSVM(Array(100,300,500), trainScaled, testScaled)
-iter -> pred / total, AuPR, AuROC
-100 -> 523 / 644, 0.3659, 0.7667
-300 -> 520 / 644, 0.3391, 0.7272
-500 -> 522 / 644, 0.3435, 0.7290
+
 
 ----- with MLlib Decision tree regression ----------------------
 
-val trainSet = train_rdd.map( x => {
-   val x1 = x._2
-   val l1 = x1(x1.size - 1)
-   val f1 = x1.slice(0,x1.size - 1)
-   LabeledPoint(l1,Vectors.dense(f1))
+val categ_education = rdd1.map(x => x(2)).distinct.zipWithIndex.collectAsMap
+categ_education: scala.collection.Map[String,Long] = Map(Graduation -> 0, Basic -> 2, 2n Cycle -> 4, Master -> 3, PhD -> 1)
+
+val categ_marital = rdd1.map(x => x(3)).distinct.zipWithIndex.collectAsMap
+categ_marital: scala.collection.Map[String,Long] = Map(Widow -> 6, Together -> 5, Alone -> 3, Absurd -> 0, Divorced -> 7, YOLO -> 2, Single -> 1, Married -> 4)
+
+val rdd2_dt = rdd1.map( x => {
+  val y = Array(2020 - x(1).toString.toDouble,categ_education(x(2)),categ_marital(x(3)),x(4),x(5),x(6)) ++ x.slice(8,x.size)
+  y.map( z => { 
+                val t = z.toString
+                if (t == "") 0.0 else t.toDouble
+       })
+})
+
+rdd2_dt.take(10).map( x => x.mkString(", ")).foreach(println)
+63.0, 0.0, 0.0, 58138.0, 0.0, 0.0, 58.0, 635.0, 88.0, 546.0, 172.0, 88.0, 88.0, 3.0, 8.0, 10.0, 4.0, 7.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 1.0
+66.0, 0.0, 0.0, 46344.0, 1.0, 1.0, 38.0, 11.0, 1.0, 6.0, 2.0, 1.0, 6.0, 2.0, 1.0, 1.0, 2.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+55.0, 0.0, 2.0, 71613.0, 0.0, 0.0, 26.0, 426.0, 49.0, 127.0, 111.0, 21.0, 42.0, 1.0, 8.0, 2.0, 10.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+36.0, 0.0, 2.0, 26646.0, 1.0, 0.0, 26.0, 11.0, 4.0, 20.0, 10.0, 3.0, 5.0, 2.0, 2.0, 0.0, 4.0, 6.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+39.0, 1.0, 1.0, 58293.0, 1.0, 0.0, 94.0, 173.0, 43.0, 118.0, 46.0, 27.0, 15.0, 5.0, 5.0, 3.0, 6.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+53.0, 3.0, 2.0, 62513.0, 0.0, 1.0, 16.0, 520.0, 42.0, 98.0, 0.0, 42.0, 14.0, 2.0, 6.0, 4.0, 10.0, 6.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+49.0, 0.0, 4.0, 55635.0, 0.0, 1.0, 34.0, 235.0, 65.0, 164.0, 50.0, 49.0, 27.0, 4.0, 7.0, 3.0, 7.0, 6.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+35.0, 1.0, 1.0, 33454.0, 1.0, 0.0, 32.0, 76.0, 10.0, 56.0, 3.0, 1.0, 23.0, 2.0, 4.0, 0.0, 4.0, 8.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+46.0, 1.0, 2.0, 30351.0, 1.0, 0.0, 19.0, 14.0, 0.0, 24.0, 3.0, 3.0, 2.0, 1.0, 3.0, 0.0, 2.0, 9.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 1.0
+70.0, 1.0, 2.0, 5648.0, 1.0, 1.0, 68.0, 28.0, 0.0, 6.0, 1.0, 1.0, 13.0, 1.0, 1.0, 0.0, 0.0, 20.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 11.0, 0.0
+
+val data = rdd2_dt.map(x => {
+   val arr_size = x.size - 1
+   val l = x(arr_size)
+   val f = x.slice(0, arr_size)
+   LabeledPoint(l, Vectors.dense(f))
  })
  
-val testSet = test_rdd.map( x => {
-   val x1 = x._2
-   val l1 = x1(x1.size - 1)
-   val f1 = x1.slice(0,x1.size - 1)
-   LabeledPoint(l1,Vectors.dense(f1))
- })
+val sets = data.randomSplit(Array(0.7,0.3), 11L)
+val trainSet = sets(0)
+val testSet = sets(1)
 
 trainSet.cache
+testSet.cache
 
 import org.apache.spark.mllib.tree.DecisionTree
 import org.apache.spark.mllib.tree.model.DecisionTreeModel
 
-
-val categoricalFeaturesInfo = Map[Int, Int]( 0 -> 5, 1 -> 8)
+val categoricalFeaturesInfo = Map[Int, Int]( 1 -> 5, 2 -> 8)
 
 def iterateDTC(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
   println("impurity, depth, bin -> pred / total, AuPR, AuROC") 
@@ -383,65 +432,50 @@ def iterateDTC(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoint]
 
 iterateDTC(Array(10,20,30), Array(32,48,64), trainSet, testSet)
 impurity, depth, bin -> pred / total, AuPR, AuROC
-gini, 10, 32 -> 553 / 644, 0.4271, 0.7479
-gini, 10, 48 -> 545 / 644, 0.3905, 0.7223
-gini, 10, 64 -> 538 / 644, 0.3636, 0.7068
-gini, 20, 32 -> 551 / 644, 0.4260, 0.7598 *
-gini, 20, 48 -> 533 / 644, 0.3598, 0.7206
-gini, 20, 64 -> 527 / 644, 0.3472, 0.7198
-gini, 30, 32 -> 551 / 644, 0.4260, 0.7598
-gini, 30, 48 -> 533 / 644, 0.3598, 0.7206
-gini, 30, 64 -> 527 / 644, 0.3472, 0.7198
-entropy, 10, 32 -> 568 / 644, 0.4832, 0.7109
-entropy, 10, 48 -> 557 / 644, 0.4389, 0.7423
-entropy, 10, 64 -> 555 / 644, 0.4123, 0.6946
-entropy, 20, 32 -> 558 / 644, 0.4430, 0.7432
-entropy, 20, 48 -> 546 / 644, 0.4051, 0.7461
-entropy, 20, 64 -> 552 / 644, 0.4093, 0.7148
-entropy, 30, 32 -> 558 / 644, 0.4430, 0.7432
-entropy, 30, 48 -> 546 / 644, 0.4051, 0.7461
-entropy, 30, 64 -> 552 / 644, 0.4093, 0.7148
+gini, 10, 32 -> 564 / 681, 0.3627, 0.6289
+gini, 10, 48 -> 569 / 681, 0.3832, 0.6333
+gini, 10, 64 -> 569 / 681, 0.3864, 0.6406
+gini, 20, 32 -> 558 / 681, 0.3585, 0.6527
+gini, 20, 48 -> 558 / 681, 0.3666, 0.6672 *
+gini, 20, 64 -> 552 / 681, 0.3521, 0.6656
+gini, 30, 32 -> 558 / 681, 0.3585, 0.6527
+gini, 30, 48 -> 558 / 681, 0.3666, 0.6672
+gini, 30, 64 -> 552 / 681, 0.3521, 0.6656
+entropy, 10, 32 -> 565 / 681, 0.3759, 0.6480
+entropy, 10, 48 -> 564 / 681, 0.3742, 0.6507
+entropy, 10, 64 -> 570 / 681, 0.4028, 0.6705
+entropy, 20, 32 -> 550 / 681, 0.3336, 0.6421
+entropy, 20, 48 -> 550 / 681, 0.3404, 0.6529
+entropy, 20, 64 -> 554 / 681, 0.3574, 0.6673
+entropy, 30, 32 -> 550 / 681, 0.3336, 0.6421
+entropy, 30, 48 -> 550 / 681, 0.3404, 0.6529
+entropy, 30, 64 -> 554 / 681, 0.3574, 0.6673
 
 
-val model = DecisionTree.trainClassifier(trainSet, 2, categoricalFeaturesInfo, "gini", 20, 32)
-
-model.toDebugString
-res34: String =
-"DecisionTreeModel classifier of depth 15 with 313 nodes
-  If (feature 21 <= 0.5)
-   If (feature 19 <= 0.5)
-    If (feature 6 <= 3423.5)
-     If (feature 7 <= 13.5)
-      If (feature 10 <= 15.5)
-       If (feature 12 <= 14.5)
-        Predict: 0.0
-       Else (feature 12 > 14.5)
-        If (feature 0 in {1.0,4.0})
-         Predict: 0.0
-        Else (feature 0 not in {1.0,4.0})
-         Predict: 1.0
-      Else (feature 10 > 15.5)
-       If (feature 1 in {3.0,6.0,7.0,4.0})
-        If (feature 13 <= 179.0)
-         If (feature 13 <= 0.5)
-          Predict: 1.0
-         Else (feature 13 > 0.5)
-          If (feature 14 <= 9.5)
-           If (feature 17 <= 2.5)
-            Predict: 1.0
-           Else (feature 17 > 2.5)
-            If (feature 10 <= 431.5)
-             If (feat...
+val model = DecisionTree.trainClassifier(trainSet, 2, categoricalFeaturesInfo, "gini", 20, 48)
 
 val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
 
 validPredicts.take(20)
-res35: Array[(Double, Double)] = Array((0.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,1.0), (1.0,1.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0))
+res58: Array[(Double, Double)] = Array((0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,1.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0))
 
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 val metrics = new BinaryClassificationMetrics(validPredicts)
-validPredicts.filter(x => x._1 == x._2).count  // 551
-validPredicts.count                            // 644
-model.getClass.getSimpleName
-metrics.areaUnderPR    // 0.4259806909731947
-metrics.areaUnderROC   // 0.7598414243983864
+
+metrics.areaUnderPR
+res59: Double = 0.3665696132656485
+
+metrics.areaUnderROC
+res60: Double = 0.6672119487908961
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics1 = new MulticlassMetrics(validPredicts)
+metrics1: org.apache.spark.mllib.evaluation.MulticlassMetrics = org.apache.spark.mllib.evaluation.MulticlassMetrics@5f986fcb
+
+metrics1.accuracy
+res61: Double = 0.8193832599118943
+
+metrics1.confusionMatrix
+res62: org.apache.spark.mllib.linalg.Matrix =
+509.0  61.0
+62.0   49.0
