@@ -16,7 +16,6 @@ rdd.take(10).map( x => x.mkString(", ")).foreach(println)
 
 val hdr = Array("age","workclass","fnlwgt","education","education-num","marital-status","occupation","relationship","race","sex","capital-gain","capital-loss","hours-per-week","native-country","income")
 
-
 val orderingDesc = Ordering.by[(String, Int), Int](_._2)
 
 // workclass
@@ -112,9 +111,6 @@ rdd.map( x => (x(14),1)).reduceByKey( _+_ ).top(10)(orderingDesc).map{ case (x,y
 
 val rdd1 = rdd.map(x => Array(x(0),x(1).replace("?","Private"),x(2),x(3),x(4),x(5),x(6).replace("?","Prof-specialty"),
                               x(7),x(8),x(9),x(10),x(11),x(12),x(13).replace("?","United-States"),x(14)))
-					 
-val categ_label = rdd.map(x => x(14)).distinct.zipWithIndex.collectAsMap
-categ_label: scala.collection.Map[String,Long] = Map(<=50K -> 1, >50K -> 0)
 
 
 ---- Conversion to 1-to-k binary encoding vectors 
@@ -160,6 +156,9 @@ concat: org.apache.spark.rdd.RDD[Array[Double]] = MapPartitionsRDD[120] at map a
 concat.take(5)
 res44: Array[Array[Double]] = Array(Array(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), Array(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0...
 
+					 
+val categ_label = rdd.map(x => x(14)).distinct.zipWithIndex.collectAsMap
+categ_label: scala.collection.Map[String,Long] = Map(<=50K -> 1, >50K -> 0)
 
 // remove x(4) : education-num
 val rdd2 = rdd1.map(x => {

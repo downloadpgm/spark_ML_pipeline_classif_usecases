@@ -5,6 +5,9 @@ val rdd = sc.textFile("spark/data/airline/airline_satisfaction_train.csv").map( 
 rdd.take(1)
 res9: Array[Array[String]] = Array(Array("", id, Gender, Customer Type, Age, Type of Travel, Class, Flight Distance, Inflight wifi service, Departure/Arrival time convenient, Ease of Online booking, Gate location, Food and drink, Online boarding, Seat comfort, Inflight entertainment, On-board service, Leg room service, Baggage handling, Checkin service, Inflight service, Cleanliness, Departure Delay in Minutes, Arrival Delay in Minutes, satisfaction))
 
+val hdr = rdd.take(1)(0)
+hdr: Array[String] = Array(Gender, Customer Type, Age, Type of Travel, Class, Flight Distance, Inflight wifi service, Departure/Arrival time convenient, Ease of Online booking, Gate location, Food and drink, Online boarding, Seat comfort, Inflight entertainment, On-board service, Leg room service, Baggage handling, Checkin service, Inflight service, Cleanliness, Departure Delay in Minutes, Arrival Delay in Minutes, satisfaction)
+
 val rdd1 = rdd.filter( x => x(3) != "Customer Type").map( x => x.slice(2,x.size))
 
 rdd1.take(5)
@@ -43,17 +46,6 @@ res13: Array[(String, Int)] = Array((Business,49665), (Eco Plus,7494), (Eco,4674
 rdd1.map( x => (x(22),1)).reduceByKey( _+_ ).take(10)
 res14: Array[(String, Int)] = Array((neutral or dissatisfied,58879), (satisfied,45025))
 
-
-val hdr = rdd.filter( x => x(3) == "Customer Type").map( x => x.slice(2,x.size)).take(1)(0)
-hdr: Array[String] = Array(Gender, Customer Type, Age, Type of Travel, Class, Flight Distance, Inflight wifi service, Departure/Arrival time convenient, Ease of Online booking, Gate location, Food and drink, Online boarding, Seat comfort, Inflight entertainment, On-board service, Leg room service, Baggage handling, Checkin service, Inflight service, Cleanliness, Departure Delay in Minutes, Arrival Delay in Minutes, satisfaction)
-
-
-
-rdd1.filter( x => x(x.size-2) == "").count
-res20: Long = 310
-
-val categ_label = rdd1.map( x => x(22)).distinct.zipWithIndex.collectAsMap
-categ_label: scala.collection.Map[String,Long] = Map(neutral or dissatisfied -> 0, satisfied -> 1)
 
 ---- Conversion to 1-to-k binary encoding vectors 
 
@@ -94,6 +86,10 @@ concat: org.apache.spark.rdd.RDD[Array[Double]] = MapPartitionsRDD[123] at map a
 
 concat.take(5)
 res18: Array[Array[Double]] = Array(Array(1.0, 0.0, 0.0, 1.0, 0.0), Array(1.0, 1.0, 1.0, 0.0, 0.0), Array(0.0, 0.0, 1.0, 0.0, 0.0), Array(0.0, 0.0, 1.0, 0.0, 0.0), Array(1.0, 0.0, 1.0, 0.0, 0.0))
+
+val categ_label = rdd1.map( x => x(22)).distinct.zipWithIndex.collectAsMap
+categ_label: scala.collection.Map[String,Long] = Map(neutral or dissatisfied -> 0, satisfied -> 1)
+
 
 val rdd2 = rdd1.map( x => {
   val y = x.slice(5,x.size-1) ++ Array(x(2),categ_label(x(22)))
