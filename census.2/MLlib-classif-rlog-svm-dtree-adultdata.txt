@@ -239,7 +239,7 @@ testScaled.cache
 
 ---- MLlib logistic regression STD --------------
 
-import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
 
 val model = new LogisticRegressionWithSGD
 model.optimizer.setNumIterations(100).setRegParam(0.01)
@@ -247,7 +247,7 @@ val lr = model.run(trainScaled)
 
 val validPredicts = testScaled.map(x => (lr.predict(x.features),x.label))
 
-import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 val metrics = new BinaryClassificationMetrics(validPredicts)
 
 metrics.areaUnderPR
@@ -278,11 +278,11 @@ def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], regSizes:Array[D
   println("iter, step, reg  -> pred / total, AuPR, AuROC") 
   for(numIter <- iterNums; step <- stepSizes; reg <- regSizes) {
     val model = new LogisticRegressionWithSGD
-	model.optimizer.setNumIterations(numIter).setStepSize(step).setRegParam(reg)
-	val lr = model.run(train)
+    model.optimizer.setNumIterations(numIter).setStepSize(step).setRegParam(reg)
+    val lr = model.run(train)
     val validPredicts = test.map(x => (lr.predict(x.features),x.label))
     val metrics = new BinaryClassificationMetrics(validPredicts)
-    println("%d, %5.3f, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, reg, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+    println("%d, %5.3f, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, reg, validPredicts.filter(x => x._1 == x._2).count, test.count,metrics.areaUnderPR, metrics.areaUnderROC))
   }
 }
 

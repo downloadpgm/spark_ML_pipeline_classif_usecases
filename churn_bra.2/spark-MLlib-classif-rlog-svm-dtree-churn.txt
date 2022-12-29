@@ -1,16 +1,41 @@
 ---- Feature extraction & Data Munging --------------
 
-val colname = sc.textFile("churn_bra/dados_clientes.csv").filter( x => x.contains("Mais65anos")).take(1)
-res11: Array[String] = Array(id,Churn,Mais65anos,Conjuge,Dependentes,MesesDeContrato,TelefoneFixo,MaisDeUmaLinhaTelefonica,Internet,SegurancaOnline,BackupOnline,SeguroDispositivo,SuporteTecnico,TVaCabo,StreamingFilmes,TipoContrato,ContaCorreio,MetodoPagamento,MesesCobrados)
+val rdd = sc.textFile("churn_bra/dados_clientes.csv").map( x => x.split(","))
 
-val rdd = sc.textFile("churn_bra/dados_clientes.csv").filter( x => ! x.contains("Mais65anos"))
+val hdr = rdd.take(1)(0)
+hdr: Array[String] = Array(id, Churn, Mais65anos, Conjuge, Dependentes, MesesDeContrato, TelefoneFixo, MaisDeUmaLinhaTelefonica, Internet, SegurancaOnline, BackupOnline, SeguroDispositivo, SuporteTecnico, TVaCabo, StreamingFilmes, TipoContrato, ContaCorreio, MetodoPagamento, MesesCobrados)
 
-val rdd1 = rdd.map( x => x.split(",")).map( x => x.slice(1,x.size))
+val rdd1 = rdd.filter( x => ! x(2).contains("Mais65anos"))
 
-rdd1.take(5)
-res9: Array[Array[String]] = Array(Array(Nao, 0, Sim, Nao, 1, Nao, SemServicoTelefonico, DSL, Nao, Sim, Nao, Nao, Nao, Nao, Mensalmente, Sim, BoletoEletronico, 29.85), Array(Nao, 0, Nao, Nao, 34, Sim, Nao, DSL, Sim, Nao, Sim, Nao, Nao, Nao, UmAno, Nao, Boleto, 56.95), Array(Sim, 0, Nao, Nao, 2, Sim, Nao, DSL, Sim, Sim, Nao, Nao, Nao, Nao, Mensalmente, Sim, Boleto, 53.85), Array(Nao, 0, Nao, Nao, 45, Nao, SemServicoTelefonico, DSL, Sim, Nao, Sim, Sim, Nao, Nao, UmAno, Nao, DebitoEmConta, 42.3), Array(Sim, 0, Nao, Nao, 2, Sim, Nao, FibraOptica, Nao, Nao, Nao, Nao, Nao, Nao, Mensalmente, Sim, BoletoEletronico, 70.7))
+rdd1.take(10).map( x => x.mkString(", ")).foreach(println)
+0, Nao, 0, Sim, Nao, 1, Nao, SemServicoTelefonico, DSL, Nao, Sim, Nao, Nao, Nao, Nao, Mensalmente, Sim, BoletoEletronico, 29.85
+1, Nao, 0, Nao, Nao, 34, Sim, Nao, DSL, Sim, Nao, Sim, Nao, Nao, Nao, UmAno, Nao, Boleto, 56.95
+2, Sim, 0, Nao, Nao, 2, Sim, Nao, DSL, Sim, Sim, Nao, Nao, Nao, Nao, Mensalmente, Sim, Boleto, 53.85
+3, Nao, 0, Nao, Nao, 45, Nao, SemServicoTelefonico, DSL, Sim, Nao, Sim, Sim, Nao, Nao, UmAno, Nao, DebitoEmConta, 42.3
+4, Sim, 0, Nao, Nao, 2, Sim, Nao, FibraOptica, Nao, Nao, Nao, Nao, Nao, Nao, Mensalmente, Sim, BoletoEletronico, 70.7
+5, Sim, 0, Nao, Nao, 8, Sim, Sim, FibraOptica, Nao, Nao, Sim, Nao, Sim, Sim, Mensalmente, Sim, BoletoEletronico, 99.65
+6, Nao, 0, Nao, Sim, 22, Sim, Sim, FibraOptica, Nao, Sim, Nao, Nao, Sim, Nao, Mensalmente, Sim, CartaoCredito, 89.1
+7, Nao, 0, Nao, Nao, 10, Nao, SemServicoTelefonico, DSL, Sim, Nao, Nao, Nao, Nao, Nao, Mensalmente, Nao, Boleto, 29.75
+8, Sim, 0, Sim, Nao, 28, Sim, Sim, FibraOptica, Nao, Nao, Sim, Sim, Sim, Sim, Mensalmente, Sim, BoletoEletronico, 104.8
+9, Nao, 0, Nao, Sim, 62, Sim, Nao, DSL, Sim, Sim, Nao, Nao, Nao, Nao, UmAno, Nao, DebitoEmConta, 56.15
 
-val categ_simnao = rdd1.map(x => x(0)).distinct.zipWithIndex.collectAsMap
+// MaisDeUmaLinhaTelefonica
+rdd1.map( x => (x(7),1)).reduceByKey(_+_).take(10)
+res2: Array[(String, Int)] = Array((SemServicoTelefonico,985), (Nao,4848), (Sim,4515))
+
+// Internet
+rdd1.map( x => (x(8),1)).reduceByKey(_+_).take(10)
+res1: Array[(String, Int)] = Array((Nao,1741), (FibraOptica,5401), (DSL,3206))
+
+// TipoContrato
+rdd1.map( x => (x(15),1)).reduceByKey(_+_).take(10)
+res5: Array[(String, Int)] = Array((DoisAnos,1750), (UmAno,1672), (Mensalmente,6926))
+
+// MetodoPagamento
+rdd1.map( x => (x(17),1)).reduceByKey(_+_).take(10)
+res4: Array[(String, Int)] = Array((CartaoCredito,1761), (DebitoEmConta,1822), (BoletoEletronico,4714), (Boleto,2051))
+
+val categ_simnao = rdd1.map(x => x(1)).distinct.zipWithIndex.collectAsMap
 categ_simnao: scala.collection.Map[String,Long] = Map(Sim -> 1, Nao -> 0)
 
 ---- Conversion to 1-to-k binary encoding vectors 
@@ -43,47 +68,47 @@ def mergeArray(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int*):org.apa
   arr1
 }
 
-// 0- Churn,
-// 1- Mais65anos,
-// 2- Conjuge,
-// 3- Dependentes,
-// 4- MesesDeContrato,
-// 5- TelefoneFixo,
-// 6- MaisDeUmaLinhaTelefonica,
-// 7- Internet,
-// 8- SegurancaOnline,
-// 9- BackupOnline,
-// 10- SeguroDispositivo,
-// 11- SuporteTecnico,
-// 12- TVaCabo,
-// 13- StreamingFilmes,
-// 14- TipoContrato,
-// 15- ContaCorreio,
-// 16- MetodoPagamento,
-// 17- MesesCobrados
+// 1- Churn,
+// 2- Mais65anos,
+// 3- Conjuge,
+// 4- Dependentes,
+// 5- MesesDeContrato,
+// 6- TelefoneFixo,
+// 7- MaisDeUmaLinhaTelefonica,
+// 8- Internet,
+// 9- SegurancaOnline,
+// 10- BackupOnline,
+// 11- SeguroDispositivo,
+// 12- SuporteTecnico,
+// 13- TVaCabo,
+// 14- StreamingFilmes,
+// 15- TipoContrato,
+// 16- ContaCorreio,
+// 17- MetodoPagamento,
+// 18- MesesCobrados
 
-val concat = mergeArray(rdd1,2,3,5,6,7,8,9,10,11,12,13,14,15,16)
-2 -> Map(Sim -> 1, Nao -> 0)
+val concat = mergeArray(rdd1,3,4,6,7,8,9,10,11,12,13,14,15,16,17)
 3 -> Map(Sim -> 1, Nao -> 0)
-5 -> Map(Sim -> 1, Nao -> 0)
-6 -> Map(SemServicoTelefonico -> 0, Sim -> 2, Nao -> 1)
-7 -> Map(Nao -> 0, DSL -> 2, FibraOptica -> 1)
-8 -> Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
-9 -> Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
-10 -> Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
-11 -> Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
-12 -> Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
-13 -> Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
-14 -> Map(Mensalmente -> 1, UmAno -> 2, DoisAnos -> 0)
-15 -> Map(Sim -> 1, Nao -> 0)
-16 -> Map(BoletoEletronico -> 0, DebitoEmConta -> 3, Boleto -> 1, CartaoCredito -> 2)
+4 -> Map(Sim -> 1, Nao -> 0)
+6 -> Map(Sim -> 1, Nao -> 0)
+7 -> Map(SemServicoTelefonico -> 0, Sim -> 2, Nao -> 1)
+8 -> Map(Nao -> 0, DSL -> 2, FibraOptica -> 1)
+9 -> Map(SemServicoInternet -> 1, Sim -> 2, Nao -> 0)
+10 -> Map(SemServicoInternet -> 1, Sim -> 2, Nao -> 0)
+11 -> Map(SemServicoInternet -> 1, Sim -> 2, Nao -> 0)
+12 -> Map(SemServicoInternet -> 1, Sim -> 2, Nao -> 0)
+13 -> Map(SemServicoInternet -> 1, Sim -> 2, Nao -> 0)
+14 -> Map(SemServicoInternet -> 1, Sim -> 2, Nao -> 0)
+15 -> Map(Mensalmente -> 2, UmAno -> 1, DoisAnos -> 0)
+16 -> Map(Sim -> 1, Nao -> 0)
+17 -> Map(BoletoEletronico -> 2, DebitoEmConta -> 1, Boleto -> 3, CartaoCredito -> 0)
 
 concat.take(2)
 res0: Array[Array[Double]] = Array(Array(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0), Array(0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0))
 
 // Mais65anos, MesesDeContrato, MesesCobrados, Churn
 val rdd2 = rdd1.map( x => {
-  val y = Array(x(1),x(4),x(17),categ_simnao(x(0)).toString)
+  val y = Array(x(2),x(5),x(18),categ_simnao(x(1)).toString)
   y.map( z => z.toDouble)
 })
 
@@ -92,72 +117,18 @@ res1: Array[Array[Double]] = Array(Array(0.0, 1.0, 29.85, 0.0), Array(0.0, 34.0,
 
 val vect = concat.zip(rdd2).map(x => (x._1.toList ++ x._2.toList).toArray)
 
-vect.take(2)
-res2: Array[Array[Double]] = Array(Array(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 29.85, 0.0), Array(0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 34.0, 56.95, 0.0))
+vect.take(10).map( x => x.mkString(", ")).foreach(println)
+1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 29.85, 0.0
+0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 34.0, 56.95, 0.0
+0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 2.0, 53.85, 1.0
+0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 45.0, 42.3, 0.0
+0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 2.0, 70.7, 1.0
+0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 99.65, 1.0
+0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 22.0, 89.1, 0.0
+0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 10.0, 29.75, 0.0
+1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 28.0, 104.8, 1.0
+0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 62.0, 56.15, 0.0
 
-val categ_maisdeumalinha = rdd1.map(x => x(6)).distinct.zipWithIndex.collectAsMap
-categ_maisdeumalinha: scala.collection.Map[String,Long] = Map(SemServicoTelefonico -> 0, Sim -> 2, Nao -> 1)
-
-val categ_internet = rdd1.map(x => x(7)).distinct.zipWithIndex.collectAsMap
-categ_internet: scala.collection.Map[String,Long] = Map(Nao -> 0, DSL -> 2, FibraOptica -> 1)
-
-val categ_seguranca = rdd1.map(x => x(8)).distinct.zipWithIndex.collectAsMap
-categ_seguranca: scala.collection.Map[String,Long] = Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
-
-val categ_backup = rdd1.map(x => x(9)).distinct.zipWithIndex.collectAsMap
-categ_backup: scala.collection.Map[String,Long] = Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
-
-val categ_seguro = rdd1.map(x => x(10)).distinct.zipWithIndex.collectAsMap
-categ_seguro: scala.collection.Map[String,Long] = Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
-
-val categ_suporte = rdd1.map(x => x(11)).distinct.zipWithIndex.collectAsMap
-categ_suporte: scala.collection.Map[String,Long] = Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
-
-val categ_tvacabo = rdd1.map(x => x(12)).distinct.zipWithIndex.collectAsMap
-categ_tvacabo: scala.collection.Map[String,Long] = Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
-
-val categ_streaming = rdd1.map(x => x(13)).distinct.zipWithIndex.collectAsMap
-categ_streaming: scala.collection.Map[String,Long] = Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
-
-val categ_tipocontrato = rdd1.map(x => x(14)).distinct.zipWithIndex.collectAsMap
-categ_tipocontrato: scala.collection.Map[String,Long] = Map(Mensalmente -> 1, UmAno -> 2, DoisAnos -> 0)
-
-val categ_metodopagto = rdd1.map(x => x(16)).distinct.zipWithIndex.collectAsMap
-categ_metodopagto: scala.collection.Map[String,Long] = Map(BoletoEletronico -> 0, DebitoEmConta -> 3, Boleto -> 1, CartaoCredito -> 2)
-
-val rdd2_dt = rdd1.map( x => {
-  val y = Array(x(1),categ_simnao(x(2)),categ_simnao(x(3)),x(4),categ_simnao(x(5)),categ_maisdeumalinha(x(6)),categ_internet(x(7)),categ_seguranca(x(8)),categ_backup(x(9)),categ_seguro(x(10)),categ_suporte(x(11)),categ_tvacabo(x(12)),categ_streaming(x(13)),categ_tipocontrato(x(14)),categ_simnao(x(15)),categ_metodopagto(x(16)),x(17),categ_simnao(x(0)))
-  y.map( z => z.toString.toDouble)
-})
-
-rdd2_dt.take(2)
-res3: Array[Array[Double]] = Array(Array(0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 2.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 29.85, 0.0), Array(0.0, 0.0, 0.0, 34.0, 1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 1.0, 1.0, 1.0, 2.0, 0.0, 1.0, 56.95, 0.0))
-
-val data = vect.zip(rdd2_dt)
-
-val sets = data.randomSplit(Array(0.7,0.3), 11L)
-val train_rdd = sets(0)
-val test_rdd = sets(1)
-
-import org.apache.spark.mllib.linalg.Vectors
-import org.apache.spark.mllib.regression.LabeledPoint  
-
-val trainSet = train_rdd.map( x => {
-   val x1 = x._1
-   val l1 = x1(x1.size - 1)
-   val f1 = x1.slice(0,x1.size - 1)
-   LabeledPoint(l1,Vectors.dense(f1))
- })
- 
-val testSet = test_rdd.map( x => {
-   val x1 = x._1
-   val l1 = x1(x1.size - 1)
-   val f1 = x1.slice(0,x1.size - 1)
-   LabeledPoint(l1,Vectors.dense(f1))
- })
-
-trainSet.cache
-testSet.cache
 
 ---- calculate cosine column similarities to check multicolinearity
 
@@ -230,78 +201,47 @@ rep.foreach( x => {
 // DebitoEmConta x MaisDeUmaLinhaTelefonica_Sim = 0.8828 can be considered multicolinear
 // MaisDeUmaLinhaTelefonica_Sim x TipoContrato_UmAno = 0.8338 can be considered multicolinear
 
----- MLlib logistic regression --------------
 
-import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
-import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+---- Splitting dataset as train/test sets  --------------
 
-def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
-  println("iter, step -> pred / total, AreaPR, AreaROC") 
-  for(numIter <- iterNums; step <- stepSizes) {
-    val model = new LogisticRegressionWithSGD
-    model.optimizer.setNumIterations(numIter).setStepSize(step)
-    val lr = model.run(train)
-    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
-    val metrics = new BinaryClassificationMetrics(validPredicts)
-    println("%d, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
-  }
-}
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
 
-iterateLRwSGD(Array(100,300,500),Array(0.1, 0.01, 0.001), trainSet, testSet)
-iter, step -> pred / total, AreaPR, AreaROC
-100, 0.100 -> 2001 / 3011, 0.7283, 0.6626
-100, 0.010 -> 2185 / 3011, 0.6719, 0.7263 *
-100, 0.001 -> 2181 / 3011, 0.6671, 0.7251
-300, 0.100 -> 2083 / 3011, 0.7421, 0.6902
-300, 0.010 -> 2185 / 3011, 0.6719, 0.7263
-300, 0.001 -> 2181 / 3011, 0.6671, 0.7251
-500, 0.100 -> 2078 / 3011, 0.7488, 0.6884
-500, 0.010 -> 2185 / 3011, 0.6719, 0.7263
-500, 0.001 -> 2181 / 3011, 0.6671, 0.7251
+val data = vect.map(x => {
+   val arr_size = x.size - 1
+   val l = x(arr_size)
+   val f = x.slice(0, arr_size)
+   LabeledPoint(l, Vectors.dense(f))
+ })
 
----- MLlib SVM regression --------------
+val sets = data.randomSplit(Array(0.7,0.3), 11L)
+val trainSet = sets(0)
+val testSet = sets(1)
 
-import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.classification.SVMWithSGD
-import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+trainSet.cache
+testSet.cache
 
-def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
-  println("iter -> pred / total, AreaPR, AreaROC") 
-  for(numIter <- iterNums) {
-    val lr = SVMWithSGD.train(train, numIter)
-    val validPredicts = test.map(x => (lr.predict(x.features),x.label))
-    val metrics = new BinaryClassificationMetrics(validPredicts)
-    println("%d -> %d / %d, %.4f, %.4f".format(numIter, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
-  }
-}
 
-iterateSVM(Array(100,300,500), trainSet, testSet)
-iter, step -> pred / total, AreaPR, AreaROC
-100 -> 2012 / 3011, 0.7294, 0.6663 *
-300 -> 1984 / 3011, 0.7361, 0.6568
-500 -> 2001 / 3011, 0.7431, 0.6625
+----- Analyze the individual statistics and possibly standardize 
 
----- Analyzing statistics for standardization ---------------------
-
-import org.apache.spark.mllib.linalg.Matrix
 import org.apache.spark.mllib.linalg.distributed.RowMatrix
 
 val vectors = trainSet.map{ case LabeledPoint(x,y) => y }
 val matrix = new RowMatrix(vectors)
-val matrixSummary = matrix.computeColumnSummaryStatistics()
+val matrixSummary = matrix.computeColumnSummaryStatistics
 
-matrixSummary.max
-res11: org.apache.spark.mllib.linalg.Vector = [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,72.0,118.75]
+matrixSummary.max.toArray.foreach( x => print(f"$x%.2f\t"))
+1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00     1.00    1.00    1.00    1.00    1.00    1.00    1.00    1.00    72.00   118.75
 
-matrixSummary.min
-res12: org.apache.spark.mllib.linalg.Vector = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,18.25]
+matrixSummary.min.toArray.foreach( x => print(f"$x%.2f\t"))
+0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00     0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    18.25
 
-matrixSummary.mean
-res13: org.apache.spark.mllib.linalg.Vector = [0.4345100177184135,0.239880059970015,0.9054109308981872,0.4711735041570124,0.4342374267411749,0.5195584026168734,0.3108900095406842,0.6085593566852937,0.22188905547226387,0.5111080823224752,0.3193403298350825,0.5079732860842306,0.32247512607332696,0.6011994002998501,0.22924901185770752,0.4287856071964018,0.4016628049611558,0.42483303802644135,0.40561537413111626,0.6675753032574622,0.16137385852528283,0.6633501431102631,0.19694698105492708,0.1715960201717323,0.17404933896688018,0.13997546681204853,27.700013629548923,67.66625007885341]
+matrixSummary.mean.toArray.foreach( x => print(f"$x%.2f\t"))
+0.43    0.24    0.91    0.47    0.44    0.52    0.31    0.17    0.22    0.17    0.32    0.17    0.32    0.17    0.23    0.17    0.40    0.17     0.40    0.16    0.67    0.66    0.17    0.45    0.20    0.14    27.49   67.75
 
-matrixSummary.variance
-res14: org.apache.spark.mllib.linalg.Vector = [0.245744556095106,0.18236247198102148,0.08565365131452317,0.24920299838184407,0.2457087729556457,0.24965149525960723,0.21426661508147482,0.2382473381134356,0.17267783774415954,0.24991067220429636,0.21739171308566,0.24997049655998807,0.21851470170535828,0.2397913638600547,0.17671798828453325,0.24496189745912214,0.24036255640396317,0.24438323616024843,0.24112440656840212,0.22194876835400085,0.13535078401118664,0.22334717195779033,0.15818042698686346,0.1421702031902657,0.14377576255988195,0.12039874530861862,583.5033710467045,831.5976507951368]
+matrixSummary.variance.toArray.foreach( x => print(f"$x%.2f\t"))
+0.25    0.18    0.08    0.25    0.25    0.25    0.21    0.14    0.17    0.14    0.22    0.14    0.22    0.14    0.18    0.14    0.24    0.14     0.24    0.14    0.22    0.22    0.14    0.25    0.16    0.12    580.45  831.14
+
 
 ----- Standardizing features ------------------------------
 
@@ -314,35 +254,122 @@ val testScaled = testSet.map(lp => LabeledPoint(lp.label,scaler.transform(lp.fea
 trainScaled.cache
 testScaled.cache
 
------ with MLlib logistic regression ----------------------
+
+---- MLlib logistic regression STD --------------
+
+import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
+
+val model = new LogisticRegressionWithSGD
+model.optimizer.setNumIterations(100).setRegParam(0.01)
+val lr = model.run(trainScaled)
+
+val validPredicts = testScaled.map(x => (lr.predict(x.features),x.label))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+
+metrics.areaUnderPR
+res24: Double = 0.7309077763499346
+
+metrics.areaUnderROC
+res25: Double = 0.783001255617235
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics1 = new MulticlassMetrics(validPredicts)
+
+metrics1.accuracy
+res26: Double = 0.7821357943309163
+
+metrics1.confusionMatrix
+res27: org.apache.spark.mllib.linalg.Matrix =
+1157.0  395.0
+266.0   1216.0
+
+
+---- Hyperparameter tunning with logistic regression STD --------------
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 
-def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
-  println("iter, step -> pred / total, AreaPR, AreaROC") 
-  for(numIter <- iterNums; step <- stepSizes) {
+def iterateLRwSGD(iterNums:Array[Int], stepSizes:Array[Double], regSizes:Array[Double], train:RDD[LabeledPoint], test:RDD[LabeledPoint]) = {
+  println("iter, step, reg  -> pred / total, AuPR, AuROC") 
+  for(numIter <- iterNums; step <- stepSizes; reg <- regSizes) {
     val model = new LogisticRegressionWithSGD
-    model.optimizer.setNumIterations(numIter).setStepSize(step)
+    model.optimizer.setNumIterations(numIter).setStepSize(step).setRegParam(reg)
     val lr = model.run(train)
     val validPredicts = test.map(x => (lr.predict(x.features),x.label))
     val metrics = new BinaryClassificationMetrics(validPredicts)
-    println("%d, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
+    println("%d, %5.3f, %5.3f -> %d / %d, %.4f, %.4f".format(numIter, step, reg, validPredicts.filter(x => x._1 == x._2).count, test.count, metrics.areaUnderPR, metrics.areaUnderROC))
   }
 }
 
-iterateLRwSGD(Array(100,300,500),Array(0.1, 0.01, 0.001), trainScaled, testScaled)
-iter, step -> pred / total, AreaPR, AreaROC
-100, 0.100 -> 2342 / 3011, 0.7310, 0.7781
-100, 0.010 -> 2342 / 3011, 0.7301, 0.7781
-100, 0.001 -> 2340 / 3011, 0.7294, 0.7775
-300, 0.100 -> 2344 / 3011, 0.7323, 0.7788 *
-300, 0.010 -> 2342 / 3011, 0.7301, 0.7781
-300, 0.001 -> 2340 / 3011, 0.7294, 0.7775
-500, 0.100 -> 2344 / 3011, 0.7323, 0.7788
-500, 0.010 -> 2342 / 3011, 0.7301, 0.7781
-500, 0.001 -> 2340 / 3011, 0.7294, 0.7775
+iterateLRwSGD(Array(10, 20, 40, 100),Array(1, 0.1, 0.01, 0.001),Array(0.1, 0.01), trainScaled, testScaled)
+iter, step, reg  -> pred / total, AuPR, AuROC
+10, 1.000, 0.100 -> 2357 / 3034, 0.7257, 0.7777
+10, 1.000, 0.010 -> 2359 / 3034, 0.7265, 0.7784
+10, 0.100, 0.100 -> 2320 / 3034, 0.7063, 0.7662
+10, 0.100, 0.010 -> 2320 / 3034, 0.7063, 0.7662
+10, 0.010, 0.100 -> 2297 / 3034, 0.6949, 0.7590
+10, 0.010, 0.010 -> 2297 / 3034, 0.6949, 0.7590
+10, 0.001, 0.100 -> 2301 / 3034, 0.6958, 0.7604
+10, 0.001, 0.010 -> 2301 / 3034, 0.6958, 0.7604
+20, 1.000, 0.100 -> 2356 / 3034, 0.7251, 0.7774
+20, 1.000, 0.010 -> 2360 / 3034, 0.7270, 0.7787
+20, 0.100, 0.100 -> 2333 / 3034, 0.7120, 0.7703
+20, 0.100, 0.010 -> 2333 / 3034, 0.7120, 0.7703
+20, 0.010, 0.100 -> 2305 / 3034, 0.6979, 0.7616
+20, 0.010, 0.010 -> 2305 / 3034, 0.6979, 0.7616
+20, 0.001, 0.100 -> 2301 / 3034, 0.6958, 0.7604
+20, 0.001, 0.010 -> 2301 / 3034, 0.6958, 0.7604
+40, 1.000, 0.100 -> 2359 / 3034, 0.7258, 0.7784
+40, 1.000, 0.010 -> 2373 / 3034, 0.7313, 0.7830 *
+40, 0.100, 0.100 -> 2337 / 3034, 0.7148, 0.7715
+40, 0.100, 0.010 -> 2338 / 3034, 0.7152, 0.7718
+40, 0.010, 0.100 -> 2308 / 3034, 0.6993, 0.7625
+40, 0.010, 0.010 -> 2309 / 3034, 0.6997, 0.7629
+40, 0.001, 0.100 -> 2301 / 3034, 0.6958, 0.7604
+40, 0.001, 0.010 -> 2301 / 3034, 0.6958, 0.7604
+100, 1.000, 0.100 -> 2359 / 3034, 0.7258, 0.7784
+100, 1.000, 0.010 -> 2373 / 3034, 0.7309, 0.7830
+100, 0.100, 0.100 -> 2349 / 3034, 0.7210, 0.7753
+100, 0.100, 0.010 -> 2352 / 3034, 0.7223, 0.7762
+100, 0.010, 0.100 -> 2308 / 3034, 0.6993, 0.7625
+100, 0.010, 0.010 -> 2309 / 3034, 0.6997, 0.7629
+100, 0.001, 0.100 -> 2301 / 3034, 0.6958, 0.7604
+100, 0.001, 0.010 -> 2301 / 3034, 0.6958, 0.7604
+
+
+val model = new LogisticRegressionWithSGD
+model.optimizer.setNumIterations(40).setStepSize(1.0).setRegParam(0.01)
+
+val lr = model.run(trainScaled)
+
+val validPredicts = testScaled.map(x => (lr.predict(x.features),x.label))
+
+validPredicts.take(20)
+res30: Array[(Double, Double)] = Array((1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+
+metrics.areaUnderPR
+res31: Double = 0.7313049591280343
+
+metrics.areaUnderROC
+res32: Double = 0.7829708216814836
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics1 = new MulticlassMetrics(validPredicts)
+
+metrics1.accuracy
+res33: Double = 0.7821357943309163
+
+metrics1.confusionMatrix
+res34: org.apache.spark.mllib.linalg.Matrix =
+1159.0  393.0
+268.0   1214.0
+
 
 ----- with MLlib SVM regression ----------------------
 
@@ -360,27 +387,103 @@ def iterateSVM(iterNums:Array[Int], train:RDD[LabeledPoint], test:RDD[LabeledPoi
   }
 }
 
-iterateSVM(Array(100,300,500), trainScaled, testScaled)
+iterateSVM(Array(10, 20, 40, 100), trainScaled, testScaled)
 iter -> pred / total, AreaPR, AreaROC
-100 -> 2336 / 3011, 0.7256, 0.7762
-300 -> 2336 / 3011, 0.7256, 0.7762
-500 -> 2336 / 3011, 0.7256, 0.7762
+10 -> 2354 / 3034, 0.7233, 0.7768 *
+20 -> 2350 / 3034, 0.7211, 0.7756
+40 -> 2344 / 3034, 0.7184, 0.7737
+100 -> 2344 / 3034, 0.7177, 0.7737
+
+
+val model = SVMWithSGD.train(trainScaled, 10)
+
+val validPredicts = testScaled.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(20)
+res36: Array[(Double, Double)] = Array((1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+
+metrics.areaUnderPR
+res37: Double = 0.7232756614687276
+
+metrics.areaUnderROC
+res38: Double = 0.776849687660865
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics1 = new MulticlassMetrics(validPredicts)
+
+metrics1.accuracy
+res39: Double = 0.7758734344100198
+
+metrics1.confusionMatrix
+res40: org.apache.spark.mllib.linalg.Matrix =
+1140.0  412.0
+268.0   1214.0
 
 ----- with MLlib Decision tree regression ----------------------
 
-val trainSet = train_rdd.map( x => {
-   val x1 = x._2
-   val l1 = x1(x1.size - 1)
-   val f1 = x1.slice(0,x1.size - 1)
-   LabeledPoint(l1,Vectors.dense(f1))
+val categ_maisdeumalinha = rdd1.map(x => x(7)).distinct.zipWithIndex.collectAsMap
+categ_maisdeumalinha: scala.collection.Map[String,Long] = Map(SemServicoTelefonico -> 0, Sim -> 2, Nao -> 1)
+
+val categ_internet = rdd1.map(x => x(8)).distinct.zipWithIndex.collectAsMap
+categ_internet: scala.collection.Map[String,Long] = Map(Nao -> 0, DSL -> 2, FibraOptica -> 1)
+
+val categ_seguranca = rdd1.map(x => x(9)).distinct.zipWithIndex.collectAsMap
+categ_seguranca: scala.collection.Map[String,Long] = Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
+
+val categ_backup = rdd1.map(x => x(10)).distinct.zipWithIndex.collectAsMap
+categ_backup: scala.collection.Map[String,Long] = Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
+
+val categ_seguro = rdd1.map(x => x(11)).distinct.zipWithIndex.collectAsMap
+categ_seguro: scala.collection.Map[String,Long] = Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
+
+val categ_suporte = rdd1.map(x => x(12)).distinct.zipWithIndex.collectAsMap
+categ_suporte: scala.collection.Map[String,Long] = Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
+
+val categ_tvacabo = rdd1.map(x => x(13)).distinct.zipWithIndex.collectAsMap
+categ_tvacabo: scala.collection.Map[String,Long] = Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
+
+val categ_streaming = rdd1.map(x => x(14)).distinct.zipWithIndex.collectAsMap
+categ_streaming: scala.collection.Map[String,Long] = Map(SemServicoInternet -> 0, Sim -> 2, Nao -> 1)
+
+val categ_tipocontrato = rdd1.map(x => x(15)).distinct.zipWithIndex.collectAsMap
+categ_tipocontrato: scala.collection.Map[String,Long] = Map(Mensalmente -> 1, UmAno -> 2, DoisAnos -> 0)
+
+val categ_metodopagto = rdd1.map(x => x(17)).distinct.zipWithIndex.collectAsMap
+categ_metodopagto: scala.collection.Map[String,Long] = Map(BoletoEletronico -> 0, DebitoEmConta -> 3, Boleto -> 1, CartaoCredito -> 2)
+
+val rdd2_dt = rdd1.map( x => {
+  val y = Array(x(2),categ_simnao(x(3)),categ_simnao(x(4)),x(5),categ_simnao(x(6)),categ_maisdeumalinha(x(7)),categ_internet(x(8)),categ_seguranca(x(9)),categ_backup(x(10)),categ_seguro(x(11)),categ_suporte(x(12)),categ_tvacabo(x(13)),categ_streaming(x(14)),categ_tipocontrato(x(15)),categ_simnao(x(16)),categ_metodopagto(x(17)),x(18),categ_simnao(x(1)))
+  y.map( z => z.toString.toDouble)
+})
+
+rdd2_dt.take(2)
+res3: Array[Array[Double]] = Array(Array(0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 2.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 29.85, 0.0), Array(0.0, 0.0, 0.0, 34.0, 1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 1.0, 1.0, 1.0, 2.0, 0.0, 1.0, 56.95, 0.0))
+
+rdd2_dt.take(10).map( x => x.mkString(", ")).foreach(println)
+0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 2.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 1.0, 2.0, 29.85, 0.0
+0.0, 0.0, 0.0, 34.0, 1.0, 1.0, 2.0, 2.0, 0.0, 2.0, 0.0, 0.0, 0.0, 1.0, 0.0, 3.0, 56.95, 0.0
+0.0, 0.0, 0.0, 2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 1.0, 3.0, 53.85, 1.0
+0.0, 0.0, 0.0, 45.0, 0.0, 0.0, 2.0, 2.0, 0.0, 2.0, 2.0, 0.0, 0.0, 1.0, 0.0, 1.0, 42.3, 0.0
+0.0, 0.0, 0.0, 2.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 1.0, 2.0, 70.7, 1.0
+0.0, 0.0, 0.0, 8.0, 1.0, 2.0, 1.0, 0.0, 0.0, 2.0, 0.0, 2.0, 2.0, 2.0, 1.0, 2.0, 99.65, 1.0
+0.0, 0.0, 1.0, 22.0, 1.0, 2.0, 1.0, 0.0, 2.0, 0.0, 0.0, 2.0, 0.0, 2.0, 1.0, 0.0, 89.1, 0.0
+0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 3.0, 29.75, 0.0
+0.0, 1.0, 0.0, 28.0, 1.0, 2.0, 1.0, 0.0, 0.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 2.0, 104.8, 1.0
+0.0, 0.0, 1.0, 62.0, 1.0, 1.0, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 56.15, 0.0
+
+val data = rdd2_dt.map(x => {
+   val arr_size = x.size - 1
+   val l = x(arr_size)
+   val f = x.slice(0, arr_size)
+   LabeledPoint(l, Vectors.dense(f))
  })
  
-val testSet = test_rdd.map( x => {
-   val x1 = x._2
-   val l1 = x1(x1.size - 1)
-   val f1 = x1.slice(0,x1.size - 1)
-   LabeledPoint(l1,Vectors.dense(f1))
- })
+val sets = data.randomSplit(Array(0.7,0.3), 11L)
+val trainSet = sets(0)
+val testSet = sets(1)
 
 trainSet.cache
 testSet.cache
@@ -402,62 +505,49 @@ def iterateDTC(depthNums:Array[Int], binNums:Array[Int], train:RDD[LabeledPoint]
 
 iterateDTC(Array(10,20,30), Array(32,48,64), trainSet, testSet)
 impurity, depth, bin -> pred / total, AreaPR, AreaROC
-gini, 10, 32 -> 2375 / 3011, 0.7360, 0.7892
-gini, 10, 48 -> 2376 / 3011, 0.7357, 0.7896
-gini, 10, 64 -> 2359 / 3011, 0.7339, 0.7838
-gini, 20, 32 -> 2337 / 3011, 0.7361, 0.7763
-gini, 20, 48 -> 2352 / 3011, 0.7426, 0.7812
-gini, 20, 64 -> 2347 / 3011, 0.7399, 0.7796
-gini, 30, 32 -> 2338 / 3011, 0.7363, 0.7766
-gini, 30, 48 -> 2350 / 3011, 0.7421, 0.7806
-gini, 30, 64 -> 2348 / 3011, 0.7401, 0.7799
-entropy, 10, 32 -> 2390 / 3011, 0.7423, 0.7942 *
-entropy, 10, 48 -> 2358 / 3011, 0.7336, 0.7835
-entropy, 10, 64 -> 2374 / 3011, 0.7406, 0.7888
-entropy, 20, 32 -> 2362 / 3011, 0.7441, 0.7846
-entropy, 20, 48 -> 2356 / 3011, 0.7410, 0.7826
-entropy, 20, 64 -> 2376 / 3011, 0.7482, 0.7893
-entropy, 30, 32 -> 2362 / 3011, 0.7446, 0.7846
-entropy, 30, 48 -> 2345 / 3011, 0.7397, 0.7789
-entropy, 30, 64 -> 2370 / 3011, 0.7473, 0.7873
+gini, 10, 32 -> 2360 / 3034, 0.7243, 0.7789
+gini, 10, 48 -> 2385 / 3034, 0.7298, 0.7874
+gini, 10, 64 -> 2391 / 3034, 0.7332, 0.7892
+gini, 20, 32 -> 2393 / 3034, 0.7472, 0.7889
+gini, 20, 48 -> 2376 / 3034, 0.7402, 0.7834
+gini, 20, 64 -> 2376 / 3034, 0.7408, 0.7833
+gini, 30, 32 -> 2390 / 3034, 0.7468, 0.7879
+gini, 30, 48 -> 2375 / 3034, 0.7404, 0.7830
+gini, 30, 64 -> 2376 / 3034, 0.7413, 0.7833
+entropy, 10, 32 -> 2380 / 3034, 0.7362, 0.7851
+entropy, 10, 48 -> 2379 / 3034, 0.7303, 0.7852
+entropy, 10, 64 -> 2396 / 3034, 0.7373, 0.7907
+entropy, 20, 32 -> 2403 / 3034, 0.7486, 0.7923 *
+entropy, 20, 48 -> 2397 / 3034, 0.7463, 0.7904
+entropy, 20, 64 -> 2382 / 3034, 0.7413, 0.7854
+entropy, 30, 32 -> 2395 / 3034, 0.7470, 0.7896
+entropy, 30, 48 -> 2395 / 3034, 0.7463, 0.7897
+entropy, 30, 64 -> 2380 / 3034, 0.7417, 0.7847
 
-val model = DecisionTree.trainClassifier(trainSet, 2, categoricalFeaturesInfo, "entropy", 10, 32)
-
-model.toDebugString
-res65: String =
-"DecisionTreeModel classifier of depth 10 with 853 nodes
-  If (feature 13 in {0.0,2.0})
-   If (feature 12 in {0.0,1.0})
-    If (feature 16 <= 45.364659265398345)
-     If (feature 3 <= 60.5)
-      If (feature 3 <= 52.5)
-       If (feature 16 <= 20.825000000000003)
-        If (feature 15 in {1.0,2.0})
-         Predict: 0.0
-        Else (feature 15 not in {1.0,2.0})
-         If (feature 13 in {0.0})
-          Predict: 0.0
-         Else (feature 13 not in {0.0})
-          If (feature 3 <= 18.5)
-           If (feature 2 in {0.0})
-            Predict: 0.0
-           Else (feature 2 not in {0.0})
-            Predict: 0.0
-          Else (feature 3 > 18.5)
-           If (feature 15 in {3.0})
-            Predict: 0.0
-           Else (feature 15 not in {3.0})
-            Predict: 0...
+val model = DecisionTree.trainClassifier(trainSet, 2, categoricalFeaturesInfo, "entropy", 20, 32)
 
 val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
 
 validPredicts.take(20)
-res66: Array[(Double, Double)] = Array((1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,0.0), (1.0,0.0), (0.0,0.0))
+res47: Array[(Double, Double)] = Array((1.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (1.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (0.0,0.0))
 
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 val metrics = new BinaryClassificationMetrics(validPredicts)
-validPredicts.filter(x => x._1 == x._2).count  // 2390
-validPredicts.count                            // 3011
-model.getClass.getSimpleName
-metrics.areaUnderPR   // 0.7423358599722082
-metrics.areaUnderROC  // 0.7941729563827712
+
+metrics.areaUnderPR
+res48: Double = 0.7485902219666455
+
+metrics.areaUnderROC
+res49: Double = 0.7923466477454539
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics1 = new MulticlassMetrics(validPredicts)
+metrics1: org.apache.spark.mllib.evaluation.MulticlassMetrics = org.apache.spark.mllib.evaluation.MulticlassMetrics@5f986fcb
+
+metrics1.accuracy
+res50: Double = 0.7920237310481213
+
+metrics1.confusionMatrix
+res51: org.apache.spark.mllib.linalg.Matrix =
+1208.0  344.0
+287.0   1195.0
