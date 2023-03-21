@@ -32,8 +32,9 @@ res4: Array[(String, Int)] = Array((Female,4543), (Male,5457))
 
 def oneHotEncColumns(rddx: org.apache.spark.rdd.RDD[Array[String]], idx: Int):org.apache.spark.rdd.RDD[Array[Double]] = {
   val categories = rddx.map(r => r(idx)).distinct.zipWithIndex.collectAsMap
-  print(hdr(idx) + " : ")
+  print(hdr(idx) + "(" + idx + "): ")
   println(categories)
+  
   val numCategories = categories.size
   val vetcateg = rddx.map(r => {
     val categoryIdx = categories(r(idx)).toInt
