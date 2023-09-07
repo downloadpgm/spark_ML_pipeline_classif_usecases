@@ -1,0 +1,731 @@
+---- Exploratory Data Analysis --------------
+
+spark.conf.set("spark.sql.shuffle.partitions",10)
+
+import org.apache.spark.sql.types._
+
+val schemaAnswer = new StructType().
+add("row", DoubleType).
+add("id", DoubleType).
+add("gender", StringType).
+add("cust_type", StringType).
+add("age", DoubleType).
+add("travel_type", StringType).
+add("class", StringType).
+add("flight_distance", DoubleType).
+add("inflight_wifi", DoubleType).
+add("deprt_arrv_time_conv", DoubleType).
+add("ease_online_booking", DoubleType).
+add("gate_location", DoubleType).
+add("food_and_drink", DoubleType).
+add("online_boarding", DoubleType).
+add("seat_comfort", DoubleType).
+add("inflight_entertain", DoubleType).
+add("onboard_service", DoubleType).
+add("legroom_service", DoubleType).
+add("baggage_handling", DoubleType).
+add("checkin_service", DoubleType).
+add("inflight_service", DoubleType).
+add("cleanliness", DoubleType).
+add("deprt_delay_minutes", DoubleType).
+add("arrv_delay_minutes", DoubleType).
+add("satisfaction", StringType)
+
+val df = spark.read.format("csv").option("header","true").schema(schemaAnswer).load("staging/airline_satisfaction_train.csv")
+
+
+df.printSchema
+root
+ |-- row: double (nullable = true)
+ |-- id: double (nullable = true)
+ |-- gender: string (nullable = true)
+ |-- cust_type: string (nullable = true)
+ |-- age: double (nullable = true)
+ |-- travel_type: string (nullable = true)
+ |-- class: string (nullable = true)
+ |-- flight_distance: double (nullable = true)
+ |-- inflight_wifi: double (nullable = true)
+ |-- deprt_arrv_time_conv: double (nullable = true)
+ |-- ease_online_booking: double (nullable = true)
+ |-- gate_location: double (nullable = true)
+ |-- food_and_drink: double (nullable = true)
+ |-- online_boarding: double (nullable = true)
+ |-- seat_comfort: double (nullable = true)
+ |-- inflight_entertain: double (nullable = true)
+ |-- onboard_service: double (nullable = true)
+ |-- legroom_service: double (nullable = true)
+ |-- baggage_handling: double (nullable = true)
+ |-- checkin_service: double (nullable = true)
+ |-- inflight_service: double (nullable = true)
+ |-- cleanliness: double (nullable = true)
+ |-- deprt_delay_minutes: double (nullable = true)
+ |-- arrv_delay_minutes: double (nullable = true)
+ |-- satisfaction: string (nullable = true)
+ 
+
+val df1 = df.drop("row","id").na.fill(0, Seq("arrv_delay_minutes"))
+
+df1.show(10)
++------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+
+|gender|        cust_type| age|    travel_type|   class|flight_distance|inflight_wifi|deprt_arrv_time_conv|ease_online_booking|gate_location|food_and_drink|online_boarding|seat_comfort|inflight_entertain|onboard_service|legroom_service|baggage_handling|checkin_service|inflight_service|cleanliness|deprt_delay_minutes|arrv_delay_minutes|        satisfaction|
++------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+
+|  Male|   Loyal Customer|13.0|Personal Travel|Eco Plus|          460.0|          3.0|                 4.0|                3.0|          1.0|           5.0|            3.0|         5.0|               5.0|            4.0|            3.0|             4.0|            4.0|             5.0|        5.0|               25.0|              18.0|neutral or dissat...|
+|  Male|disloyal Customer|25.0|Business travel|Business|          235.0|          3.0|                 2.0|                3.0|          3.0|           1.0|            3.0|         1.0|               1.0|            1.0|            5.0|             3.0|            1.0|             4.0|        1.0|                1.0|               6.0|neutral or dissat...|
+|Female|   Loyal Customer|26.0|Business travel|Business|         1142.0|          2.0|                 2.0|                2.0|          2.0|           5.0|            5.0|         5.0|               5.0|            4.0|            3.0|             4.0|            4.0|             4.0|        5.0|                0.0|               0.0|           satisfied|
+|Female|   Loyal Customer|25.0|Business travel|Business|          562.0|          2.0|                 5.0|                5.0|          5.0|           2.0|            2.0|         2.0|               2.0|            2.0|            5.0|             3.0|            1.0|             4.0|        2.0|               11.0|               9.0|neutral or dissat...|
+|  Male|   Loyal Customer|61.0|Business travel|Business|          214.0|          3.0|                 3.0|                3.0|          3.0|           4.0|            5.0|         5.0|               3.0|            3.0|            4.0|             4.0|            3.0|             3.0|        3.0|                0.0|               0.0|           satisfied|
+|Female|   Loyal Customer|26.0|Personal Travel|     Eco|         1180.0|          3.0|                 4.0|                2.0|          1.0|           1.0|            2.0|         1.0|               1.0|            3.0|            4.0|             4.0|            4.0|             4.0|        1.0|                0.0|               0.0|neutral or dissat...|
+|  Male|   Loyal Customer|47.0|Personal Travel|     Eco|         1276.0|          2.0|                 4.0|                2.0|          3.0|           2.0|            2.0|         2.0|               2.0|            3.0|            3.0|             4.0|            3.0|             5.0|        2.0|                9.0|              23.0|neutral or dissat...|
+|Female|   Loyal Customer|52.0|Business travel|Business|         2035.0|          4.0|                 3.0|                4.0|          4.0|           5.0|            5.0|         5.0|               5.0|            5.0|            5.0|             5.0|            4.0|             5.0|        4.0|                4.0|               0.0|           satisfied|
+|Female|   Loyal Customer|41.0|Business travel|Business|          853.0|          1.0|                 2.0|                2.0|          2.0|           4.0|            3.0|         3.0|               1.0|            1.0|            2.0|             1.0|            4.0|             1.0|        2.0|                0.0|               0.0|neutral or dissat...|
+|  Male|disloyal Customer|20.0|Business travel|     Eco|         1061.0|          3.0|                 3.0|                3.0|          4.0|           2.0|            3.0|         3.0|               2.0|            2.0|            3.0|             4.0|            4.0|             3.0|        2.0|                0.0|               0.0|neutral or dissat...|
++------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+
+only showing top 10 rows
+
+
+df1.describe().show
++-------+------+-----------------+------------------+---------------+--------+------------------+------------------+--------------------+-------------------+------------------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+--------------------+
+|summary|gender|        cust_type|               age|    travel_type|   class|   flight_distance|     inflight_wifi|deprt_arrv_time_conv|ease_online_booking|     gate_location|    food_and_drink|  online_boarding|      seat_comfort|inflight_entertain|   onboard_service|   legroom_service|  baggage_handling|   checkin_service|  inflight_service|       cleanliness|deprt_delay_minutes|arrv_delay_minutes|        satisfaction|
++-------+------+-----------------+------------------+---------------+--------+------------------+------------------+--------------------+-------------------+------------------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+--------------------+
+|  count|103904|           103904|            103904|         103904|  103904|            103904|            103904|              103904|             103904|            103904|            103904|           103904|            103904|            103904|            103904|            103904|            103904|            103904|            103904|            103904|             103904|            103904|              103904|
+|   mean|  null|             null|39.379706267323684|           null|    null|1189.4483754234677|  2.72968316907915|    3.06029604250077| 2.7569006005543577|2.9768825069294733|3.2021288882044963|3.250375346473668|3.4393959809054513| 3.358157530027718| 3.382362565445026|3.3510548198336925|3.6318332306744687| 3.304290498922082|3.6404277024946103|3.2863508623344626| 14.815618263012011|15.133392362180475|                null|
+| stddev|  null|             null|15.114963699737896|           null|    null| 997.1472805289565|1.3278294712362229|  1.5250751972834864|  1.398929472659151|1.2776210103002335| 1.329532710858201|1.349508953713335|1.3190875186173359| 1.332990714627123|1.2883543609017745| 1.315604619325567| 1.180903411075977|1.2653958269270715|1.1756630338758984|1.3122728470665397| 38.230900584141814| 38.64977613202412|                null|
+|    min|Female|   Loyal Customer|               7.0|Business travel|Business|              31.0|               0.0|                 0.0|                0.0|               0.0|               0.0|              0.0|               0.0|               0.0|               0.0|               0.0|               1.0|               0.0|               0.0|               0.0|                0.0|               0.0|neutral or dissat...|
+|    max|  Male|disloyal Customer|              85.0|Personal Travel|Eco Plus|            4983.0|               5.0|                 5.0|                5.0|               5.0|               5.0|              5.0|               5.0|               5.0|               5.0|               5.0|               5.0|               5.0|               5.0|               5.0|             1592.0|            1584.0|           satisfied|
++-------+------+-----------------+------------------+---------------+--------+------------------+------------------+--------------------+-------------------+------------------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+--------------------+
+
+val listcols = df1.columns.diff(Array("age","flight_distance","deprt_delay_minutes","arrv_delay_minutes"))
+
+listcols.map( colname => {
+   val freq = df1.select(colname).distinct.count
+   println(colname + ": " + freq) 
+})
+gender: 2                                                                       
+cust_type: 2                                                                    
+travel_type: 2                                                                  
+class: 3                                                                        
+inflight_wifi: 6                                                                
+deprt_arrv_time_conv: 6
+ease_online_booking: 6
+gate_location: 6                                                                
+food_and_drink: 6
+online_boarding: 6
+seat_comfort: 6
+inflight_entertain: 6
+onboard_service: 6
+legroom_service: 6
+baggage_handling: 5
+checkin_service: 6
+inflight_service: 6
+cleanliness: 6
+satisfaction: 2
+
+listcols.map( colname => {
+   val freq = df1.select(colname).distinct.count
+   println("Frequency distribuition for " + colname)
+   df.groupBy(colname).count.orderBy(desc("count")).show
+})
+Frequency distribuition for gender
++------+-----+                                                                  
+|gender|count|
++------+-----+
+|Female|52727|
+|  Male|51177|
++------+-----+
+
+Frequency distribuition for cust_type
++-----------------+-----+                                                       
+|        cust_type|count|
++-----------------+-----+
+|   Loyal Customer|84923|
+|disloyal Customer|18981|
++-----------------+-----+
+
+Frequency distribuition for travel_type
++---------------+-----+
+|    travel_type|count|
++---------------+-----+
+|Business travel|71655|
+|Personal Travel|32249|
++---------------+-----+
+
+Frequency distribuition for class
++--------+-----+
+|   class|count|
++--------+-----+
+|Business|49665|
+|     Eco|46745|
+|Eco Plus| 7494|
++--------+-----+
+
+Frequency distribuition for inflight_wifi
++-------------+-----+
+|inflight_wifi|count|
++-------------+-----+
+|          3.0|25868|
+|          2.0|25830|
+|          4.0|19794|
+|          1.0|17840|
+|          5.0|11469|
+|          0.0| 3103|
++-------------+-----+
+
+Frequency distribuition for deprt_arrv_time_conv
++--------------------+-----+
+|deprt_arrv_time_conv|count|
++--------------------+-----+
+|                 4.0|25546|
+|                 5.0|22403|
+|                 3.0|17966|
+|                 2.0|17191|
+|                 1.0|15498|
+|                 0.0| 5300|
++--------------------+-----+
+
+Frequency distribuition for ease_online_booking
++-------------------+-----+
+|ease_online_booking|count|
++-------------------+-----+
+|                3.0|24449|
+|                2.0|24021|
+|                4.0|19571|
+|                1.0|17525|
+|                5.0|13851|
+|                0.0| 4487|
++-------------------+-----+
+
+Frequency distribuition for gate_location                                       
++-------------+-----+
+|gate_location|count|
++-------------+-----+
+|          3.0|28577|
+|          4.0|24426|
+|          2.0|19459|
+|          1.0|17562|
+|          5.0|13879|
+|          0.0|    1|
++-------------+-----+
+
+Frequency distribuition for food_and_drink
++--------------+-----+
+|food_and_drink|count|
++--------------+-----+
+|           4.0|24359|
+|           5.0|22313|
+|           3.0|22300|
+|           2.0|21988|
+|           1.0|12837|
+|           0.0|  107|
++--------------+-----+
+
+Frequency distribuition for online_boarding
++---------------+-----+
+|online_boarding|count|
++---------------+-----+
+|            4.0|30762|
+|            3.0|21804|
+|            5.0|20713|
+|            2.0|17505|
+|            1.0|10692|
+|            0.0| 2428|
++---------------+-----+
+
+Frequency distribuition for seat_comfort
++------------+-----+
+|seat_comfort|count|
++------------+-----+
+|         4.0|31765|
+|         5.0|26470|
+|         3.0|18696|
+|         2.0|14897|
+|         1.0|12075|
+|         0.0|    1|
++------------+-----+
+
+Frequency distribuition for inflight_entertain
++------------------+-----+
+|inflight_entertain|count|
++------------------+-----+
+|               4.0|29423|
+|               5.0|25213|
+|               3.0|19139|
+|               2.0|17637|
+|               1.0|12478|
+|               0.0|   14|
++------------------+-----+
+
+Frequency distribuition for onboard_service
++---------------+-----+
+|onboard_service|count|
++---------------+-----+
+|            4.0|30867|
+|            5.0|23648|
+|            3.0|22833|
+|            2.0|14681|
+|            1.0|11872|
+|            0.0|    3|
++---------------+-----+
+
+Frequency distribuition for legroom_service
++---------------+-----+
+|legroom_service|count|
++---------------+-----+
+|            4.0|28789|
+|            5.0|24667|
+|            3.0|20098|
+|            2.0|19525|
+|            1.0|10353|
+|            0.0|  472|
++---------------+-----+
+
+Frequency distribuition for baggage_handling
++----------------+-----+
+|baggage_handling|count|
++----------------+-----+
+|             4.0|37383|
+|             5.0|27131|
+|             3.0|20632|
+|             2.0|11521|
+|             1.0| 7237|
++----------------+-----+
+
+Frequency distribuition for checkin_service
++---------------+-----+
+|checkin_service|count|
++---------------+-----+
+|            4.0|29055|
+|            3.0|28446|
+|            5.0|20619|
+|            2.0|12893|
+|            1.0|12890|
+|            0.0|    1|
++---------------+-----+
+
+Frequency distribuition for inflight_service
++----------------+-----+
+|inflight_service|count|
++----------------+-----+
+|             4.0|37945|
+|             5.0|27116|
+|             3.0|20299|
+|             2.0|11457|
+|             1.0| 7084|
+|             0.0|    3|
++----------------+-----+
+
+Frequency distribuition for cleanliness
++-----------+-----+
+|cleanliness|count|
++-----------+-----+
+|        4.0|27179|
+|        3.0|24574|
+|        5.0|22689|
+|        2.0|16132|
+|        1.0|13318|
+|        0.0|   12|
++-----------+-----+
+
+Frequency distribuition for satisfaction
++--------------------+-----+
+|        satisfaction|count|
++--------------------+-----+
+|neutral or dissat...|58879|
+|           satisfied|45025|
++--------------------+-----+
+
+
+---- Feature extraction & Data Munging --------------
+
+val listcols = df1.columns.diff(Array("gender","cust_type","travel_type","class","satisfaction"))
+
+import org.apache.spark.ml.feature.VectorAssembler
+val va = new VectorAssembler().setInputCols(listcols).setOutputCol("features")
+val df2 = va.transform(df1)
+
+df2.printSchema
+root
+ |-- gender: string (nullable = true)
+ |-- cust_type: string (nullable = true)
+ |-- age: double (nullable = true)
+ |-- travel_type: string (nullable = true)
+ |-- class: string (nullable = true)
+ |-- flight_distance: double (nullable = true)
+ |-- inflight_wifi: double (nullable = true)
+ |-- deprt_arrv_time_conv: double (nullable = true)
+ |-- ease_online_booking: double (nullable = true)
+ |-- gate_location: double (nullable = true)
+ |-- food_and_drink: double (nullable = true)
+ |-- online_boarding: double (nullable = true)
+ |-- seat_comfort: double (nullable = true)
+ |-- inflight_entertain: double (nullable = true)
+ |-- onboard_service: double (nullable = true)
+ |-- legroom_service: double (nullable = true)
+ |-- baggage_handling: double (nullable = true)
+ |-- checkin_service: double (nullable = true)
+ |-- inflight_service: double (nullable = true)
+ |-- cleanliness: double (nullable = true)
+ |-- deprt_delay_minutes: double (nullable = true)
+ |-- arrv_delay_minutes: double (nullable = false)
+ |-- satisfaction: string (nullable = true)
+ |-- features: vector (nullable = true)
+ 
+df2.show(10)
++------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+--------------------+
+|gender|        cust_type| age|    travel_type|   class|flight_distance|inflight_wifi|deprt_arrv_time_conv|ease_online_booking|gate_location|food_and_drink|online_boarding|seat_comfort|inflight_entertain|onboard_service|legroom_service|baggage_handling|checkin_service|inflight_service|cleanliness|deprt_delay_minutes|arrv_delay_minutes|        satisfaction|            features|
++------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+--------------------+
+|  Male|   Loyal Customer|13.0|Personal Travel|Eco Plus|          460.0|          3.0|                 4.0|                3.0|          1.0|           5.0|            3.0|         5.0|               5.0|            4.0|            3.0|             4.0|            4.0|             5.0|        5.0|               25.0|              18.0|neutral or dissat...|[13.0,460.0,3.0,4...|
+|  Male|disloyal Customer|25.0|Business travel|Business|          235.0|          3.0|                 2.0|                3.0|          3.0|           1.0|            3.0|         1.0|               1.0|            1.0|            5.0|             3.0|            1.0|             4.0|        1.0|                1.0|               6.0|neutral or dissat...|[25.0,235.0,3.0,2...|
+|Female|   Loyal Customer|26.0|Business travel|Business|         1142.0|          2.0|                 2.0|                2.0|          2.0|           5.0|            5.0|         5.0|               5.0|            4.0|            3.0|             4.0|            4.0|             4.0|        5.0|                0.0|               0.0|           satisfied|[26.0,1142.0,2.0,...|
+|Female|   Loyal Customer|25.0|Business travel|Business|          562.0|          2.0|                 5.0|                5.0|          5.0|           2.0|            2.0|         2.0|               2.0|            2.0|            5.0|             3.0|            1.0|             4.0|        2.0|               11.0|               9.0|neutral or dissat...|[25.0,562.0,2.0,5...|
+|  Male|   Loyal Customer|61.0|Business travel|Business|          214.0|          3.0|                 3.0|                3.0|          3.0|           4.0|            5.0|         5.0|               3.0|            3.0|            4.0|             4.0|            3.0|             3.0|        3.0|                0.0|               0.0|           satisfied|[61.0,214.0,3.0,3...|
+|Female|   Loyal Customer|26.0|Personal Travel|     Eco|         1180.0|          3.0|                 4.0|                2.0|          1.0|           1.0|            2.0|         1.0|               1.0|            3.0|            4.0|             4.0|            4.0|             4.0|        1.0|                0.0|               0.0|neutral or dissat...|[26.0,1180.0,3.0,...|
+|  Male|   Loyal Customer|47.0|Personal Travel|     Eco|         1276.0|          2.0|                 4.0|                2.0|          3.0|           2.0|            2.0|         2.0|               2.0|            3.0|            3.0|             4.0|            3.0|             5.0|        2.0|                9.0|              23.0|neutral or dissat...|[47.0,1276.0,2.0,...|
+|Female|   Loyal Customer|52.0|Business travel|Business|         2035.0|          4.0|                 3.0|                4.0|          4.0|           5.0|            5.0|         5.0|               5.0|            5.0|            5.0|             5.0|            4.0|             5.0|        4.0|                4.0|               0.0|           satisfied|[52.0,2035.0,4.0,...|
+|Female|   Loyal Customer|41.0|Business travel|Business|          853.0|          1.0|                 2.0|                2.0|          2.0|           4.0|            3.0|         3.0|               1.0|            1.0|            2.0|             1.0|            4.0|             1.0|        2.0|                0.0|               0.0|neutral or dissat...|[41.0,853.0,1.0,2...|
+|  Male|disloyal Customer|20.0|Business travel|     Eco|         1061.0|          3.0|                 3.0|                3.0|          4.0|           2.0|            3.0|         3.0|               2.0|            2.0|            3.0|             4.0|            4.0|             3.0|        2.0|                0.0|               0.0|neutral or dissat...|[20.0,1061.0,3.0,...|
++------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+--------------------+
+only showing top 10 rows
+
+
+// calculate pearson correlation to check multicolinearity
+
+import org.apache.spark.ml.stat.Correlation
+import org.apache.spark.ml.linalg.Matrix
+import org.apache.spark.sql.Row
+
+val corr = Correlation.corr(df2, "features", "pearson").head match {
+   case Row(coeff: Matrix) => coeff
+}
+corr: org.apache.spark.ml.linalg.Matrix =                                       
+1.0                     0.09946084164550861    ... (18 total)
+0.09946084164550861     1.0                    ...
+0.01785932092032488     0.007131199035065718   ...
+0.03812515171930016     -0.020042916474560475  ...
+0.024842002786231072    0.06571656593297745    ...
+-0.0013296572943692754  0.0047932324842874215  ...
+0.023000477347264715    0.05699353130658397    ...
+0.2089392960306743      0.21486909340492855    ...
+0.16027673775072        0.15733252224061867    ...
+0.07644448708278749     0.12874032522821952    ...
+0.05759447459673594     0.10952642094149309    ...
+0.04058276402551192     0.13391560158330482    ...
+-0.04752930821531389    0.06318413011190449    ...
+0.03548237585220574     0.07307176819699031    ...
+-0.049427220051970214   0.0575...
+
+
+corr.toDense.rowIter.foreach( x => {
+  val size = x.size
+  for ( i <- Range(0,size)) { 
+    val elem = x(i)
+    print(f"$elem%.3f\t") 
+  }
+  println
+})
+// "age","flight_distance","inflight_wifi","deprt_arrv_time_conv","ease_online_booking","gate_location","food_and_drink","online_boarding","seat_comfort","inflight_entertain","onboard_service","legroom_service","baggage_handling","checkin_service","inflight_service","cleanliness","deprt_delay_minutes","arrv_delay_minutes"
+1.000   0.099   0.018   0.038   0.025   -0.001  0.023   0.209   0.160   0.076   0.058   0.041   -0.048  0.035   -0.049  0.054   -0.010   -0.012
+0.099   1.000   0.007   -0.020  0.066   0.005   0.057   0.215   0.157   0.129   0.110   0.134   0.063   0.073   0.058   0.093   0.002    -0.002
+0.018   0.007   1.000   0.344   0.716   0.336   0.135   0.457   0.123   0.209   0.121   0.160   0.121   0.043   0.110   0.133   -0.017   -0.019
+0.038   -0.020  0.344   1.000   0.437   0.445   0.005   0.070   0.011   -0.005  0.069   0.012   0.072   0.093   0.073   0.014   0.001    -0.001
+0.025   0.066   0.716   0.437   1.000   0.459   0.032   0.404   0.030   0.047   0.039   0.108   0.039   0.011   0.035   0.016   -0.006   -0.008
+-0.001  0.005   0.336   0.445   0.459   1.000   -0.001  0.002   0.004   0.004   -0.028  -0.006  0.002   -0.035  0.002   -0.004  0.005    0.005
+0.023   0.057   0.135   0.005   0.032   -0.001  1.000   0.234   0.575   0.623   0.059   0.032   0.035   0.087   0.034   0.658   -0.030   -0.032
+0.209   0.215   0.457   0.070   0.404   0.002   0.234   1.000   0.420   0.285   0.155   0.124   0.083   0.204   0.075   0.332   -0.019   -0.022
+0.160   0.157   0.123   0.011   0.030   0.004   0.575   0.420   1.000   0.611   0.132   0.106   0.075   0.192   0.069   0.679   -0.028   -0.030
+0.076   0.129   0.209   -0.005  0.047   0.004   0.623   0.285   0.611   1.000   0.420   0.300   0.378   0.121   0.405   0.692   -0.027   -0.031
+0.058   0.110   0.121   0.069   0.039   -0.028  0.059   0.155   0.132   0.420   1.000   0.355   0.519   0.244   0.551   0.123   -0.032   -0.035
+0.041   0.134   0.160   0.012   0.108   -0.006  0.032   0.124   0.106   0.300   0.355   1.000   0.370   0.153   0.369   0.096   0.014    0.012
+-0.048  0.063   0.121   0.072   0.039   0.002   0.035   0.083   0.075   0.378   0.519   0.370   1.000   0.233   0.629   0.096   -0.006   -0.009
+0.035   0.073   0.043   0.093   0.011   -0.035  0.087   0.204   0.192   0.121   0.244   0.153   0.233   1.000   0.237   0.180   -0.018   -0.020
+-0.049  0.058   0.110   0.073   0.035   0.002   0.034   0.075   0.069   0.405   0.551   0.369   0.629   0.237   1.000   0.089   -0.055   -0.059
+0.054   0.093   0.133   0.014   0.016   -0.004  0.658   0.332   0.679   0.692   0.123   0.096   0.096   0.180   0.089   1.000   -0.014   -0.016
+-0.010  0.002   -0.017  0.001   -0.006  0.005   -0.030  -0.019  -0.028  -0.027  -0.032  0.014   -0.006  -0.018  -0.055  -0.014  1.000    0.960
+-0.012  -0.002  -0.019  -0.001  -0.008  0.005   -0.032  -0.022  -0.030  -0.031  -0.035  0.012   -0.009  -0.020  -0.059  -0.016  0.960    1.000
+
+// deprt_delay_minutes x arrv_delay_minutes = 0.960 is multicolinear
+
+
+// Examining correlation for categories variables against satisfaction
+
+:load chsqr_test.scala
+
+listcols.diff(Array("satisfaction")).map( x => chsqr_test(df1,x,"satisfaction") )
+
+Array("gender","cust_type","travel_type","class").map( x => chsqr_test(df1,x,"satisfaction") )
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 1 
+statistic = 15.493668870573625 
+pValue = 8.278205965517316E-5 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           genderidx
++---------------+-----+-----+                                                   
+|satisfactionidx|  0.0|  1.0|
++---------------+-----+-----+
+|            0.0|30193|28686|
+|            1.0|22534|22491|
++---------------+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 1 
+statistic = 3658.260694673255 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           cust_typeidx
++---------------+-----+-----+                                                   
+|satisfactionidx|  0.0|  1.0|
++---------------+-----+-----+
+|            0.0|44390|14489|
+|            1.0|40533| 4492|
++---------------+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 1 
+statistic = 20947.192277056274 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           travel_typeidx
++---------------+-----+-----+                                                   
+|satisfactionidx|  0.0|  1.0|
++---------------+-----+-----+
+|            0.0|29909|28970|
+|            1.0|41746| 3279|
++---------------+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 2 
+statistic = 26471.862944492277 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           classidx
++---------------+-----+-----+----+                                              
+|satisfactionidx|  0.0|  1.0| 2.0|
++---------------+-----+-----+----+
+|            0.0|15185|38044|5650|
+|            1.0|34480| 8701|1844|
++---------------+-----+-----+----+
+
+
+def chsqr_test(df: DataFrame, categ_col_name: String, label_col_name:String ):Unit = {
+  val categ_name = categ_col_name
+  val label_name = label_col_name
+  
+  val str1 = new StringIndexer().setInputCol(label_name).setOutputCol(label_name+"idx")
+  val df1 = str1.fit(df).transform(df)
+  val str2 = new StringIndexer().setInputCol(categ_name).setOutputCol(categ_name+"idx").setStringOrderType("alphabetAsc")
+  val df2 = str2.fit(df1).transform(df1)
+
+  val obs = df2.select(col(label_name+"idx"),col(categ_name+"idx")).rdd.map( x => {
+    val l = x.getDouble(0)
+    val f = x.getDouble(1)
+    LabeledPoint(l,Vectors.dense(f)) })
+
+  val featureTestResults = Statistics.chiSqTest(obs)
+  featureTestResults.foreach(println)
+  println("           " + categ_name + "idx")
+  df2.groupBy(label_name+"idx").pivot(categ_name+"idx").count.show
+}
+
+val listcols = df1.columns.diff(Array("age","flight_distance","deprt_delay_minutes","arrv_delay_minutes","gender","cust_type","travel_type","class"))
+
+listcols.diff(Array("satisfaction")).map( x => chsqr_test(df1,x,"satisfaction") )
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 5 
+statistic = 28696.409226996493 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           inflight_wifiidx
++---------------+----+-----+-----+-----+-----+-----+                            
+|satisfactionidx| 0.0|  1.0|  2.0|  3.0|  4.0|  5.0|
++---------------+----+-----+-----+-----+-----+-----+
+|            0.0|   8|12034|19407|19386| 7938|  106|
+|            1.0|3095| 5806| 6423| 6482|11856|11363|
++---------------+----+-----+-----+-----+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 5 
+statistic = 451.0626367029049 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           deprt_arrv_time_convidx
++---------------+----+----+----+-----+-----+-----+                              
+|satisfactionidx| 0.0| 1.0| 2.0|  3.0|  4.0|  5.0|
++---------------+----+----+----+-----+-----+-----+
+|            0.0|2780|7957|9534|10093|15640|12875|
+|            1.0|2520|7541|7657| 7873| 9906| 9528|
++---------------+----+----+----+-----+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 5 
+statistic = 10407.60604197969 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           ease_online_bookingidx
++---------------+----+-----+-----+-----+-----+-----+                            
+|satisfactionidx| 0.0|  1.0|  2.0|  3.0|  4.0|  5.0|
++---------------+----+-----+-----+-----+-----+-----+
+|            0.0|1507|10935|16720|16912| 9180| 3625|
+|            1.0|2980| 6590| 7301| 7537|10391|10226|
++---------------+----+-----+-----+-----+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 5 
+statistic = 2493.443647341715 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           gate_locationidx
++---------------+----+----+-----+-----+-----+----+                              
+|satisfactionidx| 0.0| 1.0|  2.0|  3.0|  4.0| 5.0|
++---------------+----+----+-----+-----+-----+----+
+|            0.0|null|8859|10494|18655|14936|5935|
+|            1.0|   1|8703| 8965| 9922| 9490|7944|
++---------------+----+----+-----+-----+-----+----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 5 
+statistic = 5203.235820229115 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           food_and_drinkidx
++---------------+---+-----+-----+-----+-----+-----+                             
+|satisfactionidx|0.0|  1.0|  2.0|  3.0|  4.0|  5.0|
++---------------+---+-----+-----+-----+-----+-----+
+|            0.0| 57|10269|13458|13461|11571|10063|
+|            1.0| 50| 2568| 8530| 8839|12788|12250|
++---------------+---+-----+-----+-----+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 5 
+statistic = 39750.99560405667 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           online_boardingidx
++---------------+----+----+-----+-----+-----+-----+                             
+|satisfactionidx| 0.0| 1.0|  2.0|  3.0|  4.0|  5.0|
++---------------+----+----+-----+-----+-----+-----+
+|            0.0|1077|9219|15486|18845|11596| 2656|
+|            1.0|1351|1473| 2019| 2959|19166|18057|
++---------------+----+----+-----+-----+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 5 
+statistic = 15756.130078746308 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           seat_comfortidx
++---------------+----+----+-----+-----+-----+-----+                             
+|satisfactionidx| 0.0| 1.0|  2.0|  3.0|  4.0|  5.0|
++---------------+----+----+-----+-----+-----+-----+
+|            0.0|   1|9380|11558|14741|13940| 9259|
+|            1.0|null|2695| 3339| 3955|17825|17211|
++---------------+----+----+-----+-----+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 5 
+statistic = 18508.067997546696 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           inflight_entertainidx
++---------------+----+-----+-----+-----+-----+-----+                            
+|satisfactionidx| 0.0|  1.0|  2.0|  3.0|  4.0|  5.0|
++---------------+----+-----+-----+-----+-----+-----+
+|            0.0|  14|10733|13875|13970|11423| 8864|
+|            1.0|null| 1745| 3762| 5169|18000|16349|
++---------------+----+-----+-----+-----+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 5 
+statistic = 11508.560623692005 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           onboard_serviceidx
++---------------+----+----+-----+-----+-----+-----+                             
+|satisfactionidx| 0.0| 1.0|  2.0|  3.0|  4.0|  5.0|
++---------------+----+----+-----+-----+-----+-----+
+|            0.0|   3|9572|10927|15625|14296| 8456|
+|            1.0|null|2300| 3754| 7208|16571|15192|
++---------------+----+----+-----+-----+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 5 
+statistic = 12271.369226685818 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           legroom_serviceidx
++---------------+---+----+-----+-----+-----+-----+                              
+|satisfactionidx|0.0| 1.0|  2.0|  3.0|  4.0|  5.0|
++---------------+---+----+-----+-----+-----+-----+
+|            0.0|306|8253|14162|14623|12025| 9510|
+|            1.0|166|2100| 5363| 5475|16764|15157|
++---------------+---+----+-----+-----+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 4 
+statistic = 8610.542475361995 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           baggage_handlingidx
++---------------+----+----+-----+-----+-----+                                   
+|satisfactionidx| 0.0| 1.0|  2.0|  3.0|  4.0|
++---------------+----+----+-----+-----+-----+
+|            0.0|5083|8117|15766|19405|10508|
+|            1.0|2154|3404| 4866|17978|16623|
++---------------+----+----+-----+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 5 
+statistic = 6422.322951978193 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           checkin_serviceidx
++---------------+----+----+----+-----+-----+-----+                              
+|satisfactionidx| 0.0| 1.0| 2.0|  3.0|  4.0|  5.0|
++---------------+----+----+----+-----+-----+-----+
+|            0.0|   1|9806|9640|15694|15692| 8046|
+|            1.0|null|3084|3253|12752|13363|12573|
++---------------+----+----+----+-----+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 5 
+statistic = 8283.073106744923 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           inflight_serviceidx
++---------------+----+----+----+-----+-----+-----+                              
+|satisfactionidx| 0.0| 1.0| 2.0|  3.0|  4.0|  5.0|
++---------------+----+----+----+-----+-----+-----+
+|            0.0|   3|5030|8006|15448|19816|10576|
+|            1.0|null|2054|3451| 4851|18129|16540|
++---------------+----+----+----+-----+-----+-----+
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 5 
+statistic = 10245.159945995041 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           cleanlinessidx
++---------------+----+-----+-----+-----+-----+-----+                            
+|satisfactionidx| 0.0|  1.0|  2.0|  3.0|  4.0|  5.0|
++---------------+----+-----+-----+-----+-----+-----+
+|            0.0|  12|10705|12696|13961|12629| 8876|
+|            1.0|null| 2613| 3436|10613|14550|13813|
++---------------+----+-----+-----+-----+-----+-----+

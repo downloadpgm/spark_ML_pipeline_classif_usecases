@@ -1,0 +1,306 @@
+---- Exploratory Data Analysis --------------
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("staging/diabetes_data_upload.csv")
+
+df.printSchema
+root
+ |-- Age: integer (nullable = true)
+ |-- Gender: string (nullable = true)
+ |-- Polyuria: string (nullable = true)
+ |-- Polydipsia: string (nullable = true)
+ |-- sudden weight loss: string (nullable = true)
+ |-- weakness: string (nullable = true)
+ |-- Polyphagia: string (nullable = true)
+ |-- Genital thrush: string (nullable = true)
+ |-- visual blurring: string (nullable = true)
+ |-- Itching: string (nullable = true)
+ |-- Irritability: string (nullable = true)
+ |-- delayed healing: string (nullable = true)
+ |-- partial paresis: string (nullable = true)
+ |-- muscle stiffness: string (nullable = true)
+ |-- Alopecia: string (nullable = true)
+ |-- Obesity: string (nullable = true)
+ |-- class: string (nullable = true)
+
+df.show(10)
++---+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
+|Age|Gender|Polyuria|Polydipsia|sudden weight loss|weakness|Polyphagia|Genital thrush|visual blurring|Itching|Irritability|delayed healing|partial paresis|muscle stiffness|Alopecia|Obesity|   class|
++---+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
+| 40|  Male|      No|       Yes|                No|     Yes|        No|            No|             No|    Yes|          No|            Yes|             No|             Yes|     Yes|    Yes|Positive|
+| 58|  Male|      No|        No|                No|     Yes|        No|            No|            Yes|     No|          No|             No|            Yes|              No|     Yes|     No|Positive|
+| 41|  Male|     Yes|        No|                No|     Yes|       Yes|            No|             No|    Yes|          No|            Yes|             No|             Yes|     Yes|     No|Positive|
+| 45|  Male|      No|        No|               Yes|     Yes|       Yes|           Yes|             No|    Yes|          No|            Yes|             No|              No|      No|     No|Positive|
+| 60|  Male|     Yes|       Yes|               Yes|     Yes|       Yes|            No|            Yes|    Yes|         Yes|            Yes|            Yes|             Yes|     Yes|    Yes|Positive|
+| 55|  Male|     Yes|       Yes|                No|     Yes|       Yes|            No|            Yes|    Yes|          No|            Yes|             No|             Yes|     Yes|    Yes|Positive|
+| 57|  Male|     Yes|       Yes|                No|     Yes|       Yes|           Yes|             No|     No|          No|            Yes|            Yes|              No|      No|     No|Positive|
+| 66|  Male|     Yes|       Yes|               Yes|     Yes|        No|            No|            Yes|    Yes|         Yes|             No|            Yes|             Yes|      No|     No|Positive|
+| 67|  Male|     Yes|       Yes|                No|     Yes|       Yes|           Yes|             No|    Yes|         Yes|             No|            Yes|             Yes|      No|    Yes|Positive|
+| 70|  Male|      No|       Yes|               Yes|     Yes|       Yes|            No|            Yes|    Yes|         Yes|             No|             No|              No|     Yes|     No|Positive|
++---+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
+only showing top 10 rows
+
+
+df.describe().show
++-------+------------------+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
+|summary|               Age|Gender|Polyuria|Polydipsia|sudden weight loss|weakness|Polyphagia|Genital thrush|visual blurring|Itching|Irritability|delayed healing|partial paresis|muscle stiffness|Alopecia|Obesity|   class|
++-------+------------------+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
+|  count|               520|   520|     520|       520|               520|     520|       520|           520|            520|    520|         520|            520|            520|             520|     520|    520|     520|
+|   mean| 48.02884615384615|  null|    null|      null|              null|    null|      null|          null|           null|   null|        null|           null|           null|            null|    null|   null|    null|
+| stddev|12.151465995249454|  null|    null|      null|              null|    null|      null|          null|           null|   null|        null|           null|           null|            null|    null|   null|    null|
+|    min|                16|Female|      No|        No|                No|      No|        No|            No|             No|     No|          No|             No|             No|              No|      No|     No|Negative|
+|    max|                90|  Male|     Yes|       Yes|               Yes|     Yes|       Yes|           Yes|            Yes|    Yes|         Yes|            Yes|            Yes|             Yes|     Yes|    Yes|Positive|
++-------+------------------+------+--------+----------+------------------+--------+----------+--------------+---------------+-------+------------+---------------+---------------+----------------+--------+-------+--------+
+
+df.groupBy("class").count.show
++--------+-----+
+|class   |count|
++--------+-----+
+|Negative|  200|
+|Positive|  320|
++--------+-----+
+
+val listcols = df.columns.diff(Array("Age"))
+listcols: Array[String] = Array(Gender, Polyuria, Polydipsia, sudden weight loss, weakness, Polyphagia, Genital thrush, visual blurring, Itching, Irritability, delayed healing, partial paresis, muscle stiffness, Alopecia, Obesity, class)
+
+spark.conf.set("spark.sql.shuffle.partitions",10)
+
+listcols.map( colname => {
+   val freq = df.select(colname).distinct.count
+   println(colname + ": " + freq) 
+})
+Gender: 2                                                                       
+Polyuria: 2
+Polydipsia: 2
+sudden weight loss: 2
+weakness: 2
+Polyphagia: 2
+Genital thrush: 2
+visual blurring: 2
+Itching: 2
+Irritability: 2
+delayed healing: 2
+partial paresis: 2
+muscle stiffness: 2
+Alopecia: 2
+Obesity: 2
+class: 2
+
+// Examining correlation for categories variables against "class"
+
+:load chsqr_test.scala
+
+val listcols = df.columns.diff(Array("Age","class"))
+listcols: Array[String] = Array(Gender, Polyuria, Polydipsia, sudden weight loss, weakness, Polyphagia, Genital thrush, visual blurring, Itching, Irritability, delayed healing, partial paresis, muscle stiffness, Alopecia, Obesity)
+
+listcols.map( x => chsqr_test(df,x,"class") )
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 104.94151740345525 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Genderidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0|147|173|
+|     1.0|181| 19|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 230.59537546600387 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Polyuriaidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0| 77|243|
+|     1.0|185| 15|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 218.84483557895052 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Polydipsiaidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0| 95|225|
+|     1.0|192|  8|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 99.10772459734453 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           sudden weight lossidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0|132|188|
+|     1.0|171| 29|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 30.77495996950058 
+pValue = 2.8975273957954073E-8 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           weaknessidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0|218|102|
+|     1.0| 87|113|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 61.000626202084376 
+pValue = 5.662137425588298E-15 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Polyphagiaidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0|131|189|
+|     1.0|152| 48|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 6.324961590986683 
+pValue = 0.01190500657614002 
+Strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Genital thrushidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0|237| 83|
+|     1.0|167| 33|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 32.83894363775029 
+pValue = 1.0011888651462186E-8 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           visual blurringidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0|145|175|
+|     1.0|142| 58|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 0.09314443901644635 
+pValue = 0.7602170775933212 
+No presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Itchingidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0|166|154|
+|     1.0|101| 99|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 46.63387317702039 
+pValue = 8.556821917693469E-12 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Irritabilityidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0|210|110|
+|     1.0|184| 16|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 1.1476793877216762 
+pValue = 0.2840354624043082 
+No presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           delayed healingidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0|167|153|
+|     1.0|114| 86|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 97.1737451737452 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           partial paresisidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0|128|192|
+|     1.0|168| 32|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 7.8 
+pValue = 0.00522462344006136 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           muscle stiffnessidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0|185|135|
+|     1.0|140| 60|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 37.21247071544424 
+pValue = 1.059341614428888E-9 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Alopeciaidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0|242| 78|
+|     1.0| 99|101|
++--------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 2.7086752946127954 
+pValue = 0.09980383769025203 
+Low presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Obesityidx
++--------+---+---+
+|classidx|0.0|1.0|
++--------+---+---+
+|     0.0|259| 61|
+|     1.0|173| 27|
++--------+---+---+
+
+// Conclusion: all category features has significant influence on the "class" except Itching, delayed healing and Obesity ( pvalue < 0.05 )

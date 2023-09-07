@@ -1,0 +1,133 @@
+
+val df = spark.read.option("header","true").option("inferSchema","true").option("sep",";").csv("staging/winequality-white.csv")
+
+df.printSchema
+root
+ |-- fixed acidity: double (nullable = true)
+ |-- volatile acidity: double (nullable = true)
+ |-- citric acid: double (nullable = true)
+ |-- residual sugar: double (nullable = true)
+ |-- chlorides: double (nullable = true)
+ |-- free sulfur dioxide: double (nullable = true)
+ |-- total sulfur dioxide: double (nullable = true)
+ |-- density: double (nullable = true)
+ |-- pH: double (nullable = true)
+ |-- sulphates: double (nullable = true)
+ |-- alcohol: double (nullable = true)
+ |-- quality: integer (nullable = true)
+
+df.show(10)
++-------------+----------------+-----------+--------------+---------+-------------------+--------------------+-------+----+---------+-------+-------+
+|fixed acidity|volatile acidity|citric acid|residual sugar|chlorides|free sulfur dioxide|total sulfur dioxide|density|  pH|sulphates|alcohol|quality|
++-------------+----------------+-----------+--------------+---------+-------------------+--------------------+-------+----+---------+-------+-------+
+|          7.0|            0.27|       0.36|          20.7|    0.045|               45.0|               170.0|  1.001| 3.0|     0.45|    8.8|      6|
+|          6.3|             0.3|       0.34|           1.6|    0.049|               14.0|               132.0|  0.994| 3.3|     0.49|    9.5|      6|
+|          8.1|            0.28|        0.4|           6.9|     0.05|               30.0|                97.0| 0.9951|3.26|     0.44|   10.1|      6|
+|          7.2|            0.23|       0.32|           8.5|    0.058|               47.0|               186.0| 0.9956|3.19|      0.4|    9.9|      6|
+|          7.2|            0.23|       0.32|           8.5|    0.058|               47.0|               186.0| 0.9956|3.19|      0.4|    9.9|      6|
+|          8.1|            0.28|        0.4|           6.9|     0.05|               30.0|                97.0| 0.9951|3.26|     0.44|   10.1|      6|
+|          6.2|            0.32|       0.16|           7.0|    0.045|               30.0|               136.0| 0.9949|3.18|     0.47|    9.6|      6|
+|          7.0|            0.27|       0.36|          20.7|    0.045|               45.0|               170.0|  1.001| 3.0|     0.45|    8.8|      6|
+|          6.3|             0.3|       0.34|           1.6|    0.049|               14.0|               132.0|  0.994| 3.3|     0.49|    9.5|      6|
+|          8.1|            0.22|       0.43|           1.5|    0.044|               28.0|               129.0| 0.9938|3.22|     0.45|   11.0|      6|
++-------------+----------------+-----------+--------------+---------+-------------------+--------------------+-------+----+---------+-------+-------+
+only showing top 10 rows
+
+df.describe().show
++-------+------------------+-------------------+-------------------+-----------------+--------------------+-------------------+--------------------+--------------------+-------------------+-------------------+------------------+------------------+
+|summary|     fixed acidity|   volatile acidity|        citric acid|   residual sugar|           chlorides|free sulfur dioxide|total sulfur dioxide|             density|                 pH|          sulphates|           alcohol|           quality|
++-------+------------------+-------------------+-------------------+-----------------+--------------------+-------------------+--------------------+--------------------+-------------------+-------------------+------------------+------------------+
+|  count|              4898|               4898|               4898|             4898|                4898|               4898|                4898|                4898|               4898|               4898|              4898|              4898|
+|   mean| 6.854787668436075|0.27824111882401087|0.33419150673743736|6.391414863209486|  0.0457723560636995|  35.30808493262556|  138.36065741118824|  0.9940273764801896| 3.1882666394446693| 0.4898468762760325|10.514267047774638|  5.87790935075541|
+| stddev|0.8438682276875127|0.10079454842486532|0.12101980420298254|5.072057784014878|0.021847968093728805|  17.00713732523259|  42.498064554142985|0.002990906916936997|0.15100059961506673|0.11412583394883222|  1.23062056775732|0.8856385749678322|
+|    min|               3.8|               0.08|                0.0|              0.6|               0.009|                2.0|                 9.0|             0.98711|               2.72|               0.22|               8.0|                 3|
+|    max|              14.2|                1.1|               1.66|             65.8|               0.346|              289.0|               440.0|             1.03898|               3.82|               1.08|              14.2|                 9|
++-------+------------------+-------------------+-------------------+-----------------+--------------------+-------------------+--------------------+--------------------+-------------------+-------------------+------------------+------------------+
+
+Array("quality").map( colname => {
+   val freq = df.select(colname).distinct.count
+   println(colname + ": " + freq) 
+})
+quality: 7
+
+Array("quality").map( colname => {
+   val freq = df.select(colname).distinct.count
+   println("Frequency distribuition for " + colname)
+   df.groupBy(colname).count.orderBy(desc("count")).show
+})
+Frequency distribuition for quality
++-------+-----+
+|quality|count|
++-------+-----+
+|      6| 2198|
+|      5| 1457|
+|      7|  880|
+|      8|  175|
+|      4|  163|
+|      3|   20|
+|      9|    5|
++-------+-----+
+
+
+// Examining correlation for continuous variables against quality
+
+:load anova_table.scala
+
+df.columns.diff(Array("quality")).map( x => anova_table(df,x,"quality") )
+
+quality x fixed acidity
+ss_total=3840.989791751859, ss_within=3659.2890577572457, ss_between=181.70073399448796
+df_total=4897, df_within=4830, df_between=67
+sum_sq=181.70073399448796, df=67, F=3.579581811761313, PR(>F)=0.0
+
+quality x volatile acidity
+ss_total=3840.989791751859, ss_within=3533.6381129233846, ss_between=307.3516788283435
+df_total=4897, df_within=4773, df_between=124
+sum_sq=307.3516788283435, df=124, F=3.3479831873707595, PR(>F)=0.0
+
+quality x citric acid
+ss_total=3840.989791751859, ss_within=3476.769194929024, ss_between=364.2205968227109
+df_total=4897, df_within=4811, df_between=86
+sum_sq=364.2205968227109, df=86, F=5.860376879689137, PR(>F)=0.0
+
+quality x residual sugar
+ss_total=3840.989791751859, ss_within=3318.642711521274, ss_between=522.3470802304612
+df_total=4897, df_within=4588, df_between=309
+sum_sq=522.3470802304612, df=309, F=2.3370263168554892, PR(>F)=0.0
+
+quality x chlorides
+ss_total=3840.989791751859, ss_within=3357.351419670133, ss_between=483.6383720816235
+df_total=4897, df_within=4738, df_between=159
+sum_sq=483.6383720816235, df=159, F=4.292614426193969, PR(>F)=0.0
+
+quality x free sulfur dioxide
+ss_total=3840.989791751859, ss_within=3437.0133721453976, ss_between=403.976419606345
+df_total=4897, df_within=4766, df_between=131
+sum_sq=403.976419606345, df=131, F=4.276195343920491, PR(>F)=0.0
+
+quality x total sulfur dioxide
+ss_total=3840.989791751859, ss_within=3292.368850500011, ss_between=548.6209412517272
+df_total=4897, df_within=4647, df_between=250
+sum_sq=548.6209412517272, df=250, F=3.097394769252046, PR(>F)=0.0
+
+quality x density
+ss_total=3840.989791751859, ss_within=2458.190141121852, ss_between=1382.7996506298803
+df_total=4897, df_within=4008, df_between=889
+sum_sq=1382.7996506298803, df=889, F=2.5361196586698025, PR(>F)=0.0
+
+quality x pH
+ss_total=3840.989791751859, ss_within=3648.846983820097, ss_between=192.1428079316371
+df_total=4897, df_within=4795, df_between=102
+sum_sq=192.1428079316371, df=102, F=2.4754657473603787, PR(>F)=2.9753977059954195E-14
+
+quality x sulphates
+ss_total=3840.989791751859, ss_within=3688.7160669711557, ss_between=152.27372478058368
+df_total=4897, df_within=4819, df_between=78
+sum_sq=152.27372478058368, df=78, F=2.5504221258829, PR(>F)=3.4141578453272814E-12
+
+quality x alcohol
+ss_total=3840.989791751859, ss_within=2971.934896647517, ss_between=869.0548951042155
+df_total=4897, df_within=4795, df_between=102
+sum_sq=869.0548951042155, df=102, F=13.74663363656247, PR(>F)=0.0
+
+// Conclusion: all continuous features have significant influence on quality  ( pvalue < 0.05 )

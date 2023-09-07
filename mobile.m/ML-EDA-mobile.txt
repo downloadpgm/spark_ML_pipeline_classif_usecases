@@ -1,0 +1,404 @@
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("staging/mobile_pricing_train.csv")
+
+df.printSchema
+root
+ |-- battery_power: integer (nullable = true)
+ |-- blue: integer (nullable = true)
+ |-- clock_speed: double (nullable = true)
+ |-- dual_sim: integer (nullable = true)
+ |-- fc: integer (nullable = true)
+ |-- four_g: integer (nullable = true)
+ |-- int_memory: integer (nullable = true)
+ |-- m_dep: double (nullable = true)
+ |-- mobile_wt: integer (nullable = true)
+ |-- n_cores: integer (nullable = true)
+ |-- pc: integer (nullable = true)
+ |-- px_height: integer (nullable = true)
+ |-- px_width: integer (nullable = true)
+ |-- ram: integer (nullable = true)
+ |-- sc_h: integer (nullable = true)
+ |-- sc_w: integer (nullable = true)
+ |-- talk_time: integer (nullable = true)
+ |-- three_g: integer (nullable = true)
+ |-- touch_screen: integer (nullable = true)
+ |-- wifi: integer (nullable = true)
+ |-- price_range: integer (nullable = true)
+ 
+val types = df.dtypes
+types: Array[(String, String)] = Array((battery_power,IntegerType), (blue,IntegerType), (clock_speed,DoubleType), (dual_sim,IntegerType), (fc,IntegerType), (four_g,IntegerType), (int_memory,IntegerType), (m_dep,DoubleType), (mobile_wt,IntegerType), (n_cores,IntegerType), (pc,IntegerType), (px_height,IntegerType), (px_width,IntegerType), (ram,IntegerType), (sc_h,IntegerType), (sc_w,IntegerType), (talk_time,IntegerType), (three_g,IntegerType), (touch_screen,IntegerType), (wifi,IntegerType), (price_range,IntegerType))
+
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+
+val df1 = df.select(types.map{ case(c,t) => col(c).cast(DoubleType)}: _*)
+
+df1.printSchema
+root
+ |-- battery_power: double (nullable = true)
+ |-- blue: double (nullable = true)
+ |-- clock_speed: double (nullable = true)
+ |-- dual_sim: double (nullable = true)
+ |-- fc: double (nullable = true)
+ |-- four_g: double (nullable = true)
+ |-- int_memory: double (nullable = true)
+ |-- m_dep: double (nullable = true)
+ |-- mobile_wt: double (nullable = true)
+ |-- n_cores: double (nullable = true)
+ |-- pc: double (nullable = true)
+ |-- px_height: double (nullable = true)
+ |-- px_width: double (nullable = true)
+ |-- ram: double (nullable = true)
+ |-- sc_h: double (nullable = true)
+ |-- sc_w: double (nullable = true)
+ |-- talk_time: double (nullable = true)
+ |-- three_g: double (nullable = true)
+ |-- touch_screen: double (nullable = true)
+ |-- wifi: double (nullable = true)
+ |-- price_range: double (nullable = true)
+ 
+df1.show(10)
++-------------+----+-----------+--------+----+------+----------+-----+---------+-------+----+---------+--------+------+----+----+---------+-------+------------+----+-----------+
+|battery_power|blue|clock_speed|dual_sim|  fc|four_g|int_memory|m_dep|mobile_wt|n_cores|  pc|px_height|px_width|   ram|sc_h|sc_w|talk_time|three_g|touch_screen|wifi|price_range|
++-------------+----+-----------+--------+----+------+----------+-----+---------+-------+----+---------+--------+------+----+----+---------+-------+------------+----+-----------+
+|        842.0| 0.0|        2.2|     0.0| 1.0|   0.0|       7.0|  0.6|    188.0|    2.0| 2.0|     20.0|   756.0|2549.0| 9.0| 7.0|     19.0|    0.0|         0.0| 1.0|        1.0|
+|       1021.0| 1.0|        0.5|     1.0| 0.0|   1.0|      53.0|  0.7|    136.0|    3.0| 6.0|    905.0|  1988.0|2631.0|17.0| 3.0|      7.0|    1.0|         1.0| 0.0|        2.0|
+|        563.0| 1.0|        0.5|     1.0| 2.0|   1.0|      41.0|  0.9|    145.0|    5.0| 6.0|   1263.0|  1716.0|2603.0|11.0| 2.0|      9.0|    1.0|         1.0| 0.0|        2.0|
+|        615.0| 1.0|        2.5|     0.0| 0.0|   0.0|      10.0|  0.8|    131.0|    6.0| 9.0|   1216.0|  1786.0|2769.0|16.0| 8.0|     11.0|    1.0|         0.0| 0.0|        2.0|
+|       1821.0| 1.0|        1.2|     0.0|13.0|   1.0|      44.0|  0.6|    141.0|    2.0|14.0|   1208.0|  1212.0|1411.0| 8.0| 2.0|     15.0|    1.0|         1.0| 0.0|        1.0|
+|       1859.0| 0.0|        0.5|     1.0| 3.0|   0.0|      22.0|  0.7|    164.0|    1.0| 7.0|   1004.0|  1654.0|1067.0|17.0| 1.0|     10.0|    1.0|         0.0| 0.0|        1.0|
+|       1821.0| 0.0|        1.7|     0.0| 4.0|   1.0|      10.0|  0.8|    139.0|    8.0|10.0|    381.0|  1018.0|3220.0|13.0| 8.0|     18.0|    1.0|         0.0| 1.0|        3.0|
+|       1954.0| 0.0|        0.5|     1.0| 0.0|   0.0|      24.0|  0.8|    187.0|    4.0| 0.0|    512.0|  1149.0| 700.0|16.0| 3.0|      5.0|    1.0|         1.0| 1.0|        0.0|
+|       1445.0| 1.0|        0.5|     0.0| 0.0|   0.0|      53.0|  0.7|    174.0|    7.0|14.0|    386.0|   836.0|1099.0|17.0| 1.0|     20.0|    1.0|         0.0| 0.0|        0.0|
+|        509.0| 1.0|        0.6|     1.0| 2.0|   1.0|       9.0|  0.1|     93.0|    5.0|15.0|   1137.0|  1224.0| 513.0|19.0|10.0|     12.0|    1.0|         0.0| 0.0|        0.0|
++-------------+----+-----------+--------+----+------+----------+-----+---------+-------+----+---------+--------+------+----+----+---------+-------+------------+----+-----------+
+only showing top 10 rows
+
+df1.describe().show
++-------+-----------------+------------------+------------------+------------------+-----------------+-------------------+------------------+------------------+-----------------+------------------+-----------------+------------------+-----------------+------------------+-----------------+-----------------+-----------------+-----------------+------------------+------------------+------------------+
+|summary|    battery_power|              blue|       clock_speed|          dual_sim|               fc|             four_g|        int_memory|             m_dep|        mobile_wt|           n_cores|               pc|         px_height|         px_width|               ram|             sc_h|             sc_w|        talk_time|          three_g|      touch_screen|              wifi|       price_range|
++-------+-----------------+------------------+------------------+------------------+-----------------+-------------------+------------------+------------------+-----------------+------------------+-----------------+------------------+-----------------+------------------+-----------------+-----------------+-----------------+-----------------+------------------+------------------+------------------+
+|  count|             2000|              2000|              2000|              2000|             2000|               2000|              2000|              2000|             2000|              2000|             2000|              2000|             2000|              2000|             2000|             2000|             2000|             2000|              2000|              2000|              2000|
+|   mean|        1238.5185|             0.495|1.5222499999999983|            0.5095|           4.3095|             0.5215|           32.0465|0.5017500000000017|          140.249|            4.5205|           9.9165|           645.108|        1251.5155|          2124.213|          12.3065|            5.767|           11.011|           0.7615|             0.503|             0.507|               1.5|
+| stddev|439.4182060835313|0.5001000400170073| 0.816004208895068|0.5000347661750049|4.341443747983898|0.49966246736236364|18.145714955206856|0.2884155496235117|35.39965489638834|2.2878367180426618|6.064314941347778|443.78081080643824|432.1994469463379|1084.7320436099492|4.213245004356303|4.356397605826408|5.463955197766688|0.426272922318731|0.5001160445626741|0.5000760322381088|1.1183136021064597|
+|    min|            501.0|               0.0|               0.5|               0.0|              0.0|                0.0|               2.0|               0.1|             80.0|               1.0|              0.0|               0.0|            500.0|             256.0|              5.0|              0.0|              2.0|              0.0|               0.0|               0.0|               0.0|
+|    max|           1998.0|               1.0|               3.0|               1.0|             19.0|                1.0|              64.0|               1.0|            200.0|               8.0|             20.0|            1960.0|           1998.0|            3998.0|             19.0|             18.0|             20.0|              1.0|               1.0|               1.0|               3.0|
++-------+-----------------+------------------+------------------+------------------+-----------------+-------------------+------------------+------------------+-----------------+------------------+-----------------+------------------+-----------------+------------------+-----------------+-----------------+-----------------+-----------------+------------------+------------------+------------------+
+
+val listcols = df.columns
+listcols: Array[String] = Array(battery_power, blue, clock_speed, dual_sim, fc, four_g, int_memory, m_dep, mobile_wt, n_cores, pc, px_height, px_width, ram, sc_h, sc_w, talk_time, three_g, touch_screen, wifi, price_range)
+
+listcols.map( colname => {
+   val freq = df1.select(colname).distinct.count
+   println(colname + ": " + freq) 
+})
+battery_power: 1094
+blue: 2
+clock_speed: 26
+dual_sim: 2
+fc: 20
+four_g: 2
+int_memory: 63
+m_dep: 10
+mobile_wt: 121
+n_cores: 8
+pc: 21
+px_height: 1137
+px_width: 1109
+ram: 1562
+sc_h: 15
+sc_w: 19
+talk_time: 19
+three_g: 2
+touch_screen: 2
+wifi: 2
+price_range: 4
+
+val listcols = Array("blue","dual_sim","four_g","n_cores","three_g","touch_screen","wifi","price_range")
+
+listcols.map( colname => {
+   val freq = df1.select(colname).distinct.count
+   println("Frequency distribuition for " + colname)
+   df1.groupBy(colname).count.orderBy(desc("count")).show
+})
+Frequency distribuition for blue
++----+-----+
+|blue|count|
++----+-----+
+| 0.0| 1010|
+| 1.0|  990|
++----+-----+
+
+Frequency distribuition for dual_sim
++--------+-----+
+|dual_sim|count|
++--------+-----+
+|     1.0| 1019|
+|     0.0|  981|
++--------+-----+
+
+Frequency distribuition for four_g
++------+-----+
+|four_g|count|
++------+-----+
+|   1.0| 1043|
+|   0.0|  957|
++------+-----+
+
+Frequency distribuition for n_cores
++-------+-----+
+|n_cores|count|
++-------+-----+
+|    4.0|  274|
+|    7.0|  259|
+|    8.0|  256|
+|    2.0|  247|
+|    3.0|  246|
+|    5.0|  246|
+|    1.0|  242|
+|    6.0|  230|
++-------+-----+
+
+Frequency distribuition for three_g
++-------+-----+
+|three_g|count|
++-------+-----+
+|    1.0| 1523|
+|    0.0|  477|
++-------+-----+
+
+Frequency distribuition for touch_screen
++------------+-----+
+|touch_screen|count|
++------------+-----+
+|         1.0| 1006|
+|         0.0|  994|
++------------+-----+
+
+Frequency distribuition for wifi
++----+-----+
+|wifi|count|
++----+-----+
+| 1.0| 1014|
+| 0.0|  986|
++----+-----+
+
+
+Frequency distribuition for price_range
++-----------+-----+
+|price_range|count|
++-----------+-----+
+|        0.0|  500|
+|        3.0|  500|
+|        2.0|  500|
+|        1.0|  500|
++-----------+-----+
+
+// Examining correlation for categories variables against "price_range"
+
+:load chsqr_test.scala
+
+listcols.diff(Array("price_range")).map( x => chsqr_test(df1,x,"price_range") )
+Chi squared test summary:
+method: pearson
+degrees of freedom = 3 
+statistic = 1.432143214321432 
+pValue = 0.6980177809451276 
+No presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           blueidx
++--------------+---+---+
+|price_rangeidx|0.0|1.0|
++--------------+---+---+
+|           0.0|255|245|
+|           1.0|241|259|
+|           3.0|257|243|
+|           2.0|257|243|
++--------------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 3 
+statistic = 1.2864644136533288 
+pValue = 0.7323497176264596 
+No presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           dual_simidx
++--------------+---+---+
+|price_rangeidx|0.0|1.0|
++--------------+---+---+
+|           0.0|255|245|
+|           1.0|265|235|
+|           3.0|249|251|
+|           2.0|250|250|
++--------------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 3 
+statistic = 3.1798795973755474 
+pValue = 0.3647140819694319 
+No presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           four_gidx
++--------------+---+---+
+|price_rangeidx|0.0|1.0|
++--------------+---+---+
+|           0.0|262|238|
+|           1.0|275|225|
+|           3.0|247|253|
+|           2.0|259|241|
++--------------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 27 
+statistic = 28.72912897178181 
+pValue = 0.3741551390752508 
+No presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           m_depidx
++--------------+---+---+---+---+---+---+---+---+---+---+                        
+|price_rangeidx|0.0|1.0|2.0|3.0|4.0|5.0|6.0|7.0|8.0|9.0|
++--------------+---+---+---+---+---+---+---+---+---+---+
+|           0.0| 61| 61| 52| 58| 46| 46| 49| 53| 38| 36|
+|           1.0| 90| 49| 56| 52| 49| 37| 52| 44| 47| 24|
+|           3.0| 82| 55| 51| 46| 51| 56| 41| 51| 41| 26|
+|           2.0| 87| 48| 49| 49| 54| 60| 53| 38| 42| 20|
++--------------+---+---+---+---+---+---+---+---+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 21 
+statistic = 20.524450237054065 
+pValue = 0.48829391106610287 
+No presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           n_coresidx
++--------------+---+---+---+---+---+---+---+---+
+|price_rangeidx|0.0|1.0|2.0|3.0|4.0|5.0|6.0|7.0|
++--------------+---+---+---+---+---+---+---+---+
+|           0.0| 76| 55| 60| 59| 69| 51| 76| 54|
+|           1.0| 58| 69| 59| 62| 59| 70| 65| 58|
+|           3.0| 73| 69| 70| 57| 56| 66| 52| 57|
+|           2.0| 67| 66| 67| 69| 62| 59| 49| 61|
++--------------+---+---+---+---+---+---+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 3 
+statistic = 1.3737644035343464 
+pValue = 0.7116958581372179 
+No presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           three_gidx
++--------------+---+---+
+|price_rangeidx|0.0|1.0|
++--------------+---+---+
+|           0.0|378|122|
+|           1.0|385|115|
+|           3.0|387|113|
+|           2.0|373|127|
++--------------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 3 
+statistic = 3.8801396850286607 
+pValue = 0.27470114180281957 
+No presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           touch_screenidx
++--------------+---+---+
+|price_rangeidx|0.0|1.0|
++--------------+---+---+
+|           0.0|261|239|
+|           1.0|248|252|
+|           3.0|235|265|
+|           2.0|262|238|
++--------------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 3 
+statistic = 0.8561678088905427 
+pValue = 0.8359905195342198 
+No presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           wifiidx
++--------------+---+---+
+|price_rangeidx|0.0|1.0|
++--------------+---+---+
+|           0.0|252|248|
+|           1.0|262|238|
+|           3.0|252|248|
+|           2.0|248|252|
++--------------+---+---+
+
+// Conclusion: all category features has no significant influence on price_range ( pvalue < 0.05 )
+
+
+// Examining correlation for continuous variables against income
+
+:load anova_table.scala
+
+df1.columns.diff(listcols).map( x => anova_table(df,"price_range",x))
+
+battery_power:
+ss_total=3.8598363131549966E8, ss_within=3.684835301579999E8, ss_between=1.7500101157499585E7
+df_total=1999, df_within=1996, df_between=3
+sum_sq=1.7500101157499585E7, df=3, F=31.598157539896608, PR(>F)=0.0
+
+clock_speed:
+ss_total=1331.0598750000054, ss_within=1330.0728999999965, ss_between=0.9869749999999737
+df_total=1999, df_within=1996, df_between=3
+sum_sq=0.9869749999999737, df=3, F=0.4937078010285383, PR(>F)=0.6866751621404308
+
+fc:
+ss_total=37677.41949999979, ss_within=37633.74199999998, ss_between=43.67750000000056
+df_total=1999, df_within=1996, df_between=3
+sum_sq=43.67750000000056, df=3, F=0.772181960185279, PR(>F)=0.5095041590905138
+
+int_memory:
+ss_total=658204.6755000005, ss_within=655325.6459999998, ss_between=2879.029499999941
+df_total=1999, df_within=1996, df_between=3
+sum_sq=2879.029499999941, df=3, F=2.922996079417837, PR(>F)=0.032776938832759006
+
+m_dep:
+ss_total=166.2838749999991, ss_within=165.9096599999996, ss_between=0.37421499999998953
+df_total=1999, df_within=1996, df_between=3
+sum_sq=0.37421499999998953, df=3, F=1.5006824396682326, PR(>F)=0.21245949273697406
+
+mobile_wt:
+ss_total=2505017.9979999973, ss_within=2491557.8999999994, ss_between=13460.097999999798
+df_total=1999, df_within=1996, df_between=3
+sum_sq=13460.097999999798, df=3, F=3.5943181851536345, PR(>F)=0.013117390712868326
+
+pc:
+ss_total=73515.05550000041, ss_within=73423.9620000001, ss_between=91.0935000000032
+df_total=1999, df_within=1996, df_between=3
+sum_sq=91.0935000000032, df=3, F=0.8254463576890886, PR(>F)=0.4797489023367808
+
+px_height:
+ss_total=3.936858746720002E8, ss_within=3.824844970559999E8, ss_between=1.1201377615999997E7
+df_total=1999, df_within=1996, df_between=3
+sum_sq=1.1201377615999997E7, df=3, F=19.484841776704783, PR(>F)=1.886046874233216E-12
+
+px_width:
+ss_total=3.734059275194999E8, ss_within=3.6112782613800013E8, ss_between=1.227810138150008E7
+df_total=1999, df_within=1996, df_between=3
+sum_sq=1.227810138150008E7, df=3, F=22.62088249061253, PR(>F)=2.120525977034049E-14
+
+ram:
+ss_total=2.352110569261999E9, ss_within=3.73899998812E8, ss_between=1.9782105704500353E9
+df_total=1999, df_within=1996, df_between=3
+sum_sq=1.9782105704500353E9, df=3, F=3520.110823895824, PR(>F)=0.0
+
+sc_h:
+ss_total=35485.11550000009, ss_within=35366.789999999986, ss_between=118.32550000000279
+df_total=1999, df_within=1996, df_between=3
+sum_sq=118.32550000000279, df=3, F=2.22598373596629, PR(>F)=0.08324991084278976
+
+sc_w:
+ss_total=37937.421999999846, ss_within=37842.37999999991, ss_between=95.04199999999891
+df_total=1999, df_within=1996, df_between=3
+sum_sq=95.04199999999891, df=3, F=1.6709998331676308, PR(>F)=0.17121457684202968
+
+talk_time:
+ss_total=59679.757999999965, ss_within=59534.011999999624, ss_between=145.7459999999891
+df_total=1999, df_within=1996, df_between=3
+sum_sq=145.7459999999891, df=3, F=1.628811308735473, PR(>F)=0.1806686473689718
+
+// Conclusion: only continuous features battery_power,int_memory,mobile_wt,px_height,px_width,ram have significant influence on price_range  ( pvalue < 0.05 )

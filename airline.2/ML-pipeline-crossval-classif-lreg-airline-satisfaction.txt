@@ -1,5 +1,7 @@
 ---- Exploratory Data Analysis --------------
 
+spark.conf.set("spark.sql.shuffle.partitions",10)
+
 import org.apache.spark.sql.types._
 
 val schemaAnswer = new StructType().
@@ -29,7 +31,7 @@ add("deprt_delay_minutes", DoubleType).
 add("arrv_delay_minutes", DoubleType).
 add("satisfaction", StringType)
 
-val df = spark.read.format("csv").option("header","true").schema(schemaAnswer).load("airline/airline_satisfaction_train.csv")
+val df = spark.read.format("csv").option("header","true").schema(schemaAnswer).load("hdfs://hdpmst:9000/data/airline_satisfaction_train.csv")
 
 
 df.printSchema
@@ -63,219 +65,16 @@ root
 
 val df1 = df.drop("row","id").na.fill(0, Seq("arrv_delay_minutes"))
 
-df1.show(10)
-+------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+
-|gender|        cust_type| age|    travel_type|   class|flight_distance|inflight_wifi|deprt_arrv_time_conv|ease_online_booking|gate_location|food_and_drink|online_boarding|seat_comfort|inflight_entertain|onboard_service|legroom_service|baggage_handling|checkin_service|inflight_service|cleanliness|deprt_delay_minutes|arrv_delay_minutes|        satisfaction|
-+------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+
-|  Male|   Loyal Customer|13.0|Personal Travel|Eco Plus|          460.0|          3.0|                 4.0|                3.0|          1.0|           5.0|            3.0|         5.0|               5.0|            4.0|            3.0|             4.0|            4.0|             5.0|        5.0|               25.0|              18.0|neutral or dissat...|
-|  Male|disloyal Customer|25.0|Business travel|Business|          235.0|          3.0|                 2.0|                3.0|          3.0|           1.0|            3.0|         1.0|               1.0|            1.0|            5.0|             3.0|            1.0|             4.0|        1.0|                1.0|               6.0|neutral or dissat...|
-|Female|   Loyal Customer|26.0|Business travel|Business|         1142.0|          2.0|                 2.0|                2.0|          2.0|           5.0|            5.0|         5.0|               5.0|            4.0|            3.0|             4.0|            4.0|             4.0|        5.0|                0.0|               0.0|           satisfied|
-|Female|   Loyal Customer|25.0|Business travel|Business|          562.0|          2.0|                 5.0|                5.0|          5.0|           2.0|            2.0|         2.0|               2.0|            2.0|            5.0|             3.0|            1.0|             4.0|        2.0|               11.0|               9.0|neutral or dissat...|
-|  Male|   Loyal Customer|61.0|Business travel|Business|          214.0|          3.0|                 3.0|                3.0|          3.0|           4.0|            5.0|         5.0|               3.0|            3.0|            4.0|             4.0|            3.0|             3.0|        3.0|                0.0|               0.0|           satisfied|
-|Female|   Loyal Customer|26.0|Personal Travel|     Eco|         1180.0|          3.0|                 4.0|                2.0|          1.0|           1.0|            2.0|         1.0|               1.0|            3.0|            4.0|             4.0|            4.0|             4.0|        1.0|                0.0|               0.0|neutral or dissat...|
-|  Male|   Loyal Customer|47.0|Personal Travel|     Eco|         1276.0|          2.0|                 4.0|                2.0|          3.0|           2.0|            2.0|         2.0|               2.0|            3.0|            3.0|             4.0|            3.0|             5.0|        2.0|                9.0|              23.0|neutral or dissat...|
-|Female|   Loyal Customer|52.0|Business travel|Business|         2035.0|          4.0|                 3.0|                4.0|          4.0|           5.0|            5.0|         5.0|               5.0|            5.0|            5.0|             5.0|            4.0|             5.0|        4.0|                4.0|               0.0|           satisfied|
-|Female|   Loyal Customer|41.0|Business travel|Business|          853.0|          1.0|                 2.0|                2.0|          2.0|           4.0|            3.0|         3.0|               1.0|            1.0|            2.0|             1.0|            4.0|             1.0|        2.0|                0.0|               0.0|neutral or dissat...|
-|  Male|disloyal Customer|20.0|Business travel|     Eco|         1061.0|          3.0|                 3.0|                3.0|          4.0|           2.0|            3.0|         3.0|               2.0|            2.0|            3.0|             4.0|            4.0|             3.0|        2.0|                0.0|               0.0|neutral or dissat...|
-+------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+
-only showing top 10 rows
 
+// ----- logistic regression model hyperparameter tunning
 
-df1.describe().show
-+-------+------+-----------------+------------------+---------------+--------+------------------+------------------+--------------------+-------------------+------------------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+--------------------+
-|summary|gender|        cust_type|               age|    travel_type|   class|   flight_distance|     inflight_wifi|deprt_arrv_time_conv|ease_online_booking|     gate_location|    food_and_drink|  online_boarding|      seat_comfort|inflight_entertain|   onboard_service|   legroom_service|  baggage_handling|   checkin_service|  inflight_service|       cleanliness|deprt_delay_minutes|arrv_delay_minutes|        satisfaction|
-+-------+------+-----------------+------------------+---------------+--------+------------------+------------------+--------------------+-------------------+------------------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+--------------------+
-|  count|103904|           103904|            103904|         103904|  103904|            103904|            103904|              103904|             103904|            103904|            103904|           103904|            103904|            103904|            103904|            103904|            103904|            103904|            103904|            103904|             103904|            103904|              103904|
-|   mean|  null|             null|39.379706267323684|           null|    null|1189.4483754234677|  2.72968316907915|    3.06029604250077| 2.7569006005543577|2.9768825069294733|3.2021288882044963|3.250375346473668|3.4393959809054513| 3.358157530027718| 3.382362565445026|3.3510548198336925|3.6318332306744687| 3.304290498922082|3.6404277024946103|3.2863508623344626| 14.815618263012011|15.133392362180475|                null|
-| stddev|  null|             null|15.114963699737896|           null|    null| 997.1472805289565|1.3278294712362229|  1.5250751972834864|  1.398929472659151|1.2776210103002335| 1.329532710858201|1.349508953713335|1.3190875186173359| 1.332990714627123|1.2883543609017745| 1.315604619325567| 1.180903411075977|1.2653958269270715|1.1756630338758984|1.3122728470665397| 38.230900584141814| 38.64977613202412|                null|
-|    min|Female|   Loyal Customer|               7.0|Business travel|Business|              31.0|               0.0|                 0.0|                0.0|               0.0|               0.0|              0.0|               0.0|               0.0|               0.0|               0.0|               1.0|               0.0|               0.0|               0.0|                0.0|               0.0|neutral or dissat...|
-|    max|  Male|disloyal Customer|              85.0|Personal Travel|Eco Plus|            4983.0|               5.0|                 5.0|                5.0|               5.0|               5.0|              5.0|               5.0|               5.0|               5.0|               5.0|               5.0|               5.0|               5.0|               5.0|             1592.0|            1584.0|           satisfied|
-+-------+------+-----------------+------------------+---------------+--------+------------------+------------------+--------------------+-------------------+------------------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+------------------+-------------------+------------------+--------------------+
+val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
 
-df1.groupBy('gender).count.show
-+------+-----+
-|gender|count|
-+------+-----+
-|Female|52727|
-|  Male|51177|
-+------+-----+
+trainingData.cache
+testData.cache
 
-df1.groupBy('cust_type).count.show
-+-----------------+-----+
-|        cust_type|count|
-+-----------------+-----+
-|   Loyal Customer|84923|
-|disloyal Customer|18981|
-+-----------------+-----+
-
-df1.groupBy('travel_type).count.show
-+---------------+-----+
-|    travel_type|count|
-+---------------+-----+
-|Personal Travel|32249|
-|Business travel|71655|
-+---------------+-----+
-
-df1.groupBy('class).count.show
-+--------+-----+
-|   class|count|
-+--------+-----+
-|Eco Plus| 7494|
-|Business|49665|
-|     Eco|46745|
-+--------+-----+
-
-df1.groupBy('satisfaction).count.show
-+--------------------+-----+
-|        satisfaction|count|
-+--------------------+-----+
-|neutral or dissat...|58879|
-|           satisfied|45025|
-+--------------------+-----+
-
-
----- Feature extraction & Data Munging --------------
-
-import org.apache.spark.ml.feature.{StringIndexer, OneHotEncoder, VectorAssembler}
-
-val dfInd1 = new StringIndexer().setInputCol("gender").setOutputCol("gender_cat")
-val dfInd2 = new StringIndexer().setInputCol("cust_type").setOutputCol("cust_type_cat")
-val dfInd3 = new StringIndexer().setInputCol("travel_type").setOutputCol("travel_type_cat")
-val dfInd4 = new StringIndexer().setInputCol("class").setOutputCol("class_cat")
-val dfInd5 = new StringIndexer().setInputCol("satisfaction").setOutputCol("label")
-
-val dfOne1 = new OneHotEncoder().setInputCol("gender_cat").setOutputCol("gender_vect")
-val dfOne2 = new OneHotEncoder().setInputCol("cust_type_cat").setOutputCol("cust_type_vect")
-val dfOne3 = new OneHotEncoder().setInputCol("travel_type_cat").setOutputCol("travel_type_vect")
-val dfOne4 = new OneHotEncoder().setInputCol("class_cat").setOutputCol("class_vect")
-
-val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("gender_vect","cust_type_vect","age","travel_type_vect","class_vect","flight_distance","inflight_wifi","deprt_arrv_time_conv","ease_online_booking","gate_location","food_and_drink","online_boarding","seat_comfort","inflight_entertain","onboard_service","legroom_service","baggage_handling","checkin_service","inflight_service","cleanliness","deprt_delay_minutes","arrv_delay_minutes"))
-
-import org.apache.spark.ml.Pipeline
-val pipeline = new Pipeline().setStages(Array(dfInd1,dfInd2,dfInd3,dfInd4,dfInd5,dfOne1,dfOne2,dfOne3,dfOne4,va))
-
-val df2 = pipeline.fit(df1).transform(df1)
-
-df2.printSchema
-root
- |-- gender: string (nullable = true)
- |-- cust_type: string (nullable = true)
- |-- age: double (nullable = true)
- |-- travel_type: string (nullable = true)
- |-- class: string (nullable = true)
- |-- flight_distance: double (nullable = true)
- |-- inflight_wifi: double (nullable = true)
- |-- deprt_arrv_time_conv: double (nullable = true)
- |-- ease_online_booking: double (nullable = true)
- |-- gate_location: double (nullable = true)
- |-- food_and_drink: double (nullable = true)
- |-- online_boarding: double (nullable = true)
- |-- seat_comfort: double (nullable = true)
- |-- inflight_entertain: double (nullable = true)
- |-- onboard_service: double (nullable = true)
- |-- legroom_service: double (nullable = true)
- |-- baggage_handling: double (nullable = true)
- |-- checkin_service: double (nullable = true)
- |-- inflight_service: double (nullable = true)
- |-- cleanliness: double (nullable = true)
- |-- deprt_delay_minutes: double (nullable = true)
- |-- arrv_delay_minutes: double (nullable = false)
- |-- satisfaction: string (nullable = true)
- |-- gender_cat: double (nullable = false)
- |-- cust_type_cat: double (nullable = false)
- |-- travel_type_cat: double (nullable = false)
- |-- class_cat: double (nullable = false)
- |-- label: double (nullable = false)
- |-- gender_vect: vector (nullable = true)
- |-- cust_type_vect: vector (nullable = true)
- |-- travel_type_vect: vector (nullable = true)
- |-- class_vect: vector (nullable = true)
- |-- features: vector (nullable = true)
-
-df2.show(10)
-+------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+----------+-------------+---------------+---------+-----+-------------+--------------+----------------+-------------+--------------------+
-|gender|        cust_type| age|    travel_type|   class|flight_distance|inflight_wifi|deprt_arrv_time_conv|ease_online_booking|gate_location|food_and_drink|online_boarding|seat_comfort|inflight_entertain|onboard_service|legroom_service|baggage_handling|checkin_service|inflight_service|cleanliness|deprt_delay_minutes|arrv_delay_minutes|        satisfaction|gender_cat|cust_type_cat|travel_type_cat|class_cat|label|  gender_vect|cust_type_vect|travel_type_vect|   class_vect|            features|
-+------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+----------+-------------+---------------+---------+-----+-------------+--------------+----------------+-------------+--------------------+
-|  Male|   Loyal Customer|13.0|Personal Travel|Eco Plus|          460.0|          3.0|                 4.0|                3.0|          1.0|           5.0|            3.0|         5.0|               5.0|            4.0|            3.0|             4.0|            4.0|             5.0|        5.0|               25.0|              18.0|neutral or dissat...|       1.0|          0.0|            1.0|      2.0|  0.0|    (1,[],[])| (1,[0],[1.0])|       (1,[],[])|    (2,[],[])|[0.0,1.0,13.0,0.0...|
-|  Male|disloyal Customer|25.0|Business travel|Business|          235.0|          3.0|                 2.0|                3.0|          3.0|           1.0|            3.0|         1.0|               1.0|            1.0|            5.0|             3.0|            1.0|             4.0|        1.0|                1.0|               6.0|neutral or dissat...|       1.0|          1.0|            0.0|      0.0|  0.0|    (1,[],[])|     (1,[],[])|   (1,[0],[1.0])|(2,[0],[1.0])|[0.0,0.0,25.0,1.0...|
-|Female|   Loyal Customer|26.0|Business travel|Business|         1142.0|          2.0|                 2.0|                2.0|          2.0|           5.0|            5.0|         5.0|               5.0|            4.0|            3.0|             4.0|            4.0|             4.0|        5.0|                0.0|               0.0|           satisfied|       0.0|          0.0|            0.0|      0.0|  1.0|(1,[0],[1.0])| (1,[0],[1.0])|   (1,[0],[1.0])|(2,[0],[1.0])|[1.0,1.0,26.0,1.0...|
-|Female|   Loyal Customer|25.0|Business travel|Business|          562.0|          2.0|                 5.0|                5.0|          5.0|           2.0|            2.0|         2.0|               2.0|            2.0|            5.0|             3.0|            1.0|             4.0|        2.0|               11.0|               9.0|neutral or dissat...|       0.0|          0.0|            0.0|      0.0|  0.0|(1,[0],[1.0])| (1,[0],[1.0])|   (1,[0],[1.0])|(2,[0],[1.0])|[1.0,1.0,25.0,1.0...|
-|  Male|   Loyal Customer|61.0|Business travel|Business|          214.0|          3.0|                 3.0|                3.0|          3.0|           4.0|            5.0|         5.0|               3.0|            3.0|            4.0|             4.0|            3.0|             3.0|        3.0|                0.0|               0.0|           satisfied|       1.0|          0.0|            0.0|      0.0|  1.0|    (1,[],[])| (1,[0],[1.0])|   (1,[0],[1.0])|(2,[0],[1.0])|[0.0,1.0,61.0,1.0...|
-|Female|   Loyal Customer|26.0|Personal Travel|     Eco|         1180.0|          3.0|                 4.0|                2.0|          1.0|           1.0|            2.0|         1.0|               1.0|            3.0|            4.0|             4.0|            4.0|             4.0|        1.0|                0.0|               0.0|neutral or dissat...|       0.0|          0.0|            1.0|      1.0|  0.0|(1,[0],[1.0])| (1,[0],[1.0])|       (1,[],[])|(2,[1],[1.0])|[1.0,1.0,26.0,0.0...|
-|  Male|   Loyal Customer|47.0|Personal Travel|     Eco|         1276.0|          2.0|                 4.0|                2.0|          3.0|           2.0|            2.0|         2.0|               2.0|            3.0|            3.0|             4.0|            3.0|             5.0|        2.0|                9.0|              23.0|neutral or dissat...|       1.0|          0.0|            1.0|      1.0|  0.0|    (1,[],[])| (1,[0],[1.0])|       (1,[],[])|(2,[1],[1.0])|[0.0,1.0,47.0,0.0...|
-|Female|   Loyal Customer|52.0|Business travel|Business|         2035.0|          4.0|                 3.0|                4.0|          4.0|           5.0|            5.0|         5.0|               5.0|            5.0|            5.0|             5.0|            4.0|             5.0|        4.0|                4.0|               0.0|           satisfied|       0.0|          0.0|            0.0|      0.0|  1.0|(1,[0],[1.0])| (1,[0],[1.0])|   (1,[0],[1.0])|(2,[0],[1.0])|[1.0,1.0,52.0,1.0...|
-|Female|   Loyal Customer|41.0|Business travel|Business|          853.0|          1.0|                 2.0|                2.0|          2.0|           4.0|            3.0|         3.0|               1.0|            1.0|            2.0|             1.0|            4.0|             1.0|        2.0|                0.0|               0.0|neutral or dissat...|       0.0|          0.0|            0.0|      0.0|  0.0|(1,[0],[1.0])| (1,[0],[1.0])|   (1,[0],[1.0])|(2,[0],[1.0])|[1.0,1.0,41.0,1.0...|
-|  Male|disloyal Customer|20.0|Business travel|     Eco|         1061.0|          3.0|                 3.0|                3.0|          4.0|           2.0|            3.0|         3.0|               2.0|            2.0|            3.0|             4.0|            4.0|             3.0|        2.0|                0.0|               0.0|neutral or dissat...|       1.0|          1.0|            0.0|      1.0|  0.0|    (1,[],[])|     (1,[],[])|   (1,[0],[1.0])|(2,[1],[1.0])|[0.0,0.0,20.0,1.0...|
-+------+-----------------+----+---------------+--------+---------------+-------------+--------------------+-------------------+-------------+--------------+---------------+------------+------------------+---------------+---------------+----------------+---------------+----------------+-----------+-------------------+------------------+--------------------+----------+-------------+---------------+---------+-----+-------------+--------------+----------------+-------------+--------------------+
-only showing top 10 rows
-
-
-// calculate pearson correlation to check multicolinearity
-
-import org.apache.spark.ml.stat.Correlation
-import org.apache.spark.ml.linalg.Matrix
-import org.apache.spark.sql.Row
-
-val corr = Correlation.corr(df2, "features", "pearson").head match {
-   case Row(coeff: Matrix) => coeff
-}
-corr: org.apache.spark.ml.linalg.Matrix =
-1.0                     -0.0317317465529099    ... (25 total)
--0.0317317465529099     1.0                    ...
--0.008927810282423804   0.28167393898137355    ...
-0.006908874872918234    -0.308333220763768     ...
--0.010634439669487726   0.08560067091142325    ...
-0.00529511251789055     -0.11869373371437304   ...
--0.010634439669487726   0.08560067091142325    ...
-0.00529511251789055     -0.11869373371437304   ...
--0.005827556319261514   0.22520036519418768    ...
--0.008974280065802009   0.007542914458065942   ...
--0.009141828286325034   0.20686858177132855    ...
--0.006950690425877697   0.019509122350080538   ...
--3.3275356479646955E-4  -0.0060784715235066    ...
--0.005772191977188069   0.05945442663823566    ...
-0.042259537592161       0.1892...
-
-
-corr.toDense.rowIter.foreach( x => {
-  val size = x.size
-  for ( i <- Range(0,size)) { 
-    val elem = x(i)
-    print(f"$elem%.3f\t") 
-  }
-  println
-})
-// "gender_vect","cust_type_vect","age","travel_type_vect","class_vect","class_vect","flight_distance","inflight_wifi","deprt_arrv_time_conv","ease_online_booking","gate_location","food_and_drink","online_boarding","seat_comfort","inflight_entertain","onboard_service","legroom_service","baggage_handling","checkin_service","inflight_service","cleanliness","deprt_delay_minutes","arrv_delay_minutes"
-1.000   -0.032  -0.009  0.007   -0.011  0.005   -0.011  0.005   -0.006  -0.009  -0.009-0.007  -0.000  -0.006  0.042   0.027   -0.006  -0.008  -0.032  -0.037  -0.011  -0.039-0.007  -0.003  -0.000
--0.032  1.000   0.282   -0.308  0.086   -0.119  0.086   -0.119  0.225   0.008   0.2070.020    -0.006  0.059   0.189   0.159   0.110   0.057   0.048   -0.025  0.032   -0.0230.084   -0.004  -0.005
--0.009  0.282   1.000   0.049   0.139   -0.133  0.139   -0.133  0.099   0.018   0.0380.025    -0.001  0.023   0.209   0.160   0.076   0.058   0.041   -0.048  0.035   -0.0490.054   -0.010  -0.012
-0.007   -0.308  0.049   1.000   0.552   -0.501  0.552   -0.501  0.267   0.105   -0.2600.134   0.031   0.063   0.225   0.124   0.148   0.057   0.139   0.031   -0.017  0.0230.079    0.005   0.006
--0.011  0.086   0.139   0.552   1.000   -0.865  1.000   -0.865  0.467   0.033   -0.0970.107   0.005   0.087   0.331   0.233   0.199   0.221   0.213   0.171   0.163   0.1660.139    -0.010  -0.015
-0.005   -0.119  -0.133  -0.501  -0.865  1.000   -0.865  1.000   -0.404  -0.037  0.082-0.098   -0.003  -0.079  -0.293  -0.206  -0.176  -0.184  -0.182  -0.139  -0.130  -0.136-0.123  0.008   0.011
--0.011  0.086   0.139   0.552   1.000   -0.865  1.000   -0.865  0.467   0.033   -0.0970.107   0.005   0.087   0.331   0.233   0.199   0.221   0.213   0.171   0.163   0.1660.139    -0.010  -0.015
-0.005   -0.119  -0.133  -0.501  -0.865  1.000   -0.865  1.000   -0.404  -0.037  0.082-0.098   -0.003  -0.079  -0.293  -0.206  -0.176  -0.184  -0.182  -0.139  -0.130  -0.136-0.123  0.008   0.011
--0.006  0.225   0.099   0.267   0.467   -0.404  0.467   -0.404  1.000   0.007   -0.0200.066   0.005   0.057   0.215   0.157   0.129   0.110   0.134   0.063   0.073   0.0580.093    0.002   -0.002
--0.009  0.008   0.018   0.105   0.033   -0.037  0.033   -0.037  0.007   1.000   0.3440.716    0.336   0.135   0.457   0.123   0.209   0.121   0.160   0.121   0.043   0.1100.133    -0.017  -0.019
--0.009  0.207   0.038   -0.260  -0.097  0.082   -0.097  0.082   -0.020  0.344   1.0000.437    0.445   0.005   0.070   0.011   -0.005  0.069   0.012   0.072   0.093   0.0730.014    0.001   -0.001
--0.007  0.020   0.025   0.134   0.107   -0.098  0.107   -0.098  0.066   0.716   0.4371.000    0.459   0.032   0.404   0.030   0.047   0.039   0.108   0.039   0.011   0.0350.016    -0.006  -0.008
--0.000  -0.006  -0.001  0.031   0.005   -0.003  0.005   -0.003  0.005   0.336   0.4450.459    1.000   -0.001  0.002   0.004   0.004   -0.028  -0.006  0.002   -0.035  0.002-0.004   0.005   0.005
--0.006  0.059   0.023   0.063   0.087   -0.079  0.087   -0.079  0.057   0.135   0.0050.032    -0.001  1.000   0.234   0.575   0.623   0.059   0.032   0.035   0.087   0.0340.658    -0.030  -0.032
-0.042   0.189   0.209   0.225   0.331   -0.293  0.331   -0.293  0.215   0.457   0.0700.404    0.002   0.234   1.000   0.420   0.285   0.155   0.124   0.083   0.204   0.0750.332    -0.019  -0.022
-0.027   0.159   0.160   0.124   0.233   -0.206  0.233   -0.206  0.157   0.123   0.0110.030    0.004   0.575   0.420   1.000   0.611   0.132   0.106   0.075   0.192   0.0690.679    -0.028  -0.030
--0.006  0.110   0.076   0.148   0.199   -0.176  0.199   -0.176  0.129   0.209   -0.0050.047   0.004   0.623   0.285   0.611   1.000   0.420   0.300   0.378   0.121   0.4050.692    -0.027  -0.031
--0.008  0.057   0.058   0.057   0.221   -0.184  0.221   -0.184  0.110   0.121   0.0690.039    -0.028  0.059   0.155   0.132   0.420   1.000   0.355   0.519   0.244   0.5510.123    -0.032  -0.035
--0.032  0.048   0.041   0.139   0.213   -0.182  0.213   -0.182  0.134   0.160   0.0120.108    -0.006  0.032   0.124   0.106   0.300   0.355   1.000   0.370   0.153   0.3690.096    0.014   0.012
--0.037  -0.025  -0.048  0.031   0.171   -0.139  0.171   -0.139  0.063   0.121   0.0720.039    0.002   0.035   0.083   0.075   0.378   0.519   0.370   1.000   0.233   0.6290.096    -0.006  -0.009
--0.011  0.032   0.035   -0.017  0.163   -0.130  0.163   -0.130  0.073   0.043   0.0930.011    -0.035  0.087   0.204   0.192   0.121   0.244   0.153   0.233   1.000   0.2370.180    -0.018  -0.020
--0.039  -0.023  -0.049  0.023   0.166   -0.136  0.166   -0.136  0.058   0.110   0.0730.035    0.002   0.034   0.075   0.069   0.405   0.551   0.369   0.629   0.237   1.0000.089    -0.055  -0.059
--0.007  0.084   0.054   0.079   0.139   -0.123  0.139   -0.123  0.093   0.133   0.0140.016    -0.004  0.658   0.332   0.679   0.692   0.123   0.096   0.096   0.180   0.0891.000    -0.014  -0.016
--0.003  -0.004  -0.010  0.005   -0.010  0.008   -0.010  0.008   0.002   -0.017  0.001-0.006   0.005   -0.030  -0.019  -0.028  -0.027  -0.032  0.014   -0.006  -0.018  -0.055-0.014  1.000   0.960
--0.000  -0.005  -0.012  0.006   -0.015  0.011   -0.015  0.011   -0.002  -0.019  -0.001-0.008  0.005   -0.032  -0.022  -0.030  -0.031  -0.035  0.012   -0.009  -0.020  -0.059-0.016  0.960   1.000
-
-// deprt_delay_minutes x arrv_delay_minutes = 0.960 is multicolinear
-
-
-// ----- building the logistic regression model
+import org.apache.spark.ml.feature.RFormula
+val rf = new RFormula().setFormula("satisfaction ~ .")
 
 import org.apache.spark.ml.feature.StandardScaler
 val stdScaler = new StandardScaler().
@@ -285,107 +84,7 @@ setInputCol("features").
 setOutputCol("scaledFeatures")
 
 import org.apache.spark.ml.classification.LogisticRegression
-val lr = new LogisticRegression
-lr.setRegParam(0.01).setMaxIter(100).setFitIntercept(true).setFeaturesCol("scaledFeatures")
-
-import org.apache.spark.ml.Pipeline
-val pipeline = new Pipeline().setStages(Array(dfInd1,dfInd2,dfInd3,dfInd4,dfInd5,dfOne1,dfOne2,dfOne3,dfOne4,va,stdScaler,lr))
-
-val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
-
-trainingData.cache
-testData.cache
-
-val model = pipeline.fit(trainingData)
-
--- collecting feature importance
-
-import org.apache.spark.ml.classification.LogisticRegressionModel
-
-val lrmodel = model.stages.last.asInstanceOf[LogisticRegressionModel]
-
-val featureImp = va.getInputCols.zip(lrmodel.coefficients.toArray)
-
-val columns = Array("feature", "Importance")
-val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
-
-featureImpDF.orderBy($"Importance".desc).show()
-+--------------------+--------------------+
-|             feature|          Importance|
-+--------------------+--------------------+
-|    travel_type_vect|  1.0215528418309028|
-|        seat_comfort|  0.7289878916464761|
-|      cust_type_vect|  0.6217523073546813|
-|deprt_arrv_time_conv| 0.45767022833873355|
-|          class_vect| 0.35590068161989635|
-|    inflight_service| 0.35134442091506857|
-|     legroom_service|  0.3242197204053073|
-|    baggage_handling| 0.30454835423042365|
-| deprt_delay_minutes|  0.2281155104482884|
-|     checkin_service| 0.15316343482552897|
-|     onboard_service| 0.14027753866041903|
-|         cleanliness| 0.11993490385049377|
-|  inflight_entertain|   0.107965803761742|
-|       inflight_wifi| 0.03450243702777187|
-|      food_and_drink|0.006640106718190264|
-|  arrv_delay_minutes|-0.01179168785181...|
-|     online_boarding|-0.01368424102225752|
-|         gender_vect|-0.02832826870017635|
-|                 age|-0.06558862558509894|
-|     flight_distance|-0.06773330224293293|
-+--------------------+--------------------+
-only showing top 20 rows
-
-// -----  metrics extracted from model
-
-import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
-
-val trainingSummary = lrmodel.summary
-
-trainingSummary.objectiveHistory
-res9: Array[Double] = Array(0.6844802693648544, 0.39530000099950646, 0.38148134695396785, 0.3545699326546278, 0.3497591426459991, 0.349108743360428, 0.348897856471794, 0.34881331828971723, 0.3487794129908112, 0.34876544083619937, 0.3487608046183152, 0.3487582959483786, 0.34875720204351174, 0.34875663497333276, 0.34875630778278177, 0.3487561368088215, 0.34875602267799866, 0.3487560023043367, 0.3487559966365055, 0.3487559937613098, 0.3487559912996376, 0.3487559909477904, 0.34875599073004176, 0.3487559906987205, 0.3487559906789569, 0.3487559906750494, 0.34875599067243057)
-
-val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
-
-binarySummary.areaUnderROC
-res10: Double = 0.9272245350566056
-
-binarySummary.accuracy
-res11: Double = 0.8762118947382855
-
-
-// -----  metrics on test data
-
-val pred = model.transform(testData)
-
-import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-val bceval = new BinaryClassificationEvaluator()
-
-bceval.setMetricName("areaUnderROC").evaluate(pred)
-res12: Double = 0.9243453358826399
-
-bceval.setMetricName("areaUnderPR").evaluate(pred)
-res13: Double = 0.9283680418538359
-
-val predRDD = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
-
-import org.apache.spark.mllib.evaluation.MulticlassMetrics
-val metrics = new MulticlassMetrics(predRDD)
-
-metrics.accuracy
-res15: Double = 0.8716632774926568
-
-metrics.confusionMatrix
-res14: org.apache.spark.mllib.linalg.Matrix =
-15880.0  2232.0
-1744.0   11125.0
-
-
-// ----- logistic regression model hyperparameter tunning
-
-import org.apache.spark.ml.classification.LogisticRegression
-
-val lr = new LogisticRegression
+val lr = new LogisticRegression().setFeaturesCol("scaledFeatures")
 
 import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
 
@@ -404,7 +103,7 @@ setEstimatorParamMaps(paramGrid).
 setNumFolds(3)
 
 import org.apache.spark.ml.Pipeline
-val pipeline = new Pipeline().setStages(Array(dfInd1,dfInd2,dfInd3,dfInd4,dfInd5,dfOne1,dfOne2,dfOne3,dfOne4,va,stdScaler,cv))
+val pipeline = new Pipeline().setStages(Array(rf,stdScaler,cv))
 val pipelinemodel = pipeline.fit(trainingData)
 
 import org.apache.spark.ml.tuning.CrossValidatorModel
@@ -413,29 +112,29 @@ val cvmodel = pipelinemodel.stages.last.asInstanceOf[CrossValidatorModel]
 -- CV hyperparameter evaluation
 
 cvmodel.getEstimatorParamMaps.zip(cvmodel.avgMetrics)
-res26: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
+res27: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
 Array(({
-        logreg_b84d452d337f-fitIntercept: true,
-        logreg_b84d452d337f-maxIter: 10,
-        logreg_b84d452d337f-regParam: 1.0
-},0.911223804973201), ({
-        logreg_b84d452d337f-fitIntercept: true,
-        logreg_b84d452d337f-maxIter: 20,
-        logreg_b84d452d337f-regParam: 1.0
-},0.9090533277650592), ({
-        logreg_b84d452d337f-fitIntercept: true,
-        logreg_b84d452d337f-maxIter: 40,
-        logreg_b84d452d337f-regParam: 1.0
-},0.9090534081054563), ({
-        logreg_b84d452d337f-fitIntercept: true,
-        logreg_b84d452d337f-maxIter: 100,
-        logreg_b84d452d337f-regParam: 1.0
-},0.9090534081054513), ({
-        logreg_b84d452d337f-fitIntercept: false,
-        logreg_b84d452d337f-maxIter: 10,
-        logreg_b84d452d337f-regParam: 1.0
-},0.8468670425494605), ({
-        logreg_b84d452d337f-fitIntercept: false,
+        logreg_a9d732af22f4-fitIntercept: true,
+        logreg_a9d732af22f4-maxIter: 10,
+        logreg_a9d732af22f4-regParam: 1.0
+},0.9100156502798381), ({
+        logreg_a9d732af22f4-fitIntercept: true,
+        logreg_a9d732af22f4-maxIter: 20,
+        logreg_a9d732af22f4-regParam: 1.0
+},0.9078227752487081), ({
+        logreg_a9d732af22f4-fitIntercept: true,
+        logreg_a9d732af22f4-maxIter: 40,
+        logreg_a9d732af22f4-regParam: 1.0
+},0.9078229564123802), ({
+        logreg_a9d732af22f4-fitIntercept: true,
+        logreg_a9d732af22f4-maxIter: 100,
+        logreg_a9d732af22f4-regParam: 1.0
+},0.9078229564123799), ({
+        logreg_a9d732af22f4-fitIntercept: false,
+        logreg_a9d732af22f4-maxIter: 10,
+        logreg_a9d732af22f4-regParam: 1.0
+},0.846377900312803), ({
+        logreg_a9d732af22f4-fitIntercept: false,
         log...
 
 -- extract best LR model 
@@ -447,7 +146,7 @@ lrmodel.getRegParam
 res27: Double = 0.001
 
 lrmodel.getMaxIter
-res28: Int = 40
+res28: Int = 100
 
 lrmodel.getThreshold
 res29: Double = 0.5
@@ -457,37 +156,38 @@ res31: Boolean = true
 
 -- collecting feature importance
 
-val featureImp = va.getInputCols.zip(lrmodel.coefficients.toArray)
+val featureImp = df1.columns.diff(Array("satisfaction")).zip(lrmodel.coefficients.toArray)
 
 val columns = Array("feature", "Importance")
 val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
 
-featureImpDF.orderBy($"Importance".desc).show()
-+--------------------+--------------------+
-|             feature|          Importance|
-+--------------------+--------------------+
-|    travel_type_vect|  2.6576668929301746|
-|      cust_type_vect|  1.9873662508799534|
-|          class_vect|  0.8530125976978957|
-|        seat_comfort|   0.612453694923295|
-|deprt_arrv_time_conv| 0.39681328335205557|
-|    inflight_service| 0.32128960361697995|
-|     legroom_service| 0.29287204035308306|
-|    baggage_handling| 0.24923018787557905|
-| deprt_delay_minutes| 0.20719576139990714|
-|     checkin_service| 0.14673287127172757|
-|         cleanliness|  0.1128314861694406|
-|     flight_distance| 0.09051446112394113|
-|     onboard_service| 0.07501916087239026|
-|  inflight_entertain| 0.06449667941446328|
-|      food_and_drink| 0.02174494887690962|
-|  arrv_delay_minutes|0.003078021912630...|
-|       inflight_wifi|-1.11327000038237...|
-|                 age|-0.00788069481501...|
-|     online_boarding|-0.02011319265055...|
-|         gender_vect|-0.05003872341699...|
-+--------------------+--------------------+
-only showing top 20 rows
+featureImpDF.orderBy($"Importance".desc).show(40,false)
++--------------------+---------------------+
+|feature             |Importance           |
++--------------------+---------------------+
+|travel_type         |2.647379573235071    |
+|cust_type           |2.0011764473380764   |
+|class               |0.8252103045480773   |
+|seat_comfort        |0.5951515654940599   |
+|deprt_arrv_time_conv|0.3962765191347493   |
+|inflight_service    |0.32188493208598207  |
+|legroom_service     |0.30098167128965797  |
+|baggage_handling    |0.24589393760137077  |
+|deprt_delay_minutes |0.21470943673696455  |
+|checkin_service     |0.12872010826488225  |
+|cleanliness         |0.11260126528893526  |
+|flight_distance     |0.08466993568496721  |
+|onboard_service     |0.0747879662754752   |
+|inflight_entertain  |0.06343630247913279  |
+|food_and_drink      |0.018278451350663014 |
+|arrv_delay_minutes  |0.0031691042625777515|
+|inflight_wifi       |-8.159552842680517E-6|
+|age                 |-0.00801352035253202 |
+|online_boarding     |-0.021023785979270498|
+|gender              |-0.02134560105521755 |
+|ease_online_booking |-0.1282320239076263  |
+|gate_location       |-0.1384714587677391  |
++--------------------+---------------------+
 
 
 import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
@@ -495,15 +195,15 @@ import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
 val trainingSummary = lrmodel.summary
 
 trainingSummary.objectiveHistory
-res33: Array[Double] = Array(0.6844802693648544, 0.6690699474029421, 0.6288591523917799, 0.4829653174386856, 0.4629314537918787, 0.4432425076164708, 0.43235930991405813, 0.42326301212627027, 0.4147618593315495, 0.4063830935288138, 0.39447742009030695, 0.3818704482496754, 0.3806152292966309, 0.37310474633318474, 0.3686989058396449, 0.35966775535147494, 0.3429061660133399, 0.34035825541726583, 0.33668424123912216, 0.3360234764181677, 0.33564169212717404, 0.3350665284135161, 0.3345622670673753, 0.33440369000821946, 0.3342057524694384, 0.33417952231943443, 0.3341559811965998, 0.3341352014172462, 0.33411114394064034, 0.3340947451513747, 0.33407227065852496, 0.3340482004821683, 0.3340310222668824, 0.3340180960429374, 0.3340045121947517, 0.33400125032648964, 0.33399812080304164, 0.333988285110...
+res32: Array[Double] = Array(0.684599692030566, 0.6691971595575897, 0.6289025513262314, 0.4836472315903916, 0.4638116307226653, 0.4441397379416355, 0.43303848342077733, 0.423864347454159, 0.41562013462964564, 0.40768189045624914, 0.39627942391820986, 0.3839970942877035, 0.38282192198625287, 0.37564696749798987, 0.3712945642904742, 0.36244571918243057, 0.3460539138440497, 0.3432110292579338, 0.3393136492071921, 0.33858467175735646, 0.33816920099607667, 0.3375058023537454, 0.33694576642452373, 0.3366521677810529, 0.3366512854162152, 0.3366208630908065, 0.3366043716990632, 0.3365553677425935, 0.3365293449680874, 0.33648040381839783, 0.33647287858190633, 0.3364585981931625, 0.33644305290637927, 0.33641729902607115, 0.33641350386942187, 0.33641244857450037, 0.3364082096256923, 0.336406935641...
 
 val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
 
 binarySummary.areaUnderROC
-res34: Double = 0.9277171022648059
+res34: Double = 0.9267683647028008
 
 binarySummary.accuracy
-res35: Double = 0.8767741316182823
+res35: Double = 0.8744018974759731
 
 -- collecting metric performance
 
@@ -512,10 +212,10 @@ val pred = pipelinemodel.transform(testData)
 val bceval = new BinaryClassificationEvaluator()
 
 bceval.setMetricName("areaUnderROC").evaluate(pred)
-res36: Double = 0.9248339856650016
+res36: Double = 0.9267589225858791
 
 bceval.setMetricName("areaUnderPR").evaluate(pred)
-res37: Double = 0.9287203586129098
+res37: Double = 0.9307019505696879
 
 val predRDD = pred.select("prediction","label").rdd.map( row => (row.getDouble(0),row.getDouble(1))).cache
 
@@ -523,9 +223,58 @@ import org.apache.spark.mllib.evaluation.MulticlassMetrics
 val metrics = new MulticlassMetrics(predRDD)
 
 metrics.accuracy
-res40: Double = 0.871986055969788
+res40: Double = 0.8771516227999354
 
 metrics.confusionMatrix
 res38: org.apache.spark.mllib.linalg.Matrix =
-15862.0  1762.0
-2204.0   11153.0
+16003.0  1645.0
+2159.0   11158.0
+
+
+// ----- building reduced logistic regression model
+
+import org.apache.spark.ml.feature.RFormula
+val rf = new RFormula().setFormula("satisfaction ~ travel_type + cust_type + class + seat_confort")
+
+import org.apache.spark.ml.feature.StandardScaler
+val stdScaler = new StandardScaler().
+setWithStd(true).
+setWithMean(true).
+setInputCol("features").
+setOutputCol("scaledFeatures")
+
+import org.apache.spark.ml.classification.LogisticRegression
+val lr = new LogisticRegression
+lr.setRegParam(0.001).setMaxIter(100).setFitIntercept(true).setFeaturesCol("scaledFeatures")
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(rf,stdScaler,lr))
+
+val model = pipeline.fit(trainingData)
+
+// -----  metrics on test data
+
+val pred = model.transform(testData)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res12: Double = 0.871030928061399
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res13: Double = 0.8702017347911732
+
+val predRDD = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(predRDD)
+
+metrics.accuracy
+res15: Double = 0.8042628774422735
+
+metrics.confusionMatrix
+res46: org.apache.spark.mllib.linalg.Matrix =
+14535.0  2948.0
+3113.0   10369.0
+

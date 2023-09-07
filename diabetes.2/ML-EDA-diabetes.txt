@@ -1,0 +1,219 @@
+---- Exploratory Data Analysis --------------
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("staging/diabetes.csv")
+
+df.printSchema
+root
+ |-- Pregnancies: integer (nullable = true)
+ |-- Glucose: integer (nullable = true)
+ |-- BloodPressure: integer (nullable = true)
+ |-- SkinThickness: integer (nullable = true)
+ |-- Insulin: integer (nullable = true)
+ |-- BMI: double (nullable = true)
+ |-- DiabetesPedigreeFunction: double (nullable = true)
+ |-- Age: integer (nullable = true)
+ |-- Outcome: integer (nullable = true)
+ 
+df.show(10)
++-----------+-------+-------------+-------------+-------+----+------------------------+---+-------+
+|Pregnancies|Glucose|BloodPressure|SkinThickness|Insulin| BMI|DiabetesPedigreeFunction|Age|Outcome|
++-----------+-------+-------------+-------------+-------+----+------------------------+---+-------+
+|          6|    148|           72|           35|      0|33.6|                   0.627| 50|      1|
+|          1|     85|           66|           29|      0|26.6|                   0.351| 31|      0|
+|          8|    183|           64|            0|      0|23.3|                   0.672| 32|      1|
+|          1|     89|           66|           23|     94|28.1|                   0.167| 21|      0|
+|          0|    137|           40|           35|    168|43.1|                   2.288| 33|      1|
+|          5|    116|           74|            0|      0|25.6|                   0.201| 30|      0|
+|          3|     78|           50|           32|     88|31.0|                   0.248| 26|      1|
+|         10|    115|            0|            0|      0|35.3|                   0.134| 29|      0|
+|          2|    197|           70|           45|    543|30.5|                   0.158| 53|      1|
+|          8|    125|           96|            0|      0| 0.0|                   0.232| 54|      1|
++-----------+-------+-------------+-------------+-------+----+------------------------+---+-------+
+ 
+df.describe().show
++-------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------------+------------------+------------------+
+|summary|       Pregnancies|          Glucose|     BloodPressure|     SkinThickness|           Insulin|               BMI|DiabetesPedigreeFunction|               Age|           Outcome|
++-------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------------+------------------+------------------+
+|  count|               768|              768|               768|               768|               768|               768|                     768|               768|               768|
+|   mean|3.8450520833333335|     120.89453125|       69.10546875|20.536458333333332| 79.79947916666667|31.992578124999977|      0.4718763020833327|33.240885416666664|0.3489583333333333|
+| stddev|  3.36957806269887|31.97261819513622|19.355807170644777|15.952217567727642|115.24400235133803| 7.884160320375441|       0.331328595012775|11.760231540678689| 0.476951377242799|
+|    min|                 0|                0|                 0|                 0|                 0|               0.0|                   0.078|                21|                 0|
+|    max|                17|              199|               122|                99|               846|              67.1|                    2.42|                81|                 1|
++-------+------------------+-----------------+------------------+------------------+------------------+------------------+------------------------+------------------+------------------+
+
+// Examine Pregnancies distribution
+
+df.select(skewness('Pregnancies),kurtosis('Pregnancies)).show
++---------------------+---------------------+
+|skewness(Pregnancies)|kurtosis(Pregnancies)|
++---------------------+---------------------+
+|   0.8999119408414356|  0.15038273760948373|
++---------------------+---------------------+
+
+df.select('Pregnancies).rdd.map( row => row.getInt(0)).histogram(10)
+res10: (Array[Double], Array[Long]) = (Array(0.0, 1.7, 3.4, 5.1, 6.8, 8.5, 10.2, 11.9, 13.6, 15.3, 17.0),
+                                       Array(246, 178, 125, 50, 83, 52, 11, 19, 3, 1))
+
+// Examine Insulin distribution
+
+df.select(skewness('Insulin),kurtosis('Insulin)).show
++------------------+------------------+
+| skewness(Insulin)| kurtosis(Insulin)|
++------------------+------------------+
+|2.2678104585131846|7.1595749169714775|
++------------------+------------------+
+
+df.select('Insulin).rdd.map( row => row.getInt(0)).histogram(10)
+res5: (Array[Double], Array[Long]) = (Array(0.0, 84.6, 169.2, 253.8, 338.4, 423.0, 507.6, 592.2, 676.8, 761.4, 846.0),
+                                      Array(487, 155, 70, 30, 8, 9, 5, 1, 2, 1))
+
+df.select(sqrt('Insulin)).rdd.map( row => row.getDouble(0)).histogram(10)
+res6: (Array[Double], Array[Long]) = (Array(0.0, 2.908607914449797, 5.817215828899594, 8.725823743349391, 11.634431657799189, 14.543039572248986, 17.451647486698782, 20.36025540114858, 23.268863315598377, 26.177471230048173, 29.086079144497972),
+                                      Array(374, 11, 88, 122, 98, 39, 17, 12, 5, 2))
+
+df.select(skewness(sqrt('Insulin)),kurtosis(sqrt('Insulin))).show
++-----------------------+-----------------------+
+|skewness(SQRT(Insulin))|kurtosis(SQRT(Insulin))|
++-----------------------+-----------------------+
+|     0.6287243885201799|    -0.6192895558690514|
++-----------------------+-----------------------+
+
+df.groupBy("Outcome").count.show
++-------+-----+
+|Outcome|count|
++-------+-----+
+|      1|  268|
+|      0|  500|
++-------+-----+
+
+---- Feature extraction & Data Munging --------------
+
+val df1 = df.withColumn("sqrt_insulin", sqrt('Insulin))
+
+import org.apache.spark.ml.feature.{VectorAssembler}
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("Pregnancies","Glucose","BloodPressure","SkinThickness","sqrt_insulin","BMI","DiabetesPedigreeFunction","Age"))
+val df2 = va.transform(df1)
+
+df2.printSchema
+root
+ |-- Pregnancies: integer (nullable = true)
+ |-- Glucose: integer (nullable = true)
+ |-- BloodPressure: integer (nullable = true)
+ |-- SkinThickness: integer (nullable = true)
+ |-- Insulin: integer (nullable = true)
+ |-- BMI: double (nullable = true)
+ |-- DiabetesPedigreeFunction: double (nullable = true)
+ |-- Age: integer (nullable = true)
+ |-- Outcome: integer (nullable = true)
+ |-- sqrt_insulin: double (nullable = true)
+ |-- features: vector (nullable = true)
+
+df2.show(10)
++-----------+-------+-------------+-------------+-------+----+------------------------+---+-------+------------------+--------------------+
+|Pregnancies|Glucose|BloodPressure|SkinThickness|Insulin| BMI|DiabetesPedigreeFunction|Age|Outcome|      sqrt_insulin|            features|
++-----------+-------+-------------+-------------+-------+----+------------------------+---+-------+------------------+--------------------+
+|          6|    148|           72|           35|      0|33.6|                   0.627| 50|      1|               0.0|[6.0,148.0,72.0,3...|
+|          1|     85|           66|           29|      0|26.6|                   0.351| 31|      0|               0.0|[1.0,85.0,66.0,29...|
+|          8|    183|           64|            0|      0|23.3|                   0.672| 32|      1|               0.0|[8.0,183.0,64.0,0...|
+|          1|     89|           66|           23|     94|28.1|                   0.167| 21|      0| 9.695359714832659|[1.0,89.0,66.0,23...|
+|          0|    137|           40|           35|    168|43.1|                   2.288| 33|      1| 12.96148139681572|[0.0,137.0,40.0,3...|
+|          5|    116|           74|            0|      0|25.6|                   0.201| 30|      0|               0.0|[5.0,116.0,74.0,0...|
+|          3|     78|           50|           32|     88|31.0|                   0.248| 26|      1|  9.38083151964686|[3.0,78.0,50.0,32...|
+|         10|    115|            0|            0|      0|35.3|                   0.134| 29|      0|               0.0|[10.0,115.0,0.0,0...|
+|          2|    197|           70|           45|    543|30.5|                   0.158| 53|      1|23.302360395462088|[2.0,197.0,70.0,4...|
+|          8|    125|           96|            0|      0| 0.0|                   0.232| 54|      1|               0.0|[8.0,125.0,96.0,0...|
++-----------+-------+-------------+-------------+-------+----+------------------------+---+-------+------------------+--------------------+
+only showing top 10 rows
+
+
+// calculate pearson correlation to check multicolinearity
+
+import org.apache.spark.ml.stat.Correlation
+import org.apache.spark.ml.linalg.Matrix
+import org.apache.spark.sql.Row
+
+val corr = Correlation.corr(df2, "features", "pearson").head match {
+   case Row(coeff: Matrix) => coeff
+}
+corr: org.apache.spark.ml.linalg.Matrix =
+1.0                   0.12945867149927204  0.14128197740713902  ... (8 total)
+0.12945867149927204   1.0                  0.15258958656864816  ...
+0.14128197740713902   0.15258958656864816  1.0                  ...
+-0.08167177444900785  0.05732789073817112  0.20737053840306674  ...
+-0.11807741211973727  0.2385194171107807   0.09741194650621711  ...
+0.017683090727835644  0.22107106945896476  0.28180528884988704  ...
+-0.03352267296261374  0.1373372998283667   0.04126494793008884  ...
+0.5443412284023383    0.26351431982434326  0.2395279464213733   ...
+
+
+corr.toDense.rowIter.foreach( x => {
+  val size = x.size
+  for ( i <- Range(0,size)) { 
+    val elem = x(i)
+    print(f"$elem%.3f\t") 
+  }
+  println
+})
+// "Pregnancies","Glucose","BloodPressure","SkinThickness","sqrt_insulin","BMI","DiabetesPedigreeFunction","Age"
+1.000   0.129   0.141   -0.082  -0.118  0.018   -0.034  0.544
+0.129   1.000   0.153   0.057   0.239   0.221   0.137   0.264
+0.141   0.153   1.000   0.207   0.097   0.282   0.041   0.240
+-0.082  0.057   0.207   1.000   0.535   0.393   0.184   -0.114
+-0.118  0.239   0.097   0.535   1.000   0.191   0.192   -0.120
+0.018   0.221   0.282   0.393   0.191   1.000   0.141   0.036
+-0.034  0.137   0.041   0.184   0.192   0.141   1.000   0.034
+0.544   0.264   0.240   -0.114  -0.120  0.036   0.034   1.000
+
+// there is NO evidence of multicolinearity
+
+
+// Examining correlation for categories variables against Outcome
+
+:load anova_table.scala
+
+val listcols = df1.columns.diff(Array("Outcome","Insulin"))
+listcols: Array[String] = Array(Pregnancies, Glucose, BloodPressure, SkinThickness, BMI, DiabetesPedigreeFunction, Age, sqrt_insulin)
+
+listcols.map( x => anova_table(df1,"Outcome",x) )
+
+Pregnancies:
+ss_total=8708.561197916628, ss_within=8279.76217910448, ss_between=428.7990188121879
+df_total=767, df_within=766, df_between=1                                       
+sum_sq=428.7990188121879, df=1, F=39.67022739361596, PR(>F)=5.065127206549391E-10
+
+Glucose:
+ss_total=784064.45703125, ss_within=613375.0350746268, ss_between=170689.42195662385
+df_total=767, df_within=766, df_between=1                                       
+sum_sq=170689.42195662385, df=1, F=213.16175217803948, PR(>F)=0.0
+
+BloodPressure:
+ss_total=287354.45703125, ss_within=286137.82946268655, ss_between=1216.627568563444
+df_total=767, df_within=766, df_between=1                                       
+sum_sq=1216.627568563444, df=1, F=3.2569503978890215, PR(>F)=0.07151390009774627
+
+SkinThickness:
+ss_total=195180.97916666768, ss_within=194090.3281194035, ss_between=1090.651047263683
+df_total=767, df_within=766, df_between=1                                       
+sum_sq=1090.651047263683, df=1, F=4.30438090500843, PR(>F)=0.038347704820481554
+
+BMI:
+ss_total=47676.707695312434, ss_within=43592.23625462684, ss_between=4084.4714406856415
+df_total=767, df_within=766, df_between=1
+sum_sq=4084.4714406856415, df=1, F=71.77207210224557, PR(>F)=1.1102230246251565E-16
+
+DiabetesPedigreeFunction:
+ss_total=84.2002152486979, ss_within=81.65553662200003, ss_between=2.5446786266979027
+df_total=767, df_within=766, df_between=1
+sum_sq=2.5446786266979027, df=1, F=23.87130020434431, PR(>F)=1.2546070101704387E-6
+
+Age:
+ss_total=106078.4361979166, ss_within=100051.74104477618, ss_between=6026.695153140546
+df_total=767, df_within=766, df_between=1                                       
+sum_sq=6026.695153140546, df=1, F=46.140611238735545, PR(>F)=2.209976646128098E-11
+
+sqrt_insulin:
+ss_total=33357.17543417143, ss_within=33182.59992379919, ss_between=174.57551037221668
+df_total=767, df_within=766, df_between=1
+sum_sq=174.57551037221668, df=1, F=4.029968756282052, PR(>F)=0.045049560117661036
+
+// Conclusion: all continuous features has significant influence on the Outcome except BloodPressure  ( pvalue < 0.05 )

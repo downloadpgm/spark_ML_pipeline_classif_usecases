@@ -1,0 +1,463 @@
+---- Exploratory Data Analysis --------------
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("staging/ml_project1_data.csv")
+
+df.printSchema
+root
+ |-- ID: integer (nullable = true)
+ |-- Year_Birth: integer (nullable = true)
+ |-- Education: string (nullable = true)
+ |-- Marital_Status: string (nullable = true)
+ |-- Income: integer (nullable = true)
+ |-- Kidhome: integer (nullable = true)
+ |-- Teenhome: integer (nullable = true)
+ |-- Dt_Customer: timestamp (nullable = true)
+ |-- Recency: integer (nullable = true)
+ |-- MntWines: integer (nullable = true)
+ |-- MntFruits: integer (nullable = true)
+ |-- MntMeatProducts: integer (nullable = true)
+ |-- MntFishProducts: integer (nullable = true)
+ |-- MntSweetProducts: integer (nullable = true)
+ |-- MntGoldProds: integer (nullable = true)
+ |-- NumDealsPurchases: integer (nullable = true)
+ |-- NumWebPurchases: integer (nullable = true)
+ |-- NumCatalogPurchases: integer (nullable = true)
+ |-- NumStorePurchases: integer (nullable = true)
+ |-- NumWebVisitsMonth: integer (nullable = true)
+ |-- AcceptedCmp3: integer (nullable = true)
+ |-- AcceptedCmp4: integer (nullable = true)
+ |-- AcceptedCmp5: integer (nullable = true)
+ |-- AcceptedCmp1: integer (nullable = true)
+ |-- AcceptedCmp2: integer (nullable = true)
+ |-- Complain: integer (nullable = true)
+ |-- Z_CostContact: integer (nullable = true)
+ |-- Z_Revenue: integer (nullable = true)
+ |-- Response: integer (nullable = true)
+ 
+df.show(10)
++----+----------+----------+--------------+------+-------+--------+-------------------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+
+|  ID|Year_Birth| Education|Marital_Status|Income|Kidhome|Teenhome|        Dt_Customer|Recency|MntWines|MntFruits|MntMeatProducts|MntFishProducts|MntSweetProducts|MntGoldProds|NumDealsPurchases|NumWebPurchases|NumCatalogPurchases|NumStorePurchases|NumWebVisitsMonth|AcceptedCmp3|AcceptedCmp4|AcceptedCmp5|AcceptedCmp1|AcceptedCmp2|Complain|Z_CostContact|Z_Revenue|Response|
++----+----------+----------+--------------+------+-------+--------+-------------------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+
+|5524|      1957|Graduation|        Single| 58138|      0|       0|2012-09-04 00:00:00|     58|     635|       88|            546|            172|              88|          88|                3|              8|                 10|                4|                7|           0|           0|           0|           0|           0|       0|            3|       11|       1|
+|2174|      1954|Graduation|        Single| 46344|      1|       1|2014-03-08 00:00:00|     38|      11|        1|              6|              2|               1|           6|                2|              1|                  1|                2|                5|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+|4141|      1965|Graduation|      Together| 71613|      0|       0|2013-08-21 00:00:00|     26|     426|       49|            127|            111|              21|          42|                1|              8|                  2|               10|                4|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+|6182|      1984|Graduation|      Together| 26646|      1|       0|2014-02-10 00:00:00|     26|      11|        4|             20|             10|               3|           5|                2|              2|                  0|                4|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+|5324|      1981|       PhD|       Married| 58293|      1|       0|2014-01-19 00:00:00|     94|     173|       43|            118|             46|              27|          15|                5|              5|                  3|                6|                5|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+|7446|      1967|    Master|      Together| 62513|      0|       1|2013-09-09 00:00:00|     16|     520|       42|             98|              0|              42|          14|                2|              6|                  4|               10|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+| 965|      1971|Graduation|      Divorced| 55635|      0|       1|2012-11-13 00:00:00|     34|     235|       65|            164|             50|              49|          27|                4|              7|                  3|                7|                6|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+|6177|      1985|       PhD|       Married| 33454|      1|       0|2013-05-08 00:00:00|     32|      76|       10|             56|              3|               1|          23|                2|              4|                  0|                4|                8|           0|           0|           0|           0|           0|       0|            3|       11|       0|
+|4855|      1974|       PhD|      Together| 30351|      1|       0|2013-06-06 00:00:00|     19|      14|        0|             24|              3|               3|           2|                1|              3|                  0|                2|                9|           0|           0|           0|           0|           0|       0|            3|       11|       1|
+|5899|      1950|       PhD|      Together|  5648|      1|       1|2014-03-13 00:00:00|     68|      28|        0|              6|              1|               1|          13|                1|              1|                  0|                0|               20|           1|           0|           0|           0|           0|       0|            3|       11|       0|
++----+----------+----------+--------------+------+-------+--------+-------------------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+-------------+---------+--------+
+only showing top 10 rows
+
+df.describe().show()
++-------+------------------+------------------+---------+--------------+------------------+-------------------+------------------+-----------------+------------------+------------------+-----------------+------------------+-----------------+----------------+-----------------+------------------+-------------------+-----------------+-----------------+-------------------+-------------------+-------------------+-------------------+--------------------+-------------------+-------------+---------+-------------------+
+|summary|                ID|        Year_Birth|Education|Marital_Status|            Income|            Kidhome|          Teenhome|          Recency|          MntWines|         MntFruits|  MntMeatProducts|   MntFishProducts| MntSweetProducts|    MntGoldProds|NumDealsPurchases|   NumWebPurchases|NumCatalogPurchases|NumStorePurchases|NumWebVisitsMonth|       AcceptedCmp3|       AcceptedCmp4|       AcceptedCmp5|       AcceptedCmp1|        AcceptedCmp2|           Complain|Z_CostContact|Z_Revenue|           Response|
++-------+------------------+------------------+---------+--------------+------------------+-------------------+------------------+-----------------+------------------+------------------+-----------------+------------------+-----------------+----------------+-----------------+------------------+-------------------+-----------------+-----------------+-------------------+-------------------+-------------------+-------------------+--------------------+-------------------+-------------+---------+-------------------+
+|  count|              2240|              2240|     2240|          2240|              2216|               2240|              2240|             2240|              2240|              2240|             2240|              2240|             2240|            2240|             2240|              2240|               2240|             2240|             2240|               2240|               2240|               2240|               2240|                2240|               2240|         2240|     2240|               2240|
+|   mean| 5592.159821428571|1968.8058035714287|     null|          null| 52247.25135379061|0.44419642857142855|           0.50625|        49.109375| 303.9357142857143|26.302232142857143|           166.95| 37.52544642857143|27.06294642857143|       44.021875|            2.325| 4.084821428571429| 2.6620535714285714|5.790178571428571|5.316517857142857|0.07276785714285715|0.07455357142857143|0.07276785714285715|0.06428571428571428|0.013392857142857142|           0.009375|          3.0|     11.0|0.14910714285714285|
+| stddev|3246.6621975643416|11.984069456885827|     null|          null|25173.076660901414| 0.5383980977345935|0.5445382307698761|28.96245280837821|336.59739260537197|39.773433764578584|225.7153725117536|54.628979402878095|41.28049848785491|52.1674389149973| 1.93223750085598|2.7787141473881007| 2.9231006555397463|3.250958145674428| 2.42664500954729| 0.2598130699218951|0.26272828485356176| 0.2598130699218953|0.24531597433401406| 0.11497560625548417|0.09639116794449748|          0.0|      0.0|0.35627358640847934|
+|    min|                 0|              1893| 2n Cycle|        Absurd|              1730|                  0|                 0|                0|                 0|                 0|                0|                 0|                0|               0|                0|                 0|                  0|                0|                0|                  0|                  0|                  0|                  0|                   0|                  0|            3|       11|                  0|
+|    max|             11191|              1996|      PhD|          YOLO|            666666|                  2|                 2|               99|              1493|               199|             1725|               259|              263|             362|               15|                27|                 28|               13|               20|                  1|                  1|                  1|                  1|                   1|                  1|            3|       11|                  1|
++-------+------------------+------------------+---------+--------------+------------------+-------------------+------------------+-----------------+------------------+------------------+-----------------+------------------+-----------------+----------------+-----------------+------------------+-------------------+-----------------+-----------------+-------------------+-------------------+-------------------+-------------------+--------------------+-------------------+-------------+---------+-------------------+
+ 
+val df1 = df.where("Income is not null").
+withColumn("age",lit(2020)-col("Year_Birth")).
+withColumn("enrolled_to_date",datediff(current_date(),col("Dt_Customer"))).
+withColumn("label", 'Response).
+drop("ID", "Year_Birth", "Dt_Customer","Z_CostContact","Z_Revenue")
+
+df1.printSchema
+root
+ |-- Education: string (nullable = true)
+ |-- Marital_Status: string (nullable = true)
+ |-- Income: integer (nullable = true)
+ |-- Kidhome: integer (nullable = true)
+ |-- Teenhome: integer (nullable = true)
+ |-- Recency: integer (nullable = true)
+ |-- MntWines: integer (nullable = true)
+ |-- MntFruits: integer (nullable = true)
+ |-- MntMeatProducts: integer (nullable = true)
+ |-- MntFishProducts: integer (nullable = true)
+ |-- MntSweetProducts: integer (nullable = true)
+ |-- MntGoldProds: integer (nullable = true)
+ |-- NumDealsPurchases: integer (nullable = true)
+ |-- NumWebPurchases: integer (nullable = true)
+ |-- NumCatalogPurchases: integer (nullable = true)
+ |-- NumStorePurchases: integer (nullable = true)
+ |-- NumWebVisitsMonth: integer (nullable = true)
+ |-- AcceptedCmp3: integer (nullable = true)
+ |-- AcceptedCmp4: integer (nullable = true)
+ |-- AcceptedCmp5: integer (nullable = true)
+ |-- AcceptedCmp1: integer (nullable = true)
+ |-- AcceptedCmp2: integer (nullable = true)
+ |-- Complain: integer (nullable = true)
+ |-- Response: integer (nullable = true)
+ |-- age: integer (nullable = true)
+ |-- enrolled_to_date: integer (nullable = true)
+ |-- label: integer (nullable = true)
+
+df1.show(10)
++----------+--------------+------+-------+--------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+--------+---+----------------+-----+
+| Education|Marital_Status|Income|Kidhome|Teenhome|Recency|MntWines|MntFruits|MntMeatProducts|MntFishProducts|MntSweetProducts|MntGoldProds|NumDealsPurchases|NumWebPurchases|NumCatalogPurchases|NumStorePurchases|NumWebVisitsMonth|AcceptedCmp3|AcceptedCmp4|AcceptedCmp5|AcceptedCmp1|AcceptedCmp2|Complain|Response|age|enrolled_to_date|label|
++----------+--------------+------+-------+--------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+--------+---+----------------+-----+
+|Graduation|        Single| 58138|      0|       0|     58|     635|       88|            546|            172|              88|          88|                3|              8|                 10|                4|                7|           0|           0|           0|           0|           0|       0|       1| 63|            3948|    1|
+|Graduation|        Single| 46344|      1|       1|     38|      11|        1|              6|              2|               1|           6|                2|              1|                  1|                2|                5|           0|           0|           0|           0|           0|       0|       0| 66|            3398|    0|
+|Graduation|      Together| 71613|      0|       0|     26|     426|       49|            127|            111|              21|          42|                1|              8|                  2|               10|                4|           0|           0|           0|           0|           0|       0|       0| 55|            3597|    0|
+|Graduation|      Together| 26646|      1|       0|     26|      11|        4|             20|             10|               3|           5|                2|              2|                  0|                4|                6|           0|           0|           0|           0|           0|       0|       0| 36|            3424|    0|
+|       PhD|       Married| 58293|      1|       0|     94|     173|       43|            118|             46|              27|          15|                5|              5|                  3|                6|                5|           0|           0|           0|           0|           0|       0|       0| 39|            3446|    0|
+|    Master|      Together| 62513|      0|       1|     16|     520|       42|             98|              0|              42|          14|                2|              6|                  4|               10|                6|           0|           0|           0|           0|           0|       0|       0| 53|            3578|    0|
+|Graduation|      Divorced| 55635|      0|       1|     34|     235|       65|            164|             50|              49|          27|                4|              7|                  3|                7|                6|           0|           0|           0|           0|           0|       0|       0| 49|            3878|    0|
+|       PhD|       Married| 33454|      1|       0|     32|      76|       10|             56|              3|               1|          23|                2|              4|                  0|                4|                8|           0|           0|           0|           0|           0|       0|       0| 35|            3702|    0|
+|       PhD|      Together| 30351|      1|       0|     19|      14|        0|             24|              3|               3|           2|                1|              3|                  0|                2|                9|           0|           0|           0|           0|           0|       0|       1| 46|            3673|    1|
+|       PhD|      Together|  5648|      1|       1|     68|      28|        0|              6|              1|               1|          13|                1|              1|                  0|                0|               20|           1|           0|           0|           0|           0|       0|       0| 70|            3393|    0|
++----------+--------------+------+-------+--------+-------+--------+---------+---------------+---------------+----------------+------------+-----------------+---------------+-------------------+-----------------+-----------------+------------+------------+------------+------------+------------+--------+--------+---+----------------+-----+
+only showing top 10 rows
+
+
+spark.conf.set("spark.sql.shuffle.partitions",10)
+
+val listcols = Array("Education","Marital_Status","Kidhome","Teenhome","AcceptedCmp1","AcceptedCmp2","AcceptedCmp3","AcceptedCmp4","AcceptedCmp5","Complain")
+listcols: Array[String] = Array(Education, Marital_Status, Kidhome, Teenhome, AcceptedCmp1, AcceptedCmp2, AcceptedCmp3, AcceptedCmp4, AcceptedCmp5, Complain)
+
+listcols.map( colname => {
+   val freq = df1.select(colname).distinct.count
+   println(colname + ": " + freq) 
+})
+Education: 5                                                                    
+Marital_Status: 8                                                               
+Kidhome: 3                                                                      
+Teenhome: 3                                                                     
+AcceptedCmp1: 2                                                                 
+AcceptedCmp2: 2                                                                 
+AcceptedCmp3: 2                                                                 
+AcceptedCmp4: 2
+AcceptedCmp5: 2
+Complain: 2                                                                     
+
+
+listcols.map( colname => {
+     |    val freq = df1.select(colname).distinct.count
+     |    println("Frequency distribuition for " + colname)
+     |    df1.groupBy(colname).count.orderBy(desc("count")).show
+     | })
+Frequency distribuition for Education
++----------+-----+
+| Education|count|
++----------+-----+
+|Graduation| 1116|
+|       PhD|  481|
+|    Master|  365|
+|  2n Cycle|  200|
+|     Basic|   54|
++----------+-----+
+
+Frequency distribuition for Marital_Status
++--------------+-----+
+|Marital_Status|count|
++--------------+-----+
+|       Married|  857|
+|      Together|  573|
+|        Single|  471|
+|      Divorced|  232|
+|         Widow|   76|
+|         Alone|    3|
+|        Absurd|    2|
+|          YOLO|    2|
++--------------+-----+
+
+Frequency distribuition for Kidhome
++-------+-----+
+|Kidhome|count|
++-------+-----+
+|      0| 1283|
+|      1|  887|
+|      2|   46|
++-------+-----+
+
+Frequency distribuition for Teenhome
++--------+-----+
+|Teenhome|count|
++--------+-----+
+|       0| 1147|
+|       1| 1018|
+|       2|   51|
++--------+-----+
+
+Frequency distribuition for AcceptedCmp1
++------------+-----+
+|AcceptedCmp1|count|
++------------+-----+
+|           0| 2074|
+|           1|  142|
++------------+-----+
+
+Frequency distribuition for AcceptedCmp2
++------------+-----+
+|AcceptedCmp2|count|
++------------+-----+
+|           0| 2186|
+|           1|   30|
++------------+-----+
+
+Frequency distribuition for AcceptedCmp3
++------------+-----+
+|AcceptedCmp3|count|
++------------+-----+
+|           0| 2053|
+|           1|  163|
++------------+-----+
+
+Frequency distribuition for AcceptedCmp4
++------------+-----+
+|AcceptedCmp4|count|
++------------+-----+
+|           0| 2052|
+|           1|  164|
++------------+-----+
+
+Frequency distribuition for AcceptedCmp5
++------------+-----+
+|AcceptedCmp5|count|
++------------+-----+
+|           0| 2054|
+|           1|  162|
++------------+-----+
+
+Frequency distribuition for Complain
++--------+-----+
+|Complain|count|
++--------+-----+
+|       0| 2195|
+|       1|   21|
++--------+-----+
+
+
+// Examining correlation for categories variables against "class"
+
+:load chsqr_test.scala
+
+listcols.map( x => chsqr_test(df,x,"Response") )
+
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 4 
+statistic = 23.076097576943102 
+pValue = 1.2226975294504783E-4 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Educationidx
++-----------+---+---+---+---+---+
+|Responseidx|0.0|1.0|2.0|3.0|4.0|
++-----------+---+---+---+---+---+
+|        0.0|975|385|313|181| 52|
+|        1.0|152|101| 57| 22|  2|
++-----------+---+---+---+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 7 
+statistic = 54.241636705551365 
+pValue = 2.106746999075426E-9 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Marital_Statusidx
++-----------+---+---+---+---+---+---+---+---+
+|Responseidx|0.0|1.0|2.0|3.0|4.0|5.0|6.0|7.0|
++-----------+---+---+---+---+---+---+---+---+
+|        0.0|766|520|374|184| 58|  2|  1|  1|
+|        1.0| 98| 60|106| 48| 19|  1|  1|  1|
++-----------+---+---+---+---+---+---+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 2 
+statistic = 14.636200199180584 
+pValue = 6.634214493033141E-4 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Kidhomeidx
++-----------+----+---+---+
+|Responseidx| 0.0|1.0|2.0|
++-----------+----+---+---+
+|        0.0|1071|789| 46|
+|        1.0| 222|110|  2|
++-----------+----+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 2 
+statistic = 58.338420483316256 
+pValue = 2.1471713296250527E-13 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Teenhomeidx
++-----------+---+---+---+
+|Responseidx|0.0|1.0|2.0|
++-----------+---+---+---+
+|        0.0|921|938| 47|
+|        1.0|237| 92|  5|
++-----------+---+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 193.59230941234512 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           AcceptedCmp1idx
++-----------+----+---+
+|Responseidx| 0.0|1.0|
++-----------+----+---+
+|        0.0|1841| 65|
+|        1.0| 255| 79|
++-----------+----+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 64.19841149368824 
+pValue = 1.1102230246251565E-15 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           AcceptedCmp2idx
++-----------+----+---+
+|Responseidx| 0.0|1.0|
++-----------+----+---+
+|        0.0|1896| 10|
+|        1.0| 314| 20|
++-----------+----+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 144.8098951059722 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           AcceptedCmp3idx
++-----------+----+---+
+|Responseidx| 0.0|1.0|
++-----------+----+---+
+|        0.0|1820| 86|
+|        1.0| 257| 77|
++-----------+----+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 70.19171181098585 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           AcceptedCmp4idx
++-----------+----+---+
+|Responseidx| 0.0|1.0|
++-----------+----+---+
+|        0.0|1801|105|
+|        1.0| 272| 62|
++-----------+----+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 238.9850036665059 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           AcceptedCmp5idx
++-----------+----+---+
+|Responseidx| 0.0|1.0|
++-----------+----+---+
+|        0.0|1835| 71|
+|        1.0| 242| 92|
++-----------+----+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 0.006526746111221472 
+pValue = 0.93561032917203 
+No presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Complainidx
++-----------+----+---+
+|Responseidx| 0.0|1.0|
++-----------+----+---+
+|        0.0|1888| 18|
+|        1.0| 331|  3|
++-----------+----+---+
+
+// Conclusion: all category features has significant influence on the Response except Complain ( pvalue < 0.05 )
+
+
+// Examining correlation for continuous variables against Response
+
+:load anova_table.scala
+
+val listcols = Array("Income","Recency","MntWines","MntFruits","MntMeatProducts","MntFishProducts","MntSweetProducts","MntGoldProds","NumDealsPurchases","NumWebPurchases","NumCatalogPurchases","NumStorePurchases","NumWebVisitsMonth","age")
+
+listcols.map( x => anova_table(df1,x,"Response") )
+Response x Income
+ss_total=282.95983754512906, ss_within=15.166666666666666, ss_between=267.7931708784635
+df_total=2215, df_within=242, df_between=1973
+sum_sq=267.7931708784635, df=1973, F=2.1656967083959224, PR(>F)=2.3148150063434514E-13
+
+Response x Recency
+ss_total=282.95983754512906, ss_within=257.49274195560656, ss_between=25.46709558951988
+df_total=2215, df_within=2116, df_between=99
+sum_sq=25.46709558951988, df=99, F=2.113950896899878, PR(>F)=2.7824510473450914E-9
+
+Response x MntWines
+ss_total=282.95983754512906, ss_within=143.46869379692907, ss_between=139.49114374819646
+df_total=2215, df_within=1440, df_between=775
+sum_sq=139.49114374819646, df=775, F=1.8065512248939548, PR(>F)=0.0
+
+Response x MntFruits
+ss_total=282.95983754512906, ss_within=248.11054027648424, ss_between=34.8492972686421
+df_total=2215, df_within=2058, df_between=157
+sum_sq=34.8492972686421, df=157, F=1.8411727078194358, PR(>F)=5.1253139510265555E-9
+
+Response x MntMeatProducts
+ss_total=282.95983754512906, ss_within=161.05552755520455, ss_between=121.904309989921
+df_total=2215, df_within=1662, df_between=553
+sum_sq=121.904309989921, df=553, F=2.2748319222687496, PR(>F)=0.0
+
+Response x MntFishProducts
+ss_total=282.95983754512906, ss_within=247.69603078141193, ss_between=35.263806763714285
+df_total=2215, df_within=2034, df_between=181
+sum_sq=35.263806763714285, df=181, F=1.5998619864955403, PR(>F)=2.064297225157219E-6
+
+Response x MntSweetProducts
+ss_total=282.95983754512906, ss_within=245.563313090009, ss_between=37.396524455116996
+df_total=2215, df_within=2040, df_between=175
+sum_sq=37.396524455116996, df=175, F=1.775251451238348, PR(>F)=9.6826702211672E-9
+
+Response x MntGoldProds
+ss_total=282.95983754512906, ss_within=235.66688470610663, ss_between=47.29295283901984
+df_total=2215, df_within=2004, df_between=211
+sum_sq=47.29295283901984, df=211, F=1.905957147616278, PR(>F)=2.609246152474043E-12
+
+Response x NumDealsPurchases
+ss_total=282.95983754512906, ss_within=276.08908439625424, ss_between=6.8707531488699845
+df_total=2215, df_within=2201, df_between=14
+sum_sq=6.8707531488699845, df=14, F=3.912434825088757, PR(>F)=1.16381020087708E-6
+
+Response x NumWebPurchases
+ss_total=282.95983754512906, ss_within=270.46510902689386, ss_between=12.494728518233105
+df_total=2215, df_within=2201, df_between=14
+sum_sq=12.494728518233105, df=14, F=7.262858511604197, PR(>F)=5.440092820663267E-15
+
+Response x NumCatalogPurchases
+ss_total=282.95983754512906, ss_within=262.877845124835, ss_between=20.081992420292238
+df_total=2215, df_within=2202, df_between=13
+sum_sq=20.081992420292238, df=13, F=12.939776498291916, PR(>F)=0.0
+
+Response x NumStorePurchases
+ss_total=282.95983754512906, ss_within=274.6214668177439, ss_between=8.338370727382005
+df_total=2215, df_within=2202, df_between=13
+sum_sq=8.338370727382005, df=13, F=5.143049212279128, PR(>F)=4.284840482426944E-9
+
+Response x NumWebVisitsMonth
+ss_total=282.95983754512906, ss_within=276.45776823912223, ss_between=6.502069306003474
+df_total=2215, df_within=2200, df_between=15
+sum_sq=6.502069306003474, df=15, F=3.449484663141488, PR(>F)=7.386506496342982E-6
+
+Response x age
+ss_total=282.95983754512906, ss_within=272.5852936498851, ss_between=10.374543895241498
+df_total=2215, df_within=2157, df_between=58
+sum_sq=10.374543895241498, df=58, F=1.4154311293501602, PR(>F)=0.022205439895800927
+
+// Conclusion: all continuous features has significant influence on the Response  ( pvalue < 0.05 )

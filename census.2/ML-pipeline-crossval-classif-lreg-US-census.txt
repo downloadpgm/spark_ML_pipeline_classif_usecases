@@ -1,0 +1,295 @@
+
+val df = spark.read.format("csv").option("inferSchema","true").load("staging/adult.data").toDF("age","workclass","fnlwgt","education","education-num","marital_status","occupation","relationship","race","sex","capital_gain","capital_loss","hours_per_week","native_country","income")
+
+val df1 = df.na.replace(Array("workclass"), Map("?" -> "Private")).
+             na.replace(Array("occupation"), Map("?" -> "Prof-specialty")).
+             na.replace(Array("native_country"), Map("?" -> "United-States")).
+             drop("education-num")
+
+df1.printSchema
+root
+ |-- age: integer (nullable = true)
+ |-- workclass: string (nullable = true)
+ |-- fnlwgt: double (nullable = true)
+ |-- education: string (nullable = true)
+ |-- marital_status: string (nullable = true)
+ |-- occupation: string (nullable = true)
+ |-- relationship: string (nullable = true)
+ |-- race: string (nullable = true)
+ |-- sex: string (nullable = true)
+ |-- capital_gain: double (nullable = true)
+ |-- capital_loss: double (nullable = true)
+ |-- hours_per_week: double (nullable = true)
+ |-- native_country: string (nullable = true)
+ |-- income: string (nullable = true)
+
+df1.describe().show
++-------+------------------+------------+------------------+-------------+--------------+-----------------+------------+-------------------+-------+------------------+----------------+------------------+--------------+------+
+|summary|               age|   workclass|            fnlwgt|    education|marital_status|       occupation|relationship|               race|    sex|      capital_gain|    capital_loss|    hours_per_week|native_country|income|
++-------+------------------+------------+------------------+-------------+--------------+-----------------+------------+-------------------+-------+------------------+----------------+------------------+--------------+------+
+|  count|             32561|       32561|             32561|        32561|         32561|            32561|       32561|              32561|  32561|             32561|           32561|             32561|         32561| 32561|
+|   mean| 38.58164675532078|        null|189778.36651208502|         null|          null|             null|        null|               null|   null|1077.6488437087312| 87.303829734959|40.437455852092995|          null|  null|
+| stddev|13.640432553581356|        null|105549.97769702227|         null|          null|             null|        null|               null|   null| 7385.292084840354|402.960218649002|12.347428681731838|          null|  null|
+|    min|                17|           ?|           12285.0|         10th|      Divorced|                ?|     Husband| Amer-Indian-Eskimo| Female|               0.0|             0.0|               1.0|             ?| <=50K|
+|    max|                90| Without-pay|         1484705.0| Some-college|       Widowed| Transport-moving|        Wife|              White|   Male|           99999.0|          4356.0|              99.0|    Yugoslavia|  >50K|
++-------+------------------+------------+------------------+-------------+--------------+-----------------+------------+-------------------+-------+------------------+----------------+------------------+--------------+------+
+
+
+// ----- logistic regression model hyperparameter tunning
+
+val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
+
+trainingData.cache
+testData.cache
+
+import org.apache.spark.ml.feature.RFormula
+val rf = new RFormula().setFormula("income ~ .")
+
+import org.apache.spark.ml.feature.StandardScaler
+val stdScaler = new StandardScaler().
+setWithStd(true).
+setWithMean(true).
+setInputCol("features").
+setOutputCol("scaledFeatures")
+
+import org.apache.spark.ml.classification.LogisticRegression
+val lr = new LogisticRegression().setFeaturesCol("scaledFeatures")
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().
+addGrid(lr.regParam, Array(1, 0.1, 0.01, 0.001)).
+addGrid(lr.fitIntercept).
+addGrid(lr.maxIter, Array(10, 20, 40, 100)).build()
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bce = new BinaryClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(lr).
+setEvaluator(bce.setMetricName("areaUnderROC")).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(rf,stdScaler,cv))
+val pipelinemodel = pipeline.fit(trainingData)
+
+import org.apache.spark.ml.tuning.CrossValidatorModel
+val cvmodel = pipelinemodel.stages.last.asInstanceOf[CrossValidatorModel]
+
+-- CV hyperparameter evaluation
+
+cvmodel.getEstimatorParamMaps.zip(cvmodel.avgMetrics)
+res25: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
+Array(({
+        logreg_5d2afdc5214b-fitIntercept: true,
+        logreg_5d2afdc5214b-maxIter: 10,
+        logreg_5d2afdc5214b-regParam: 1.0
+},0.8851092690503132), ({
+        logreg_5d2afdc5214b-fitIntercept: true,
+        logreg_5d2afdc5214b-maxIter: 10,
+        logreg_5d2afdc5214b-regParam: 0.1
+},0.8953854369291853), ({
+        logreg_5d2afdc5214b-fitIntercept: true,
+        logreg_5d2afdc5214b-maxIter: 10,
+        logreg_5d2afdc5214b-regParam: 0.01
+},0.9038134469880287), ({
+        logreg_5d2afdc5214b-fitIntercept: true,
+        logreg_5d2afdc5214b-maxIter: 10,
+        logreg_5d2afdc5214b-regParam: 0.001
+},0.9059326809251309), ({
+        logreg_5d2afdc5214b-fitIntercept: false,
+        logreg_5d2afdc5214b-maxIter: 10,
+        logreg_5d2afdc5214b-regParam: 1.0
+},0.8868520007472944), ({
+        logreg_5d2afdc5214b-fitIntercept: false,
+        ...
+
+-- extract best LR model 
+
+import org.apache.spark.ml.classification.LogisticRegressionModel
+val lrmodel = cvmodel.bestModel.asInstanceOf[LogisticRegressionModel]
+
+lrmodel.getRegParam
+res27: Double = 0.001
+
+lrmodel.getMaxIter
+res28: Int = 100
+
+lrmodel.getThreshold
+res29: Double = 0.5
+
+lrmodel.getFitIntercept
+res31: Boolean = true
+
+// -----  metrics extracted from model
+
+println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+LR Model coefficients:
+0.3290771908372358      // age
+0.0630633642550443      
+-0.08791303116005483
+-0.034505521303348656
+-0.05886030837038018
+-0.030871313821238228
+0.05975175501235482
+0.12338465808619524     // workclass
+-0.08846140208092032    // fnlwgt
+0.07125264061783139
+-0.1058110109252058
+0.05672440454140343
+0.33023448614452094
+0.2802947257530111
+0.07647184378603963
+-0.16222717807041998
+0.048135053407028255
+-0.1657426265905197
+-0.19825570469014012
+0.23342038314238997
+-0.1380642858701986
+-0.07125958836707703
+0.22056773768024165
+-0.10330976420547301    // education
+-0.0897402693271226
+0.4398416936725989
+-0.5493151893015408
+-0.22392802798855488
+-0.13673171660572433
+-0.07650590842309736    // marital_status
+-0.0571121200998712
+0.18133348625341367
+0.021813029377143772
+0.24081457358974664
+0.015985138672242334
+0.07428073672364824
+-0.22267161523918266
+-0.08629155593341464
+-0.09027475564965418
+-0.033826284401005303
+-0.11549506465906074
+-0.16868212042813224
+0.09947322854709442     // occupation
+0.0676324339167404
+-0.1917507738045678
+0.27423521262460276
+0.1817248905696832
+-0.27023544031900854    // relationship
+0.06388506910776798
+0.390788826780273
+0.1178858776053292
+0.03985392005403064     // race
+0.0902193444709045      // sex
+-0.032683540477226505   // capital_gain
+0.3736652402612541      // capital_loss
+2.0421013627496682      // hours_per_week
+0.26473010513751255
+0.3483946904985723
+0.09043779565218248
+-0.1074898717453473
+-0.010029036525116481
+0.05028222398275162
+0.015742017085462665
+0.01676067820517403
+-0.043274535714455796
+-0.006384929243284842
+-0.017217208023045365
+0.019992220600929266
+0.0016930024738701086
+0.008934325950778177
+-0.024188090728259563
+0.03898210867131029
+-0.07074650871259708
+-0.011300676345621662
+-0.03111238522102366
+-0.11663997219970855
+0.011168227324139047
+-0.053309118131432784
+-0.009409268756868979
+0.020923575178578083
+-0.004799512883944865
+0.009030444912058233
+0.002527187650160046
+-0.043617689806707285
+-0.018238695094205618
+-0.005857718348233654
+-0.027402570583248607
+0.02004681834540437
+0.01796179898381672
+-0.007729393802845043
+-0.004641814189017364
+0.005259968827916087
+0.043796585054584704
+-0.02151351529897513
+0.01757718021691407
+-0.06807598214264518
+-1.7665035502684244E-4
+-0.003179441715860662
+-0.024097803595832547    // native_country
+
+import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
+
+val trainingSummary = lrmodel.summary
+
+trainingSummary.objectiveHistory
+res33: Array[Double] = Array(0.550940956627691, 0.3949084026271101, 0.3599313907030359, 0.3457262887053724, 0.3365259952873637, 0.32615129066178977, 0.3239007660632226, 0.3196400953570521, 0.3187445244086327, 0.3178125150018346, 0.3168770376649871, 0.3167525723461185, 0.3165848386895942, 0.31652948104532475, 0.31647517494270955, 0.31647141472424595, 0.31644022512222414, 0.3164333051709755, 0.31642821359407375, 0.3164237359356389, 0.31641764235408437, 0.3164110156343957, 0.31640381957798813, 0.31639528291627567, 0.31639379846324345, 0.31638735752768826, 0.31638636566606515, 0.3163851133630934, 0.31638494873279144, 0.31638382495378603, 0.3163835893033563, 0.316383361391705, 0.3163832865979681, 0.3163829746035124, 0.3163827271299316, 0.3163824302023827, 0.3163819659968049, 0.31638124160970...
+
+val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
+
+binarySummary.areaUnderROC
+res34: Double = 0.9101302486055023
+
+binarySummary.accuracy
+res35: Double = 0.8557142233285296
+
+-- collecting metric performance
+
+val pred = pipelinemodel.transform(testData)
+
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res36: Double = 0.9026324744638178
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res37: Double = 0.7545832792848003
+
+val predRDD = pred.select("prediction","label").rdd.map( row => (row.getDouble(0),row.getDouble(1))).cache
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(predRDD)
+
+metrics.accuracy
+res40: Double = 0.846512109294142
+
+metrics.confusionMatrix
+res39: org.apache.spark.mllib.linalg.Matrix =
+6797.0  517.0
+966.0   1382.0
+
+
+// ----- building reduced logistic regression model
+
+val pred = pipelinemodel.transform(df1)
+
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+val bceval = new BinaryClassificationEvaluator()
+
+bceval.setMetricName("areaUnderROC").evaluate(pred)
+res2: Double = 0.9079437874065286
+
+bceval.setMetricName("areaUnderPR").evaluate(pred)
+res3: Double = 0.7683936388752381
+
+val predRDD = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(predRDD)
+
+metrics.accuracy
+res4: Double = 0.8529836307238721
+
+metrics.confusionMatrix
+res5: org.apache.spark.mllib.linalg.Matrix =                                    
+23045.0  3112.0
+1675.0   4729.0

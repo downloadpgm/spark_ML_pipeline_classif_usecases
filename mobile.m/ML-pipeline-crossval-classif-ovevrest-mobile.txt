@@ -1,0 +1,135 @@
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("staging/mobile_pricing_train.csv")
+
+val types = df.dtypes
+types: Array[(String, String)] = Array((battery_power,IntegerType), (blue,IntegerType), (clock_speed,DoubleType), (dual_sim,IntegerType), (fc,IntegerType), (four_g,IntegerType), (int_memory,IntegerType), (m_dep,DoubleType), (mobile_wt,IntegerType), (n_cores,IntegerType), (pc,IntegerType), (px_height,IntegerType), (px_width,IntegerType), (ram,IntegerType), (sc_h,IntegerType), (sc_w,IntegerType), (talk_time,IntegerType), (three_g,IntegerType), (touch_screen,IntegerType), (wifi,IntegerType), (price_range,IntegerType))
+
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+
+val df1 = df.select(types.map{ case(c,t) => col(c).cast(DoubleType)}: _*).
+          withColumn("label", 'price_range)
+
+df1.printSchema
+root
+ |-- battery_power: double (nullable = true)
+ |-- blue: double (nullable = true)
+ |-- clock_speed: double (nullable = true)
+ |-- dual_sim: double (nullable = true)
+ |-- fc: double (nullable = true)
+ |-- four_g: double (nullable = true)
+ |-- int_memory: double (nullable = true)
+ |-- m_dep: double (nullable = true)
+ |-- mobile_wt: double (nullable = true)
+ |-- n_cores: double (nullable = true)
+ |-- pc: double (nullable = true)
+ |-- px_height: double (nullable = true)
+ |-- px_width: double (nullable = true)
+ |-- ram: double (nullable = true)
+ |-- sc_h: double (nullable = true)
+ |-- sc_w: double (nullable = true)
+ |-- talk_time: double (nullable = true)
+ |-- three_g: double (nullable = true)
+ |-- touch_screen: double (nullable = true)
+ |-- wifi: double (nullable = true)
+ |-- price_range: double (nullable = true)
+ |-- label: double (nullable = true)
+
+val Array(trainingData, testData) = df1.randomSplit(Array(0.7,0.3),11L)
+
+trainingData.cache
+testData.cache
+
+spark.conf.set("spark.sql.shuffle.partitions",10)
+ 
+import org.apache.spark.ml.feature.VectorAssembler
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("battery_power","int_memory","mobile_wt","px_height","px_width","ram")).setHandleInvalid("skip")
+
+import org.apache.spark.ml.feature.StandardScaler
+val stdScaler = new StandardScaler().
+setWithStd(true).
+setWithMean(true).
+setInputCol("features").
+setOutputCol("scaledFeatures")
+
+import org.apache.spark.ml.classification.{LogisticRegression,OneVsRest}
+val lr = new LogisticRegression().setFitIntercept(true).setFamily("binomial").setFeaturesCol("scaledFeatures")
+
+val ovr = new OneVsRest().setClassifier(lr)
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().
+addGrid(lr.regParam, Array(0.1, 0.01, 0.001)).
+addGrid(lr.fitIntercept, Array(true)).
+addGrid(lr.maxIter, Array(10,20,40,100)).build()
+
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(ovr).
+setEvaluator(new MulticlassClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(va,stdScaler,cv))
+
+val pipelinemodel = pipeline.fit(trainingData)
+
+import org.apache.spark.ml.tuning.CrossValidatorModel
+val cvmodel = pipelinemodel.stages.last.asInstanceOf[CrossValidatorModel]
+
+
+-- CV hyperparameter evaluation
+
+cvmodel.getEstimatorParamMaps.zip(cvmodel.avgMetrics)
+res11: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
+Array(({
+        logreg_34445dccb7df-fitIntercept: true,
+        logreg_34445dccb7df-maxIter: 10,
+        logreg_34445dccb7df-regParam: 0.1
+},0.6891627109451454), ({
+        logreg_34445dccb7df-fitIntercept: true,
+        logreg_34445dccb7df-maxIter: 10,
+        logreg_34445dccb7df-regParam: 0.01
+},0.709577800076679), ({
+        logreg_34445dccb7df-fitIntercept: true,
+        logreg_34445dccb7df-maxIter: 10,
+        logreg_34445dccb7df-regParam: 0.001
+},0.7295854580533434), ({
+        logreg_34445dccb7df-fitIntercept: true,
+        logreg_34445dccb7df-maxIter: 20,
+        logreg_34445dccb7df-regParam: 0.1
+},0.6703320172314587), ({
+        logreg_34445dccb7df-fitIntercept: true,
+        logreg_34445dccb7df-maxIter: 20,
+        logreg_34445dccb7df-regParam: 0.01
+},0.7831360032454988), ({
+        logreg_34445dccb7df-fitIntercept: true,
+        lo...
+
+-- collecting metric performance
+
+val pred = pipelinemodel.transform(testData)
+
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+val evaluator = new MulticlassClassificationEvaluator()
+
+evaluator.setMetricName("accuracy").evaluate(pred)
+res12: Double = 0.846286701208981
+
+val predRDD = pred.select("prediction","label").rdd.map( row => (row.getDouble(0),row.getDouble(1))).cache
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(predRDD)
+
+metrics.accuracy
+res13: Double = 0.846286701208981
+
+metrics.confusionMatrix
+res14: org.apache.spark.mllib.linalg.Matrix =
+148.0  0.0    0.0    0.0
+13.0   101.0  25.0   0.0
+0.0    33.0   101.0  18.0
+0.0    0.0    0.0    140.0

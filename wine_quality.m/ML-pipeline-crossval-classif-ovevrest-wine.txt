@@ -1,0 +1,127 @@
+
+val df = spark.read.option("header","true").option("inferSchema","true").option("sep",";").csv("staging/winequality-white.csv")
+
+df.printSchema
+root
+ |-- fixed acidity: double (nullable = true)
+ |-- volatile acidity: double (nullable = true)
+ |-- citric acid: double (nullable = true)
+ |-- residual sugar: double (nullable = true)
+ |-- chlorides: double (nullable = true)
+ |-- free sulfur dioxide: double (nullable = true)
+ |-- total sulfur dioxide: double (nullable = true)
+ |-- density: double (nullable = true)
+ |-- pH: double (nullable = true)
+ |-- sulphates: double (nullable = true)
+ |-- alcohol: double (nullable = true)
+ |-- quality: integer (nullable = true)
+ 
+
+// ----- logistic regression model hyperparameter tunning
+
+spark.conf.set("spark.sql.shuffle.partitions",10)
+
+val Array(trainingData, testData) = df.randomSplit(Array(0.7,0.3),11L)
+
+trainingData.cache
+testData.cache
+
+import org.apache.spark.ml.feature.StringIndexer
+val str = new StringIndexer().setInputCol("quality").setOutputCol("quality_idx")
+
+import org.apache.spark.ml.feature.RFormula
+val rf = new RFormula().setFormula("quality_idx ~ .")
+
+import org.apache.spark.ml.feature.StandardScaler
+val stdScaler = new StandardScaler().
+setWithStd(true).
+setWithMean(true).
+setInputCol("features").
+setOutputCol("scaledFeatures")
+
+import org.apache.spark.ml.classification.{LogisticRegression, OneVsRest}
+val lr = new LogisticRegression().setTol(0.1).setFeaturesCol("scaledFeatures")
+
+val ovr = new OneVsRest().setClassifier(lr)
+
+import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
+
+val paramGrid = new ParamGridBuilder().
+addGrid(lr.regParam, Array(0.1, 0.01, 0.001)).
+addGrid(lr.fitIntercept, Array(true)).
+addGrid(lr.maxIter, Array(10,20,40,100)).build()
+
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+
+val cv = new CrossValidator().
+setEstimator(ovr).
+setEvaluator(new MulticlassClassificationEvaluator).
+setEstimatorParamMaps(paramGrid).
+setNumFolds(3)
+
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(str,rf,stdScaler,cv))
+
+val pipelinemodel = pipeline.fit(trainingData)
+
+import org.apache.spark.ml.tuning.CrossValidatorModel
+val cvmodel = pipelinemodel.stages.last.asInstanceOf[CrossValidatorModel]
+
+
+-- CV hyperparameter evaluation
+
+cvmodel.getEstimatorParamMaps.zip(cvmodel.avgMetrics)
+res4: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
+Array(({
+        logreg_6051a1110dbd-fitIntercept: true,
+        logreg_6051a1110dbd-maxIter: 10,
+        logreg_6051a1110dbd-regParam: 0.1
+},0.564757120621716), ({
+        logreg_6051a1110dbd-fitIntercept: true,
+        logreg_6051a1110dbd-maxIter: 20,
+        logreg_6051a1110dbd-regParam: 0.1
+},0.5635318072517534), ({
+        logreg_6051a1110dbd-fitIntercept: true,
+        logreg_6051a1110dbd-maxIter: 40,
+        logreg_6051a1110dbd-regParam: 0.1
+},0.5693594785734726), ({
+        logreg_6051a1110dbd-fitIntercept: true,
+        logreg_6051a1110dbd-maxIter: 100,
+        logreg_6051a1110dbd-regParam: 0.1
+},0.5735876471889778), ({
+        logreg_6051a1110dbd-fitIntercept: true,
+        logreg_6051a1110dbd-maxIter: 10,
+        logreg_6051a1110dbd-regParam: 0.01
+},0.6095328829130843), ({
+        logreg_6051a1110dbd-fitIntercept: true,
+        logre...
+
+-- collecting metric performance
+
+val pred = pipelinemodel.transform(testData)
+
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+val evaluator = new MulticlassClassificationEvaluator()
+
+evaluator.setMetricName("accuracy").evaluate(pred)
+res10: Double = 0.7131147540983607
+
+val predRDD = pred.select("prediction","label").rdd.map( row => (row.getDouble(0),row.getDouble(1))).cache
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(predRDD)
+
+metrics.accuracy
+res15: Double = 0.7131147540983607
+
+metrics.confusionMatrix
+res16: org.apache.spark.mllib.linalg.Matrix =
+64.0  4.0   8.0   17.0  0.0   2.0   4.0
+0.0   95.0  0.0   0.0   0.0   0.0   0.0
+15.0  3.0   34.0  6.0   0.0   10.0  4.0
+2.0   0.0   2.0   78.0  0.0   1.0   0.0
+0.0   0.0   1.0   0.0   73.0  0.0   1.0
+12.0  0.0   14.0  3.0   0.0   56.0  9.0
+1.0   0.0   14.0  0.0   31.0  11.0  35.0
+
+

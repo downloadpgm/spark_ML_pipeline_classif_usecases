@@ -1,0 +1,377 @@
+
+val df = spark.read.format("csv").option("inferSchema","true").load("staging/adult.data").toDF("age","workclass","fnlwgt","education","education-num","marital_status","occupation","relationship","race","sex","capital_gain","capital_loss","hours_per_week","native_country","income")
+
+df.printSchema
+root
+ |-- age: integer (nullable = true)
+ |-- workclass: string (nullable = true)
+ |-- fnlwgt: double (nullable = true)
+ |-- education: string (nullable = true)
+ |-- education-num: double (nullable = true)
+ |-- marital_status: string (nullable = true)
+ |-- occupation: string (nullable = true)
+ |-- relationship: string (nullable = true)
+ |-- race: string (nullable = true)
+ |-- sex: string (nullable = true)
+ |-- capital_gain: double (nullable = true)
+ |-- capital_loss: double (nullable = true)
+ |-- hours_per_week: double (nullable = true)
+ |-- native_country: string (nullable = true)
+ |-- income: string (nullable = true)
+
+df.show
++---+-----------------+--------+-------------+-------------+--------------------+------------------+--------------+-------------------+-------+------------+------------+--------------+--------------+------+
+|age|        workclass|  fnlwgt|    education|education-num|      marital_status|        occupation|  relationship|               race|    sex|capital_gain|capital_loss|hours_per_week|native_country|income|
++---+-----------------+--------+-------------+-------------+--------------------+------------------+--------------+-------------------+-------+------------+------------+--------------+--------------+------+
+| 39|        State-gov| 77516.0|    Bachelors|         13.0|       Never-married|      Adm-clerical| Not-in-family|              White|   Male|      2174.0|         0.0|          40.0| United-States| <=50K|
+| 50| Self-emp-not-inc| 83311.0|    Bachelors|         13.0|  Married-civ-spouse|   Exec-managerial|       Husband|              White|   Male|         0.0|         0.0|          13.0| United-States| <=50K|
+| 38|          Private|215646.0|      HS-grad|          9.0|            Divorced| Handlers-cleaners| Not-in-family|              White|   Male|         0.0|         0.0|          40.0| United-States| <=50K|
+| 53|          Private|234721.0|         11th|          7.0|  Married-civ-spouse| Handlers-cleaners|       Husband|              Black|   Male|         0.0|         0.0|          40.0| United-States| <=50K|
+| 28|          Private|338409.0|    Bachelors|         13.0|  Married-civ-spouse|    Prof-specialty|          Wife|              Black| Female|         0.0|         0.0|          40.0|          Cuba| <=50K|
+| 37|          Private|284582.0|      Masters|         14.0|  Married-civ-spouse|   Exec-managerial|          Wife|              White| Female|         0.0|         0.0|          40.0| United-States| <=50K|
+| 49|          Private|160187.0|          9th|          5.0| Married-spouse-a...|     Other-service| Not-in-family|              Black| Female|         0.0|         0.0|          16.0|       Jamaica| <=50K|
+| 52| Self-emp-not-inc|209642.0|      HS-grad|          9.0|  Married-civ-spouse|   Exec-managerial|       Husband|              White|   Male|         0.0|         0.0|          45.0| United-States|  >50K|
+| 31|          Private| 45781.0|      Masters|         14.0|       Never-married|    Prof-specialty| Not-in-family|              White| Female|     14084.0|         0.0|          50.0| United-States|  >50K|
+| 42|          Private|159449.0|    Bachelors|         13.0|  Married-civ-spouse|   Exec-managerial|       Husband|              White|   Male|      5178.0|         0.0|          40.0| United-States|  >50K|
+| 37|          Private|280464.0| Some-college|         10.0|  Married-civ-spouse|   Exec-managerial|       Husband|              Black|   Male|         0.0|         0.0|          80.0| United-States|  >50K|
+| 30|        State-gov|141297.0|    Bachelors|         13.0|  Married-civ-spouse|    Prof-specialty|       Husband| Asian-Pac-Islander|   Male|         0.0|         0.0|          40.0|         India|  >50K|
+| 23|          Private|122272.0|    Bachelors|         13.0|       Never-married|      Adm-clerical|     Own-child|              White| Female|         0.0|         0.0|          30.0| United-States| <=50K|
+| 32|          Private|205019.0|   Assoc-acdm|         12.0|       Never-married|             Sales| Not-in-family|              Black|   Male|         0.0|         0.0|          50.0| United-States| <=50K|
+| 40|          Private|121772.0|    Assoc-voc|         11.0|  Married-civ-spouse|      Craft-repair|       Husband| Asian-Pac-Islander|   Male|         0.0|         0.0|          40.0|             ?|  >50K|
+| 34|          Private|245487.0|      7th-8th|          4.0|  Married-civ-spouse|  Transport-moving|       Husband| Amer-Indian-Eskimo|   Male|         0.0|         0.0|          45.0|        Mexico| <=50K|
+| 25| Self-emp-not-inc|176756.0|      HS-grad|          9.0|       Never-married|   Farming-fishing|     Own-child|              White|   Male|         0.0|         0.0|          35.0| United-States| <=50K|
+| 32|          Private|186824.0|      HS-grad|          9.0|       Never-married| Machine-op-inspct|     Unmarried|              White|   Male|         0.0|         0.0|          40.0| United-States| <=50K|
+| 38|          Private| 28887.0|         11th|          7.0|  Married-civ-spouse|             Sales|       Husband|              White|   Male|         0.0|         0.0|          50.0| United-States| <=50K|
+| 43| Self-emp-not-inc|292175.0|      Masters|         14.0|            Divorced|   Exec-managerial|     Unmarried|              White| Female|         0.0|         0.0|          45.0| United-States|  >50K|
++---+-----------------+--------+-------------+-------------+--------------------+------------------+--------------+-------------------+-------+------------+------------+--------------+--------------+------+
+only showing top 20 rows
+
+
+df.describe().show
++-------+------------------+------------+------------------+-------------+-----------------+--------------+-----------------+------------+-------------------+-------+------------------+----------------+------------------+--------------+------+
+|summary|               age|   workclass|            fnlwgt|    education|    education-num|marital_status|       occupation|relationship|               race|    sex|      capital_gain|    capital_loss|    hours_per_week|native_country|income|
++-------+------------------+------------+------------------+-------------+-----------------+--------------+-----------------+------------+-------------------+-------+------------------+----------------+------------------+--------------+------+
+|  count|             32561|       32561|             32561|        32561|            32561|         32561|            32561|       32561|              32561|  32561|             32561|           32561|             32561|         32561| 32561|
+|   mean| 38.58164675532078|        null|189778.36651208502|         null| 10.0806793403151|          null|             null|        null|               null|   null|1077.6488437087312| 87.303829734959|40.437455852092995|          null|  null|
+| stddev|13.640432553581356|        null|105549.97769702227|         null|2.572720332067397|          null|             null|        null|               null|   null| 7385.292084840354|402.960218649002|12.347428681731838|          null|  null|
+|    min|                17|           ?|           12285.0|         10th|              1.0|      Divorced|                ?|     Husband| Amer-Indian-Eskimo| Female|               0.0|             0.0|               1.0|             ?| <=50K|
+|    max|                90| Without-pay|         1484705.0| Some-college|             16.0|       Widowed| Transport-moving|        Wife|              White|   Male|           99999.0|          4356.0|              99.0|    Yugoslavia|  >50K|
++-------+------------------+------------+------------------+-------------+-----------------+--------------+-----------------+------------+-------------------+-------+------------------+----------------+------------------+--------------+------+
+
+val listcols = df.columns.diff(Array("age","fnlwgt","education-num","capital_gain","capital_loss","hours_per_week"))
+
+spark.conf.set("spark.sql.shuffle.partitions",10)
+
+listcols.map( colname => {
+   val freq = df.select(colname).distinct.count
+   println(colname + ": " + freq) 
+})
+workclass: 9
+education: 16
+marital_status: 7
+occupation: 15
+relationship: 6
+race: 5
+sex: 2
+native_country: 42
+income: 2
+
+listcols.map( colname => {
+   val freq = df.select(colname).distinct.count
+   println("Frequency distribuition for " + colname)
+   df.groupBy(colname).count.orderBy(desc("count")).show
+})
+Frequency distribuition for workclass
++-----------------+-----+
+|        workclass|count|
++-----------------+-----+
+|          Private|22696|
+| Self-emp-not-inc| 2541|
+|        Local-gov| 2093|
+|                ?| 1836|
+|        State-gov| 1298|
+|     Self-emp-inc| 1116|
+|      Federal-gov|  960|
+|      Without-pay|   14|
+|     Never-worked|    7|
++-----------------+-----+
+
+Frequency distribuition for education
++-------------+-----+
+|    education|count|
++-------------+-----+
+|      HS-grad|10501|
+| Some-college| 7291|
+|    Bachelors| 5355|
+|      Masters| 1723|
+|    Assoc-voc| 1382|
+|         11th| 1175|
+|   Assoc-acdm| 1067|
+|         10th|  933|
+|      7th-8th|  646|
+|  Prof-school|  576|
+|          9th|  514|
+|         12th|  433|
+|    Doctorate|  413|
+|      5th-6th|  333|
+|      1st-4th|  168|
+|    Preschool|   51|
++-------------+-----+
+
+Frequency distribuition for marital_status
++--------------------+-----+
+|      marital_status|count|
++--------------------+-----+
+|  Married-civ-spouse|14976|
+|       Never-married|10683|
+|            Divorced| 4443|
+|           Separated| 1025|
+|             Widowed|  993|
+| Married-spouse-a...|  418|
+|   Married-AF-spouse|   23|
++--------------------+-----+
+
+Frequency distribuition for occupation
++------------------+-----+
+|        occupation|count|
++------------------+-----+
+|    Prof-specialty| 4140|
+|      Craft-repair| 4099|
+|   Exec-managerial| 4066|
+|      Adm-clerical| 3770|
+|             Sales| 3650|
+|     Other-service| 3295|
+| Machine-op-inspct| 2002|
+|                 ?| 1843|
+|  Transport-moving| 1597|
+| Handlers-cleaners| 1370|
+|   Farming-fishing|  994|
+|      Tech-support|  928|
+|   Protective-serv|  649|
+|   Priv-house-serv|  149|
+|      Armed-Forces|    9|
++------------------+-----+
+
+Frequency distribuition for relationship
++---------------+-----+
+|   relationship|count|
++---------------+-----+
+|        Husband|13193|
+|  Not-in-family| 8305|
+|      Own-child| 5068|
+|      Unmarried| 3446|
+|           Wife| 1568|
+| Other-relative|  981|
++---------------+-----+
+
+Frequency distribuition for race
++-------------------+-----+
+|               race|count|
++-------------------+-----+
+|              White|27816|
+|              Black| 3124|
+| Asian-Pac-Islander| 1039|
+| Amer-Indian-Eskimo|  311|
+|              Other|  271|
++-------------------+-----+
+
+Frequency distribuition for sex
++-------+-----+
+|    sex|count|
++-------+-----+
+|   Male|21790|
+| Female|10771|
++-------+-----+
+
+Frequency distribuition for native_country
++-------------------+-----+
+|     native_country|count|
++-------------------+-----+
+|      United-States|29170|
+|             Mexico|  643|
+|                  ?|  583|
+|        Philippines|  198|
+|            Germany|  137|
+|             Canada|  121|
+|        Puerto-Rico|  114|
+|        El-Salvador|  106|
+|              India|  100|
+|               Cuba|   95|
+|            England|   90|
+|            Jamaica|   81|
+|              South|   80|
+|              China|   75|
+|              Italy|   73|
+| Dominican-Republic|   70|
+|            Vietnam|   67|
+|          Guatemala|   64|
+|              Japan|   62|
+|             Poland|   60|
++-------------------+-----+
+only showing top 20 rows
+
+Frequency distribuition for income
++------+-----+
+|income|count|
++------+-----+
+| <=50K|24720|
+|  >50K| 7841|
++------+-----+
+
+val df1 = df.na.replace(Array("workclass"), Map("?" -> "Private")).
+             na.replace(Array("occupation"), Map("?" -> "Prof-specialty")).
+             na.replace(Array("native_country"), Map("?" -> "United-States"))
+
+// Examining correlation for categories variables against income
+
+:load chsqr_test.scala
+
+listcols.diff(Array("income")).map( x => chsqr_test(df1,x,"income") )
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 8 
+statistic = 1045.7085997281695 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           workclassidx
++---------+-----+----+----+----+---+---+---+----+----+
+|incomeidx|  0.0| 1.0| 2.0| 3.0|4.0|5.0|6.0| 7.0| 8.0|
++---------+-----+----+----+----+---+---+---+----+----+
+|      0.0|17733|1817|1476|1645|945|494|589|  14|   7|
+|      1.0| 4963| 724| 617| 191|353|622|371|null|null|
++---------+-----+----+----+----+---+---+---+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 15 
+statistic = 4429.653302288618 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           educationidx
++---------+----+----+----+---+----+----+---+---+---+---+----+----+----+----+----+----+
+|incomeidx| 0.0| 1.0| 2.0|3.0| 4.0| 5.0|6.0|7.0|8.0|9.0|10.0|11.0|12.0|13.0|14.0|15.0|
++---------+----+----+----+---+----+----+---+---+---+---+----+----+----+----+----+----+
+|      0.0|8826|5904|3134|764|1021|1115|802|871|606|153| 487| 400| 107| 317| 162|  51|
+|      1.0|1675|1387|2221|959| 361|  60|265| 62| 40|423|  27|  33| 306|  16|   6|null|
++---------+----+----+----+---+----+----+---+---+---+---+----+----+----+----+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 6 
+statistic = 6517.741653663021 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           marital_statusidx
++---------+----+-----+----+---+---+---+---+
+|incomeidx| 0.0|  1.0| 2.0|3.0|4.0|5.0|6.0|
++---------+----+-----+----+---+---+---+---+
+|      0.0|8284|10192|3980|959|908|384| 13|
+|      1.0|6692|  491| 463| 66| 85| 34| 10|
++---------+----+-----+----+---+---+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 14 
+statistic = 4031.9742802471815 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           occupationidx
++---------+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
+|incomeidx| 0.0| 1.0| 2.0| 3.0| 4.0| 5.0| 6.0| 7.0| 8.0| 9.0|10.0|11.0|12.0|13.0|14.0|
++---------+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
+|      0.0|2281|3170|2098|3263|2667|3158|1752|1652|1277|1284| 879| 645| 438| 148|   8|
+|      1.0|1859| 929|1968| 507| 983| 137| 250| 191| 320|  86| 115| 283| 211|   1|   1|
++---------+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 5 
+statistic = 6699.07689685885 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           relationshipidx
++---------+----+----+----+----+---+---+
+|incomeidx| 0.0| 1.0| 2.0| 3.0|4.0|5.0|
++---------+----+----+----+----+---+---+
+|      0.0|7275|7449|5001|3228|823|944|
+|      1.0|5918| 856|  67| 218|745| 37|
++---------+----+----+----+----+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 4 
+statistic = 330.92043100857404 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           raceidx
++---------+-----+----+---+---+---+
+|incomeidx|  0.0| 1.0|2.0|3.0|4.0|
++---------+-----+----+---+---+---+
+|      0.0|20699|2737|763|275|246|
+|      1.0| 7117| 387|276| 36| 25|
++---------+-----+----+---+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 1518.8868199570722 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           sexidx
++---------+-----+----+
+|incomeidx|  0.0| 1.0|
++---------+-----+----+
+|      0.0|15128|9592|
+|      1.0| 6662|1179|
++---------+-----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 41 
+statistic = 317.2303857833172 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           native_countryidx
++---------+-----+---+---+---+---+---+---+---+---+---+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
+|incomeidx|  0.0|1.0|2.0|3.0|4.0|5.0|6.0|7.0|8.0|9.0|10.0|11.0|12.0|13.0|14.0|15.0|16.0|17.0|18.0|19.0|20.0|21.0|22.0|23.0|24.0|25.0|26.0|27.0|28.0|29.0|30.0|31.0|32.0|33.0|34.0|35.0|36.0|37.0|38.0|39.0|40.0|41.0|
++---------+-----+---+---+---+---+---+---+---+---+---+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
+|      0.0|21999|610|437|137| 93| 82|102| 97| 60| 70|  60|  71|  64|  55|  48|  68|  62|  61|  38|  48|  57|  31|  40|  25|  33|  32|  29|  17|  21|  24|  19|  14|  17|  12|  16|  15|  10|  14|  12|  10|   9|   1|
+|      1.0| 7171| 33|146| 61| 44| 39| 12|  9| 40| 25|  30|  10|  16|  20|  25|   2|   5|   3|  24|  12|   2|  20|   4|  18|   4|   2|   2|  12|   8|   4|   5|   6|   2|   7|   2|   3|   6|null|   1|   3|   3|null|
++---------+-----+---+---+---+---+---+---+---+---+---+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
+
+// Conclusion: all category features has significant influence on income ( pvalue < 0.05 )
+
+// Examining correlation for continuous variables against income
+
+:load anova_table.scala
+
+Array("age","fnlwgt","capital_gain","capital_loss","hours_per_week").map( x => anova_table(df1,"income",x))
+
+age:
+ss_total=6058159.192100806, ss_within=5726333.424922031, ss_between=331825.7671788783
+df_total=32560, df_within=32559, df_between=1
+sum_sq=331825.7671788783, df=1, F=1886.7073137160544, PR(>F)=0.0
+
+fnlwgt:
+ss_total=3.627443761023727E14, ss_within=3.6271189597468594E14, ss_between=3.2480127686436348E10
+df_total=32560, df_within=32559, df_between=1
+sum_sq=3.2480127686436348E10, df=1, F=2.915593585649826, PR(>F)=0.08773666108062661
+
+capital_gain:
+ss_total=1.7759050756483782E12, ss_within=1.6873304584723713E12, ss_between=8.857461717664595E10
+df_total=32560, df_within=32559, df_between=1
+sum_sq=8.857461717664595E10, df=1, F=1709.1500637435076, PR(>F)=0.0
+
+capital_loss:
+ss_total=5.286993095213988E9, ss_within=5.1671995040429325E9, ss_between=1.1979359116968344E8
+df_total=32560, df_within=32559, df_between=1
+sum_sq=1.1979359116968344E8, df=1, F=754.8304515515599, PR(>F)=0.0
+
+hours_per_week:
+ss_total=4964064.878841957, ss_within=4702175.375989358, ss_between=261889.50285316978
+df_total=32560, df_within=32559, df_between=1
+sum_sq=261889.50285316978, df=1, F=1813.3862822167212, PR(>F)=0.0
+
+// Conclusion: all continuous features have significant influence on the income except fnlwgt  ( pvalue < 0.05 )
+

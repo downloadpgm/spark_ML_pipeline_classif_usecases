@@ -1,299 +1,17 @@
----- Exploratory Data Analysis --------------
 
-val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("spark/churn_bra/dados_clientes.csv").drop("id")
+spark.conf.set("spark.sql.shuffle.partitions", 10)
 
-df.printSchema
-root
- |-- Churn: string (nullable = true)
- |-- Mais65anos: integer (nullable = true)
- |-- Conjuge: string (nullable = true)
- |-- Dependentes: string (nullable = true)
- |-- MesesDeContrato: integer (nullable = true)
- |-- TelefoneFixo: string (nullable = true)
- |-- MaisDeUmaLinhaTelefonica: string (nullable = true)
- |-- Internet: string (nullable = true)
- |-- SegurancaOnline: string (nullable = true)
- |-- BackupOnline: string (nullable = true)
- |-- SeguroDispositivo: string (nullable = true)
- |-- SuporteTecnico: string (nullable = true)
- |-- TVaCabo: string (nullable = true)
- |-- StreamingFilmes: string (nullable = true)
- |-- TipoContrato: string (nullable = true)
- |-- ContaCorreio: string (nullable = true)
- |-- MetodoPagamento: string (nullable = true)
- |-- MesesCobrados: double (nullable = true)
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("staging/dados_clientes.csv").drop("id")
 
+val Array(trainingData, testData) = df.randomSplit(Array(0.7,0.3),11L)
 
-df.describe().show
-+-------+-----+------------------+-------+-----------+------------------+------------+------------------------+--------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+---------------+------------------+-----+
-|summary|Churn|        Mais65anos|Conjuge|Dependentes|   MesesDeContrato|TelefoneFixo|MaisDeUmaLinhaTelefonica|Internet|SegurancaOnline|BackupOnline|SeguroDispositivo|SuporteTecnico|TVaCabo|StreamingFilmes|TipoContrato|ContaCorreio|MetodoPagamento|     MesesCobrados|label|
-+-------+-----+------------------+-------+-----------+------------------+------------+------------------------+--------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+---------------+------------------+-----+
-|  count|10348|             10348|  10348|      10348|             10348|       10348|                   10348|   10348|          10348|       10348|            10348|         10348|  10348|          10348|       10348|       10348|          10348|             10348|10348|
-|   mean| null|0.1409934286818709|   null|       null|27.518554310011595|        null|                    null|    null|           null|        null|             null|          null|   null|           null|        null|        null|           null| 67.72477324116379| null|
-| stddev| null|0.3480315890924261|   null|       null| 24.09778298180764|        null|                    null|    null|           null|        null|             null|          null|   null|           null|        null|        null|           null|28.859250112596182| null|
-|    min|  Nao|                 0|    Nao|        Nao|                 0|         Nao|                     Nao|     DSL|            Nao|         Nao|              Nao|           Nao|    Nao|            Nao|    DoisAnos|         Nao|         Boleto|             18.25|  Nao|
-|    max|  Sim|                 1|    Sim|        Sim|                72|         Sim|                     Sim|     Nao|            Sim|         Sim|              Sim|           Sim|    Sim|            Sim|       UmAno|         Sim|  DebitoEmConta|            118.75|  Sim|
-+-------+-----+------------------+-------+-----------+------------------+------------+------------------------+--------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+---------------+------------------+-----+
+trainingData.cache
+testData.cache
 
-df.groupBy('TelefoneFixo,'MaisDeUmaLinhaTelefonica).count.show
-+------------+------------------------+-----+
-|TelefoneFixo|MaisDeUmaLinhaTelefonica|count|
-+------------+------------------------+-----+
-|         Sim|                     Sim| 4515|
-|         Sim|                     Nao| 4848|
-|         Nao|    SemServicoTelefonico|  985|
-+------------+------------------------+-----+
+// ----- find best logistic regression model
 
-df.groupBy('Internet,'SegurancaOnline).count.show
-+-----------+------------------+-----+
-|   Internet|   SegurancaOnline|count|
-+-----------+------------------+-----+
-|FibraOptica|               Sim| 1006|
-|        DSL|               Nao| 1889|
-|FibraOptica|               Nao| 4395|
-|        Nao|SemServicoInternet| 1741|
-|        DSL|               Sim| 1317|
-+-----------+------------------+-----+
-
-df.groupBy('Internet,'BackupOnline).count.show
-+-----------+------------------+-----+
-|   Internet|      BackupOnline|count|
-+-----------+------------------+-----+
-|FibraOptica|               Sim| 2069|
-|        DSL|               Nao| 1965|
-|FibraOptica|               Nao| 3332|
-|        Nao|SemServicoInternet| 1741|
-|        DSL|               Sim| 1241|
-+-----------+------------------+-----+
-
-df.groupBy('Internet,'SeguroDispositivo).count.show
-+-----------+------------------+-----+
-|   Internet| SeguroDispositivo|count|
-+-----------+------------------+-----+
-|FibraOptica|               Sim| 2072|
-|        DSL|               Nao| 1962|
-|FibraOptica|               Nao| 3329|
-|        Nao|SemServicoInternet| 1741|
-|        DSL|               Sim| 1244|
-+-----------+------------------+-----+
-
-df.groupBy('Internet,'SuporteTecnico).count.show
-+-----------+------------------+-----+
-|   Internet|    SuporteTecnico|count|
-+-----------+------------------+-----+
-|FibraOptica|               Sim| 1081|
-|        DSL|               Nao| 1882|
-|FibraOptica|               Nao| 4320|
-|        Nao|SemServicoInternet| 1741|
-|        DSL|               Sim| 1324|
-+-----------+------------------+-----+
-
-df.groupBy('Internet,'TVaCabo).count.show
-+-----------+------------------+-----+
-|   Internet|           TVaCabo|count|
-+-----------+------------------+-----+
-|FibraOptica|               Sim| 2994|
-|        DSL|               Nao| 2052|
-|FibraOptica|               Nao| 2407|
-|        Nao|SemServicoInternet| 1741|
-|        DSL|               Sim| 1154|
-+-----------+------------------+-----+
-
-df.groupBy('Internet,'StreamingFilmes).count.show
-+-----------+------------------+-----+
-|   Internet|   StreamingFilmes|count|
-+-----------+------------------+-----+
-|FibraOptica|               Sim| 2970|
-|        DSL|               Nao| 2014|
-|FibraOptica|               Nao| 2431|
-|        Nao|SemServicoInternet| 1741|
-|        DSL|               Sim| 1192|
-+-----------+------------------+-----+
-
-df.groupBy("Churn").count.show
-+-----+-----+
-|Churn|count|
-+-----+-----+
-|  Nao| 5174|
-|  Sim| 5174|
-+-----+-----+
-
-
----- Feature extraction & Data Munging --------------
-
-import org.apache.spark.ml.feature.{StringIndexer, OneHotEncoder, VectorAssembler}
-
-val dfInd0 = new StringIndexer().setInputCol("Churn").setOutputCol("label")
-val df2 = dfInd0.fit(df).transform(df)
-
-val dfInd1 = new StringIndexer().setInputCol("Conjuge").setOutputCol("ConjugeCat")
-val dfInd2 = new StringIndexer().setInputCol("Dependentes").setOutputCol("DependentesCat")
-val dfInd3 = new StringIndexer().setInputCol("TelefoneFixo").setOutputCol("TelefoneFixoCat")
-val dfInd4 = new StringIndexer().setInputCol("MaisDeUmaLinhaTelefonica").setOutputCol("MaisDeUmaLinhaCat")
-val dfInd5 = new StringIndexer().setInputCol("Internet").setOutputCol("InternetCat")
-val dfInd6 = new StringIndexer().setInputCol("SegurancaOnline").setOutputCol("SegurancaOnlineCat")
-val dfInd7 = new StringIndexer().setInputCol("BackupOnline").setOutputCol("BackupOnlineCat")
-val dfInd8 = new StringIndexer().setInputCol("SeguroDispositivo").setOutputCol("SeguroDispositivoCat")
-val dfInd9 = new StringIndexer().setInputCol("SuporteTecnico").setOutputCol("SuporteTecnicoCat")
-val dfInd10 = new StringIndexer().setInputCol("TVaCabo").setOutputCol("TVaCaboCat")
-val dfInd11 = new StringIndexer().setInputCol("StreamingFilmes").setOutputCol("StreamingFilmesCat")
-val dfInd12 = new StringIndexer().setInputCol("TipoContrato").setOutputCol("TipoContratoCat")
-val dfInd13 = new StringIndexer().setInputCol("ContaCorreio").setOutputCol("ContaCorreioCat")
-val dfInd14 = new StringIndexer().setInputCol("MetodoPagamento").setOutputCol("MetodoPagamentoCat")
-
-val dfOne4 = new OneHotEncoder().setInputCol("MaisDeUmaLinhaCat").setOutputCol("MaisDeUmaLinhaVect")
-val dfOne5 = new OneHotEncoder().setInputCol("InternetCat").setOutputCol("InternetVect")
-val dfOne6 = new OneHotEncoder().setInputCol("SegurancaOnlineCat").setOutputCol("SegurancaOnlineVect")
-val dfOne7 = new OneHotEncoder().setInputCol("BackupOnlineCat").setOutputCol("BackupOnlineVect")
-val dfOne8 = new OneHotEncoder().setInputCol("SeguroDispositivoCat").setOutputCol("SeguroDispositivoVect")
-val dfOne9 = new OneHotEncoder().setInputCol("SuporteTecnicoCat").setOutputCol("SuporteTecnicoVect")
-val dfOne10 = new OneHotEncoder().setInputCol("TVaCaboCat").setOutputCol("TVaCaboVect")
-val dfOne11 = new OneHotEncoder().setInputCol("StreamingFilmesCat").setOutputCol("StreamingFilmesVect")
-val dfOne12 = new OneHotEncoder().setInputCol("TipoContratoCat").setOutputCol("TipoContratoVect")
-val dfOne14 = new OneHotEncoder().setInputCol("MetodoPagamentoCat").setOutputCol("MetodoPagamentoVect")
-
-// Conjuge,Dependentes,TelefoneFixo,MaisDeUmaLinhaTelefonica,Internet,SegurancaOnline,BackupOnline,SeguroDispositivo,SuporteTecnico,TVaCabo,StreamingFilmes,TipoContrato,ContaCorreio,MetodoPagamento,Mais65anos,MesesDeContrato,MesesCobrados
-val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("ConjugeCat","DependentesCat","TelefoneFixoCat","MaisDeUmaLinhaVect","InternetVect","SegurancaOnlineVect","BackupOnlineVect","SeguroDispositivoVect","SuporteTecnicoVect","TVaCaboVect","StreamingFilmesVect","TipoContratoVect","ContaCorreioCat","MetodoPagamentoVect","Mais65anos","MesesDeContrato","MesesCobrados"))
-
-import org.apache.spark.ml.Pipeline
-val pipeline = new Pipeline().setStages(Array(dfInd1,dfInd2,dfInd3,dfInd4,dfInd5,dfInd6,dfInd7,dfInd8,dfInd9,dfInd10,dfInd11,dfInd12,dfInd13,dfInd14,dfOne4,dfOne5,dfOne6,dfOne7,dfOne8,dfOne9,dfOne10,dfOne11,dfOne12,dfOne14,va))
-
-val df3 = pipeline.fit(df2).transform(df2)
-
-df3.printSchema
-root
- |-- Churn: string (nullable = true)
- |-- Mais65anos: integer (nullable = true)
- |-- Conjuge: string (nullable = true)
- |-- Dependentes: string (nullable = true)
- |-- MesesDeContrato: integer (nullable = true)
- |-- TelefoneFixo: string (nullable = true)
- |-- MaisDeUmaLinhaTelefonica: string (nullable = true)
- |-- Internet: string (nullable = true)
- |-- SegurancaOnline: string (nullable = true)
- |-- BackupOnline: string (nullable = true)
- |-- SeguroDispositivo: string (nullable = true)
- |-- SuporteTecnico: string (nullable = true)
- |-- TVaCabo: string (nullable = true)
- |-- StreamingFilmes: string (nullable = true)
- |-- TipoContrato: string (nullable = true)
- |-- ContaCorreio: string (nullable = true)
- |-- MetodoPagamento: string (nullable = true)
- |-- MesesCobrados: double (nullable = true)
- |-- label: double (nullable = false)
- |-- ConjugeCat: double (nullable = false)
- |-- DependentesCat: double (nullable = false)
- |-- TelefoneFixoCat: double (nullable = false)
- |-- MaisDeUmaLinhaCat: double (nullable = false)
- |-- InternetCat: double (nullable = false)
- |-- SegurancaOnlineCat: double (nullable = false)
- |-- BackupOnlineCat: double (nullable = false)
- |-- SeguroDispositivoCat: double (nullable = false)
- |-- SuporteTecnicoCat: double (nullable = false)
- |-- TVaCaboCat: double (nullable = false)
- |-- StreamingFilmesCat: double (nullable = false)
- |-- TipoContratoCat: double (nullable = false)
- |-- ContaCorreioCat: double (nullable = false)
- |-- MetodoPagamentoCat: double (nullable = false)
- |-- MaisDeUmaLinhaVect: vector (nullable = true)
- |-- InternetVect: vector (nullable = true)
- |-- SegurancaOnlineVect: vector (nullable = true)
- |-- BackupOnlineVect: vector (nullable = true)
- |-- SeguroDispositivoVect: vector (nullable = true)
- |-- SuporteTecnicoVect: vector (nullable = true)
- |-- TVaCaboVect: vector (nullable = true)
- |-- StreamingFilmesVect: vector (nullable = true)
- |-- TipoContratoVect: vector (nullable = true)
- |-- MetodoPagamentoVect: vector (nullable = true)
- |-- features: vector (nullable = true)
-
- 
-df3.show(10)
-+-----+----------+-------+-----------+---------------+------------+------------------------+-----------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+----------------+-------------+-----+----------+--------------+---------------+-----------------+-----------+------------------+---------------+--------------------+-----------------+----------+------------------+---------------+---------------+------------------+------------------+-------------+-------------------+----------------+---------------------+------------------+-------------+-------------------+----------------+-------------------+--------------------+
-|Churn|Mais65anos|Conjuge|Dependentes|MesesDeContrato|TelefoneFixo|MaisDeUmaLinhaTelefonica|   Internet|SegurancaOnline|BackupOnline|SeguroDispositivo|SuporteTecnico|TVaCabo|StreamingFilmes|TipoContrato|ContaCorreio| MetodoPagamento|MesesCobrados|label|ConjugeCat|DependentesCat|TelefoneFixoCat|MaisDeUmaLinhaCat|InternetCat|SegurancaOnlineCat|BackupOnlineCat|SeguroDispositivoCat|SuporteTecnicoCat|TVaCaboCat|StreamingFilmesCat|TipoContratoCat|ContaCorreioCat|MetodoPagamentoCat|MaisDeUmaLinhaVect| InternetVect|SegurancaOnlineVect|BackupOnlineVect|SeguroDispositivoVect|SuporteTecnicoVect|  TVaCaboVect|StreamingFilmesVect|TipoContratoVect|MetodoPagamentoVect|            features|
-+-----+----------+-------+-----------+---------------+------------+------------------------+-----------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+----------------+-------------+-----+----------+--------------+---------------+-----------------+-----------+------------------+---------------+--------------------+-----------------+----------+------------------+---------------+---------------+------------------+------------------+-------------+-------------------+----------------+---------------------+------------------+-------------+-------------------+----------------+-------------------+--------------------+
-|  Nao|         0|    Sim|        Nao|              1|         Nao|    SemServicoTelefonico|        DSL|            Nao|         Sim|              Nao|           Nao|    Nao|            Nao| Mensalmente|         Sim|BoletoEletronico|        29.85|  0.0|       1.0|           0.0|            1.0|              2.0|        1.0|               0.0|            1.0|                 0.0|              0.0|       0.0|               0.0|            0.0|            0.0|               0.0|         (2,[],[])|(2,[1],[1.0])|      (2,[0],[1.0])|   (2,[1],[1.0])|        (2,[0],[1.0])|     (2,[0],[1.0])|(2,[0],[1.0])|      (2,[0],[1.0])|   (2,[0],[1.0])|      (3,[0],[1.0])|(28,[0,2,6,7,10,1...|
-|  Nao|         0|    Nao|        Nao|             34|         Sim|                     Nao|        DSL|            Sim|         Nao|              Sim|           Nao|    Nao|            Nao|       UmAno|         Nao|          Boleto|        56.95|  0.0|       0.0|           0.0|            0.0|              0.0|        1.0|               1.0|            0.0|                 1.0|              0.0|       0.0|               0.0|            2.0|            1.0|               1.0|     (2,[0],[1.0])|(2,[1],[1.0])|      (2,[1],[1.0])|   (2,[0],[1.0])|        (2,[1],[1.0])|     (2,[0],[1.0])|(2,[0],[1.0])|      (2,[0],[1.0])|       (2,[],[])|      (3,[1],[1.0])|(28,[3,6,8,9,12,1...|
-|  Sim|         0|    Nao|        Nao|              2|         Sim|                     Nao|        DSL|            Sim|         Sim|              Nao|           Nao|    Nao|            Nao| Mensalmente|         Sim|          Boleto|        53.85|  1.0|       0.0|           0.0|            0.0|              0.0|        1.0|               1.0|            1.0|                 0.0|              0.0|       0.0|               0.0|            0.0|            0.0|               1.0|     (2,[0],[1.0])|(2,[1],[1.0])|      (2,[1],[1.0])|   (2,[1],[1.0])|        (2,[0],[1.0])|     (2,[0],[1.0])|(2,[0],[1.0])|      (2,[0],[1.0])|   (2,[0],[1.0])|      (3,[1],[1.0])|(28,[3,6,8,10,11,...|
-|  Nao|         0|    Nao|        Nao|             45|         Nao|    SemServicoTelefonico|        DSL|            Sim|         Nao|              Sim|           Sim|    Nao|            Nao|       UmAno|         Nao|   DebitoEmConta|         42.3|  0.0|       0.0|           0.0|            1.0|              2.0|        1.0|               1.0|            0.0|                 1.0|              1.0|       0.0|               0.0|            2.0|            1.0|               2.0|         (2,[],[])|(2,[1],[1.0])|      (2,[1],[1.0])|   (2,[0],[1.0])|        (2,[1],[1.0])|     (2,[1],[1.0])|(2,[0],[1.0])|      (2,[0],[1.0])|       (2,[],[])|      (3,[2],[1.0])|(28,[2,6,8,9,12,1...|
-|  Sim|         0|    Nao|        Nao|              2|         Sim|                     Nao|FibraOptica|            Nao|         Nao|              Nao|           Nao|    Nao|            Nao| Mensalmente|         Sim|BoletoEletronico|         70.7|  1.0|       0.0|           0.0|            0.0|              0.0|        0.0|               0.0|            0.0|                 0.0|              0.0|       0.0|               0.0|            0.0|            0.0|               0.0|     (2,[0],[1.0])|(2,[0],[1.0])|      (2,[0],[1.0])|   (2,[0],[1.0])|        (2,[0],[1.0])|     (2,[0],[1.0])|(2,[0],[1.0])|      (2,[0],[1.0])|   (2,[0],[1.0])|      (3,[0],[1.0])|(28,[3,5,7,9,11,1...|
-|  Sim|         0|    Nao|        Nao|              8|         Sim|                     Sim|FibraOptica|            Nao|         Nao|              Sim|           Nao|    Sim|            Sim| Mensalmente|         Sim|BoletoEletronico|        99.65|  1.0|       0.0|           0.0|            0.0|              1.0|        0.0|               0.0|            0.0|                 1.0|              0.0|       1.0|               1.0|            0.0|            0.0|               0.0|     (2,[1],[1.0])|(2,[0],[1.0])|      (2,[0],[1.0])|   (2,[0],[1.0])|        (2,[1],[1.0])|     (2,[0],[1.0])|(2,[1],[1.0])|      (2,[1],[1.0])|   (2,[0],[1.0])|      (3,[0],[1.0])|(28,[4,5,7,9,12,1...|
-|  Nao|         0|    Nao|        Sim|             22|         Sim|                     Sim|FibraOptica|            Nao|         Sim|              Nao|           Nao|    Sim|            Nao| Mensalmente|         Sim|   CartaoCredito|         89.1|  0.0|       0.0|           1.0|            0.0|              1.0|        0.0|               0.0|            1.0|                 0.0|              0.0|       1.0|               0.0|            0.0|            0.0|               3.0|     (2,[1],[1.0])|(2,[0],[1.0])|      (2,[0],[1.0])|   (2,[1],[1.0])|        (2,[0],[1.0])|     (2,[0],[1.0])|(2,[1],[1.0])|      (2,[0],[1.0])|   (2,[0],[1.0])|          (3,[],[])|(28,[1,4,5,7,10,1...|
-|  Nao|         0|    Nao|        Nao|             10|         Nao|    SemServicoTelefonico|        DSL|            Sim|         Nao|              Nao|           Nao|    Nao|            Nao| Mensalmente|         Nao|          Boleto|        29.75|  0.0|       0.0|           0.0|            1.0|              2.0|        1.0|               1.0|            0.0|                 0.0|              0.0|       0.0|               0.0|            0.0|            1.0|               1.0|         (2,[],[])|(2,[1],[1.0])|      (2,[1],[1.0])|   (2,[0],[1.0])|        (2,[0],[1.0])|     (2,[0],[1.0])|(2,[0],[1.0])|      (2,[0],[1.0])|   (2,[0],[1.0])|      (3,[1],[1.0])|(28,[2,6,8,9,11,1...|
-|  Sim|         0|    Sim|        Nao|             28|         Sim|                     Sim|FibraOptica|            Nao|         Nao|              Sim|           Sim|    Sim|            Sim| Mensalmente|         Sim|BoletoEletronico|        104.8|  1.0|       1.0|           0.0|            0.0|              1.0|        0.0|               0.0|            0.0|                 1.0|              1.0|       1.0|               1.0|            0.0|            0.0|               0.0|     (2,[1],[1.0])|(2,[0],[1.0])|      (2,[0],[1.0])|   (2,[0],[1.0])|        (2,[1],[1.0])|     (2,[1],[1.0])|(2,[1],[1.0])|      (2,[1],[1.0])|   (2,[0],[1.0])|      (3,[0],[1.0])|(28,[0,4,5,7,9,12...|
-|  Nao|         0|    Nao|        Sim|             62|         Sim|                     Nao|        DSL|            Sim|         Sim|              Nao|           Nao|    Nao|            Nao|       UmAno|         Nao|   DebitoEmConta|        56.15|  0.0|       0.0|           1.0|            0.0|              0.0|        1.0|               1.0|            1.0|                 0.0|              0.0|       0.0|               0.0|            2.0|            1.0|               2.0|     (2,[0],[1.0])|(2,[1],[1.0])|      (2,[1],[1.0])|   (2,[1],[1.0])|        (2,[0],[1.0])|     (2,[0],[1.0])|(2,[0],[1.0])|      (2,[0],[1.0])|       (2,[],[])|      (3,[2],[1.0])|(28,[1,3,6,8,10,1...|
-+-----+----------+-------+-----------+---------------+------------+------------------------+-----------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+----------------+-------------+-----+----------+--------------+---------------+-----------------+-----------+------------------+---------------+--------------------+-----------------+----------+------------------+---------------+---------------+------------------+------------------+-------------+-------------------+----------------+---------------------+------------------+-------------+-------------------+----------------+-------------------+--------------------+
-only showing top 10 rows
-
-
-// calculate pearson correlation to check multicolinearity
-
-import org.apache.spark.ml.stat.Correlation
-import org.apache.spark.ml.linalg.Matrix
-import org.apache.spark.sql.Row
-
-val corr = Correlation.corr(df3, "features", "pearson").head match {
-   case Row(coeff: Matrix) => coeff
-}
-1.0                    0.46090202325848095    ... (28 total)
-0.46090202325848095    1.0                    ...
--0.022286127660715357  -0.01989414423979956   ...
--0.13770521829235824   0.048804966419336335   ...
-0.15174829377230561    -0.03733525123020969   ...
-0.01023030142880541    -0.1776543434205222    ...
--0.01910416850572813   0.06542267054782434    ...
--0.14303679558436863   -0.22269283176655796   ...
-0.15849049581252758    0.12046866007274795    ...
--0.16260958245715226   -0.15220879258635073   ...
-0.16628149761946467    0.03772072563247398    ...
--0.18031929389001466   -0.1619745491420988    ...
-0.18517710103918597    0.04816807872266256    ...
--0.1272220558227519    -0.21332298597983204   ...
-0.13878563452428613    0.10901813733131879  ...
-
-
-corr.toDense.rowIter.foreach( x => {
-  val size = x.size
-  for ( i <- Range(0,size)) { 
-    val elem = x(i)
-    print(f"$elem%.3f\t") 
-  }
-  println
-})
-// "ConjugeCat","DependentesCat","TelefoneFixoCat","MaisDeUmaLinhaVect","InternetVect","SegurancaOnlineVect","BackupOnlineVect","SeguroDispositivoVect","SuporteTecnicoVect","TVaCaboVect","StreamingFilmesVect","TipoContratoVect","ContaCorreioCat","MetodoPagamentoVect","Mais65anos","MesesDeContrato","MesesCobrados"
-1.000   0.461   -0.022  -0.138  0.152   0.010   -0.019  -0.143  0.158   -0.163 0.166    -0.180  0.185   -0.127  0.139   -0.144  0.138   -0.142  0.136   -0.296 0.248    0.022   -0.105  -0.088  0.130   0.044   0.409   0.112
-0.461   1.000   -0.020  0.049   -0.037  -0.178  0.065   -0.223  0.120   -0.152 0.038    -0.162  0.048   -0.213  0.109   -0.098  -0.020  -0.073  -0.046  -0.268 0.236    0.140   -0.198  0.082   0.081   -0.165  0.195   -0.117
--0.022  -0.020  1.000   -0.305  -0.285  -0.339  0.484   0.059   0.061   0.082  0.029    0.057   0.056   0.066   0.053   0.098   0.012   0.090   0.020   0.007  -0.004   0.012   0.017   -0.000  -0.017  -0.017  -0.014  -0.305
--0.138  0.049   -0.305  1.000   -0.826  -0.199  -0.027  -0.144  -0.100  -0.016 -0.223   -0.016  -0.223  -0.141  -0.103  0.041   -0.270  0.058   -0.287  0.064  -0.075   0.166   -0.121  0.236   -0.046  -0.131  -0.311  -0.336
-0.152   -0.037  -0.285  -0.826  1.000   0.401   -0.259  0.110   0.065   -0.032 0.208    -0.018  0.192   0.103   0.072   -0.099  0.265   -0.112  0.277   -0.069 0.078    -0.174  0.111   -0.237  0.056   0.142   0.321   0.518
-0.010   -0.178  -0.339  -0.199  0.401   1.000   -0.700  0.442   -0.096  0.220  0.142    0.220   0.141   0.428   -0.080  0.031   0.327   0.043   0.315   0.265  -0.230   -0.356  0.389   -0.349  -0.057  0.203   -0.012  0.805
--0.019  0.065   0.484   -0.027  -0.259  -0.700  1.000   -0.025  0.299   0.135  0.097    0.135   0.097   -0.017  0.286   0.283   -0.056  0.269   -0.042  -0.091 0.053    0.099   -0.147  0.087   0.027   -0.103  0.011   -0.280
--0.143  -0.223  0.059   -0.144  0.110   0.442   -0.025  1.000   -0.669  0.405  0.015    0.392   0.029   0.539   -0.130  0.243   0.182   0.261   0.164   0.451  -0.385   -0.324  0.421   -0.234  -0.144  0.128   -0.304  0.378
-0.158   0.120   0.061   -0.100  0.065   -0.096  0.299   -0.669  1.000   -0.061 0.259    -0.046  0.243   -0.138  0.375   0.067   0.117   0.045   0.139   -0.312 0.234    0.063   -0.189  -0.048  0.130   -0.021  0.354   0.210
--0.163  -0.152  0.082   -0.016  -0.032  0.220   0.135   0.405   -0.061  1.000  -0.702   0.379   -0.037  0.401   -0.058  0.307   0.041   0.304   0.045   0.363  -0.296   -0.167  0.288   -0.119  -0.126  0.046   -0.365  0.175
-0.166   0.038   0.029   -0.223  0.208   0.142   0.097   0.015   0.259   -0.702 1.000    -0.037  0.287   0.011   0.260   -0.015  0.251   -0.012  0.248   -0.196 0.124    -0.105  -0.038  -0.161  0.100   0.066   0.390   0.396
--0.180  -0.162  0.057   -0.016  -0.018  0.220   0.135   0.392   -0.046  0.379  -0.037   1.000   -0.702  0.441   -0.104  0.417   -0.070  0.417   -0.070  0.406  -0.337   -0.187  0.267   -0.110  -0.116  0.063   -0.346  0.141
-0.185   0.048   0.056   -0.223  0.192   0.141   0.097   0.029   0.243   -0.037 0.287    -0.702  1.000   -0.031  0.310   -0.133  0.370   -0.134  0.371   -0.242 0.168    -0.083  -0.015  -0.170  0.089   0.048   0.369   0.432
--0.127  -0.213  0.066   -0.141  0.103   0.428   -0.017  0.539   -0.138  0.401  0.011    0.441   -0.031  1.000   -0.673  0.334   0.083   0.327   0.089   0.485  -0.424   -0.282  0.420   -0.234  -0.148  0.145   -0.305  0.332
-0.139   0.109   0.053   -0.103  0.072   -0.080  0.286   -0.130  0.375   -0.058 0.260    -0.104  0.310   -0.673  1.000   -0.040  0.230   -0.034  0.223   -0.349 0.279    0.014   -0.188  -0.046  0.133   -0.041  0.352   0.260
--0.144  -0.098  0.098   0.041   -0.099  0.031   0.283   0.243   0.067   0.307  -0.015   0.417   -0.133  0.334   -0.040  1.000   -0.712  0.544   -0.251  0.279  -0.233   -0.032  0.078   -0.011  -0.058  0.032   -0.276  -0.056
-0.138   -0.020  0.012   -0.270  0.265   0.327   -0.056  0.182   0.117   0.041  0.251    -0.070  0.370   0.083   0.230   -0.712  1.000   -0.252  0.535   -0.098 0.052    -0.237  0.180   -0.263  0.026   0.078   0.277   0.612
--0.142  -0.073  0.090   0.058   -0.112  0.043   0.269   0.261   0.045   0.304  -0.012   0.417   -0.134  0.327   -0.034  0.544   -0.252  1.000   -0.712  0.289  -0.234   -0.040  0.096   -0.007  -0.067  0.007   -0.283  -0.052
-0.136   -0.046  0.020   -0.287  0.277   0.315   -0.042  0.164   0.139   0.045  0.248    -0.070  0.371   0.089   0.223   -0.251  0.535   -0.712  1.000   -0.108 0.053    -0.229  0.161   -0.266  0.035   0.102   0.284   0.608
--0.296  -0.268  0.007   0.064   -0.069  0.265   -0.091  0.451   -0.312  0.363  -0.196   0.406   -0.242  0.485   -0.349  0.279   -0.098  0.289   -0.108  1.000  -0.642   -0.212  0.391   -0.029  -0.226  0.079   -0.664  0.071
-0.248   0.236   -0.004  -0.075  0.078   -0.230  0.053   -0.385  0.234   -0.296 0.124    -0.337  0.168   -0.424  0.279   -0.233  0.052   -0.234  0.053   -0.642 1.000    0.184   -0.322  0.023   0.194   -0.074  0.551   -0.095
-0.022   0.140   0.012   0.166   -0.174  -0.356  0.099   -0.324  0.063   -0.167 -0.105   -0.187  -0.083  -0.282  0.014   -0.032  -0.237  -0.040  -0.229  -0.212 0.184    1.000   -0.283  0.235   0.066   -0.125  0.032   -0.375
--0.105  -0.198  0.017   -0.121  0.111   0.389   -0.147  0.421   -0.189  0.288  -0.038   0.267   -0.015  0.420   -0.188  0.078   0.180   0.096   0.161   0.391  -0.322   -0.283  1.000   -0.455  -0.423  0.115   -0.252  0.312
--0.088  0.082   -0.000  0.236   -0.237  -0.349  0.087   -0.234  -0.048  -0.119 -0.161   -0.110  -0.170  -0.234  -0.046  -0.011  -0.263  -0.007  -0.266  -0.029 0.023    0.235   -0.455  1.000   -0.230  -0.130  -0.194  -0.409
-0.130   0.081   -0.017  -0.046  0.056   -0.057  0.027   -0.144  0.130   -0.126 0.100    -0.116  0.089   -0.148  0.133   -0.058  0.026   -0.067  0.035   -0.226 0.194    0.066   -0.423  -0.230  1.000   -0.006  0.268   0.011
-0.044   -0.165  -0.017  -0.131  0.142   0.203   -0.103  0.128   -0.021  0.046  0.066    0.063   0.048   0.145   -0.041  0.032   0.078   0.007   0.102   0.079  -0.074   -0.125  0.115   -0.130  -0.006  1.000   0.053   0.184
-0.409   0.195   -0.014  -0.311  0.321   -0.012  0.011   -0.304  0.354   -0.365 0.390    -0.346  0.369   -0.305  0.352   -0.276  0.277   -0.283  0.284   -0.664 0.551    0.032   -0.252  -0.194  0.268   0.053   1.000   0.228
-0.112   -0.117  -0.305  -0.336  0.518   0.805   -0.280  0.378   0.210   0.175  0.396    0.141   0.432   0.332   0.260   -0.056  0.612   -0.052  0.608   0.071  -0.095   -0.375  0.312   -0.409  0.011   0.184   0.228   1.000
-
-// SuporteTecnicoCat x SegurancaOnlineCat = 0.811 can be considered multicolinear
-// MesesCobrados x InternetVect = 0.805 can be considered multicolinear
-
-// ----- building the logistic regression model
+import org.apache.spark.ml.feature.RFormula
+val rf = new RFormula().setFormula("Churn ~ .")
 
 import org.apache.spark.ml.feature.StandardScaler
 val stdScaler = new StandardScaler().
@@ -306,75 +24,66 @@ import org.apache.spark.ml.classification.LogisticRegression
 val lr = new LogisticRegression
 lr.setFitIntercept(true).setFeaturesCol("scaledFeatures")
 
-import org.apache.spark.ml.Pipeline
-
-val pipeline = new Pipeline().setStages(Array(dfInd1,dfInd2,dfInd3,dfInd4,dfInd5,dfInd6,dfInd7,dfInd8,dfInd9,dfInd10,dfInd11,dfInd12,dfInd13,dfInd14,dfOne4,dfOne5,dfOne6,dfOne7,dfOne8,dfOne9,dfOne10,dfOne11,dfOne12,dfOne14,va,stdScaler,lr))
-
-val Array(trainingData, testData) = df2.randomSplit(Array(0.7,0.3),11L)
-
-trainingData.cache
-testData.cache
-
-// ----- find best logistic regression model
-
 import org.apache.spark.ml.tuning.{ParamGridBuilder, CrossValidator}
 
 val paramGrid = new ParamGridBuilder().
 addGrid(lr.regParam, Array(0.1, 0.01, 0.001)).
-addGrid(lr.maxIter, Array(100,300,500)).build()
+addGrid(lr.maxIter, Array(10,20,40,100)).build()
 
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 
 val cv = new CrossValidator().
-setEstimator(pipeline).
+setEstimator(lr).
 setEvaluator(new BinaryClassificationEvaluator).
 setEstimatorParamMaps(paramGrid).
 setNumFolds(3)
 
-val cvmodel = cv.fit(trainingData)
+import org.apache.spark.ml.Pipeline
+val pipeline = new Pipeline().setStages(Array(rf,stdScaler,cv))
+val pipelinemodel = pipeline.fit(trainingData)
+
+import org.apache.spark.ml.tuning.CrossValidatorModel
+val cvmodel = pipelinemodel.stages.last.asInstanceOf[CrossValidatorModel]
 
 // -- CV hyperparameter evaluation
 
 cvmodel.getEstimatorParamMaps.zip(cvmodel.avgMetrics)
-res4: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
+res8: Array[(org.apache.spark.ml.param.ParamMap, Double)] =
 Array(({
-        logreg_ae234816827a-maxIter: 100,
-        logreg_ae234816827a-regParam: 0.1
+        logreg_ceb9c3b4e55d-maxIter: 10,
+        logreg_ceb9c3b4e55d-regParam: 0.1
+},0.8623124455391706), ({
+        logreg_ceb9c3b4e55d-maxIter: 10,
+        logreg_ceb9c3b4e55d-regParam: 0.01
+},0.8645341794060438), ({
+        logreg_ceb9c3b4e55d-maxIter: 10,
+        logreg_ceb9c3b4e55d-regParam: 0.001
+},0.8645039233978996), ({
+        logreg_ceb9c3b4e55d-maxIter: 20,
+        logreg_ceb9c3b4e55d-regParam: 0.1
 },0.862319720936492), ({
-        logreg_ae234816827a-maxIter: 300,
-        logreg_ae234816827a-regParam: 0.1
+        logreg_ceb9c3b4e55d-maxIter: 20,
+        logreg_ceb9c3b4e55d-regParam: 0.01
+},0.8645532906769965), ({
+        logreg_ceb9c3b4e55d-maxIter: 20,
+        logreg_ceb9c3b4e55d-regParam: 0.001
+},0.8645537152560872), ({
+        logreg_ceb9c3b4e55d-maxIter: 40,
+        logreg_ceb9c3b4e55d-regParam: 0.1
 },0.862319720936492), ({
-        logreg_ae234816827a-maxIter: 500,
-        logreg_ae234816827a-regParam: 0.1
-},0.862319720936492), ({
-        logreg_ae234816827a-maxIter: 100,
-        logreg_ae234816827a-regParam: 0.01
-},0.864556148248656), ({
-        logreg_ae234816827a-maxIter: 300,
-        logreg_ae234816827a-regParam: 0.01
-},0.864556148248656), ({
-        logreg_ae234816827a-maxIter: 500,
-        logreg_ae234816827a-regParam: 0.01
-},0.864556148248656), ({
-        logreg_ae234816827a-maxIter: 100,
-        logreg_ae234816827a-regParam: 0.001
-},0.8646417225365819), ({
-        logreg_ae234816827a-maxIter: 300,
-        logreg_ae234816827a-r...
+        logreg_ceb9c3b4e55d-maxIter: 40,
+        logreg_ceb9c3b4e55d-regP...
 
-// -----  metrics extracted from model
-
-import org.apache.spark.ml.PipelineModel
-val bestmodel = cvmodel.bestModel.asInstanceOf[PipelineModel]
+-- extract best LR model 
 
 import org.apache.spark.ml.classification.LogisticRegressionModel
-val lrmodel = bestmodel.stages(26).asInstanceOf[LogisticRegressionModel]
+val lrmodel = cvmodel.bestModel.asInstanceOf[LogisticRegressionModel]
 
 lrmodel.getRegParam
 res1: Double = 0.001
 
 lrmodel.getMaxIter
-res2: Int = 100
+res2: Int = 40
 
 lrmodel.getThreshold
 res3: Double = 0.5
@@ -382,74 +91,75 @@ res3: Double = 0.5
 lrmodel.getFitIntercept
 res4: Boolean = true
 
-lrmodel.getStandardization
-res5: Boolean = true
-
-// -- collecting feature importance
-
-val featureImp = va.getInputCols.zip(lrmodel.coefficients.toArray)
-
-val columns = Array("feature", "Importance")
-val featureImpDF = spark.createDataFrame(featureImp).toDF(columns: _*)
-
-featureImpDF.orderBy($"Importance".desc).show()
-+--------------------+--------------------+
-|             feature|          Importance|
-+--------------------+--------------------+
-|SeguroDispositivo...| 0.15571552929726806|
-| MetodoPagamentoVect| 0.12569843756234186|
-| SegurancaOnlineVect| 0.12487086096550955|
-|     TelefoneFixoCat| 0.12397582996573576|
-|         TVaCaboVect| 0.05862353106280387|
-|       MesesCobrados|0.054710617177445166|
-|          ConjugeCat|0.043797314011758647|
-|    TipoContratoVect| 0.02891321120046848|
-|        InternetVect| 0.00871417698794238|
-|     ContaCorreioCat|0.008688070013797084|
-|     MesesDeContrato|-0.01691281779103668|
-| StreamingFilmesVect|-0.02318576758898895|
-|  MaisDeUmaLinhaVect|-0.08031852477441338|
-|    BackupOnlineVect|-0.09490754475220771|
-|          Mais65anos|-0.10206203865041984|
-|  SuporteTecnicoVect|-0.13790791387081314|
-|      DependentesCat|-0.27186099680630865|
-+--------------------+--------------------+
-
 // -----  metrics extracted from model
+
+println(s"LR Model coefficients:\n${lrmodel.coefficients.toArray.mkString("\n")}")
+LR Model coefficients:
+-0.198251765593552     // Mais65anos
+-0.04379731401112643   // Conjuge
+0.2718609968058266     // Dependentes
+-0.6423069189643607    // MesesDeContrato
+-0.12397582996556902   // TelefoneFixo
+-0.08031852477442004   // 
+0.00871417698805903    // MaisDeUmaLinhaTelefonica
+0.12487086096573265    // 
+-0.09490754475213016   // Internet
+0.1557155292973795     
+-0.1379079138706212    // SegurancaOnline
+0.05862353106297416    
+-0.02318576758886744   // BackupOnline
+0.028913211200497523   
+0.00868807001403029    // SeguroDispositivo
+0.1256984375623669
+-0.1020620386501361    // SuporteTecnico
+-0.01691281779103503   
+0.05471061717770097    // TVaCabo
+-0.012518279840483053
+0.05031217816674895    // StreamingFilmes
+0.3981392163364734     
+-0.3088112330272261    // TipoContrato
+0.1968897641298962     // ContaCorreio
+0.3843389246192365
+0.11120878481427551
+0.06946403687867442    // MetodoPagamento
+0.39527102192954094    // MesesCobrados
 
 import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary
 
 val trainingSummary = lrmodel.summary
 
 trainingSummary.objectiveHistory
-res12: Array[Double] = Array(0.6931438275050771, 0.4991531245666426, 0.47765760970053345, 0.46551098017660214, 0.46245737711319757, 0.4602211718168132, 0.45886871847130006, 0.45857437471161, 0.4584130378059332, 0.45823281541259653, 0.4581654535269004, 0.45814649225466614, 0.4581438872425138, 0.4581417541263483, 0.45813786334588125, 0.45812876806629016, 0.45812051410587146, 0.4581077315933425, 0.4581012305660462, 0.4580990955510318, 0.4580961766571477, 0.45809405037340617, 0.45809247777203166, 0.4580921763995744, 0.4580921453498334, 0.4580921269590527, 0.4580921248611335, 0.4580921241846143, 0.4580921241580892, 0.4580921241512928, 0.4580921241424103, 0.458092124138308, 0.4580921241352636, 0.45809212413440725)
+res8: Array[Double] = Array(0.6931438275050771, 0.49915312456664246, 0.4776576097005334, 0.46551098017660203, 0.4624573771131976, 0.46022117181681316, 0.45886871847130006, 0.45857437471161006, 0.45841303780593334, 0.45823281541259636, 0.4581654535269004, 0.45814649225466614, 0.4581438872425141, 0.4581417541263477, 0.4581378633458809, 0.4581287680662911, 0.4581205141058715, 0.45810773159334295, 0.45810123056604785, 0.45809909555103334, 0.458096176657147, 0.4580940503734066, 0.4580924777720326, 0.45809217639957384, 0.4580921453498339, 0.45809212695905244, 0.4580921248611346, 0.45809212418461437, 0.4580921241580879, 0.4580921241512925, 0.45809212414241224, 0.45809212413830475, 0.4580921241352634, 0.4580921241344077)
 
 val binarySummary = trainingSummary.asInstanceOf[BinaryLogisticRegressionSummary]
 
 binarySummary.areaUnderROC
-res13: Double = 0.866529170216652
+res9: Double = 0.866529170216652
 
 binarySummary.accuracy
-res14: Double = 0.7816546272318387
+res10: Double = 0.7816546272318387
 
-// -----  metrics on test data
+-- collecting metric performance
 
-val pred = bestmodel.transform(testData)
+val pred = pipelinemodel.transform(testData)
 
 val bceval = new BinaryClassificationEvaluator()
 
 bceval.setMetricName("areaUnderROC").evaluate(pred)
-res39: Double = 0.8662194895960146
+res11: Double = 0.8662194895960146 
 
 bceval.setMetricName("areaUnderPR").evaluate(pred)
-res40: Double = 0.8625581037199371
+res12: Double = 0.8625581037199371
 
-val validPredicts = pred.select("label","prediction").rdd.map( row => (row.getDouble(0),row.getDouble(1)) )
+val predRDD = pred.select("prediction","label").rdd.map( row => (row.getDouble(0),row.getDouble(1))).cache
 
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
-val metrics = new MulticlassMetrics(validPredicts)
+val metrics = new MulticlassMetrics(predRDD)
+
+metrics.accuracy
+res13: Double = 0.7771504483560279
 
 metrics.confusionMatrix
-res15: org.apache.spark.mllib.linalg.Matrix =
-1102.0  277.0
-394.0   1238.0
+res14: org.apache.spark.mllib.linalg.Matrix =
+1102.0  394.0
+277.0   1238.0

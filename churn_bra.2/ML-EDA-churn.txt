@@ -1,0 +1,545 @@
+
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("staging/dados_clientes.csv").drop("id")
+
+df.printSchema
+root
+ |-- Churn: string (nullable = true)
+ |-- Mais65anos: integer (nullable = true)
+ |-- Conjuge: string (nullable = true)
+ |-- Dependentes: string (nullable = true)
+ |-- MesesDeContrato: integer (nullable = true)
+ |-- TelefoneFixo: string (nullable = true)
+ |-- MaisDeUmaLinhaTelefonica: string (nullable = true)
+ |-- Internet: string (nullable = true)
+ |-- SegurancaOnline: string (nullable = true)
+ |-- BackupOnline: string (nullable = true)
+ |-- SeguroDispositivo: string (nullable = true)
+ |-- SuporteTecnico: string (nullable = true)
+ |-- TVaCabo: string (nullable = true)
+ |-- StreamingFilmes: string (nullable = true)
+ |-- TipoContrato: string (nullable = true)
+ |-- ContaCorreio: string (nullable = true)
+ |-- MetodoPagamento: string (nullable = true)
+ |-- MesesCobrados: double (nullable = true)
+
+df.show(10)
++-----+----------+-------+-----------+---------------+------------+------------------------+-----------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+----------------+-------------+
+|Churn|Mais65anos|Conjuge|Dependentes|MesesDeContrato|TelefoneFixo|MaisDeUmaLinhaTelefonica|   Internet|SegurancaOnline|BackupOnline|SeguroDispositivo|SuporteTecnico|TVaCabo|StreamingFilmes|TipoContrato|ContaCorreio| MetodoPagamento|MesesCobrados|
++-----+----------+-------+-----------+---------------+------------+------------------------+-----------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+----------------+-------------+
+|  Nao|         0|    Sim|        Nao|              1|         Nao|    SemServicoTelefonico|        DSL|            Nao|         Sim|              Nao|           Nao|    Nao|            Nao| Mensalmente|         Sim|BoletoEletronico|        29.85|
+|  Nao|         0|    Nao|        Nao|             34|         Sim|                     Nao|        DSL|            Sim|         Nao|              Sim|           Nao|    Nao|            Nao|       UmAno|         Nao|          Boleto|        56.95|
+|  Sim|         0|    Nao|        Nao|              2|         Sim|                     Nao|        DSL|            Sim|         Sim|              Nao|           Nao|    Nao|            Nao| Mensalmente|         Sim|          Boleto|        53.85|
+|  Nao|         0|    Nao|        Nao|             45|         Nao|    SemServicoTelefonico|        DSL|            Sim|         Nao|              Sim|           Sim|    Nao|            Nao|       UmAno|         Nao|   DebitoEmConta|         42.3|
+|  Sim|         0|    Nao|        Nao|              2|         Sim|                     Nao|FibraOptica|            Nao|         Nao|              Nao|           Nao|    Nao|            Nao| Mensalmente|         Sim|BoletoEletronico|         70.7|
+|  Sim|         0|    Nao|        Nao|              8|         Sim|                     Sim|FibraOptica|            Nao|         Nao|              Sim|           Nao|    Sim|            Sim| Mensalmente|         Sim|BoletoEletronico|        99.65|
+|  Nao|         0|    Nao|        Sim|             22|         Sim|                     Sim|FibraOptica|            Nao|         Sim|              Nao|           Nao|    Sim|            Nao| Mensalmente|         Sim|   CartaoCredito|         89.1|
+|  Nao|         0|    Nao|        Nao|             10|         Nao|    SemServicoTelefonico|        DSL|            Sim|         Nao|              Nao|           Nao|    Nao|            Nao| Mensalmente|         Nao|          Boleto|        29.75|
+|  Sim|         0|    Sim|        Nao|             28|         Sim|                     Sim|FibraOptica|            Nao|         Nao|              Sim|           Sim|    Sim|            Sim| Mensalmente|         Sim|BoletoEletronico|        104.8|
+|  Nao|         0|    Nao|        Sim|             62|         Sim|                     Nao|        DSL|            Sim|         Sim|              Nao|           Nao|    Nao|            Nao|       UmAno|         Nao|   DebitoEmConta|        56.15|
++-----+----------+-------+-----------+---------------+------------+------------------------+-----------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+----------------+-------------+
+only showing top 10 rows
+
+
+df.describe().show
++-------+-----+------------------+-------+-----------+------------------+------------+------------------------+--------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+---------------+------------------+-----+
+|summary|Churn|        Mais65anos|Conjuge|Dependentes|   MesesDeContrato|TelefoneFixo|MaisDeUmaLinhaTelefonica|Internet|SegurancaOnline|BackupOnline|SeguroDispositivo|SuporteTecnico|TVaCabo|StreamingFilmes|TipoContrato|ContaCorreio|MetodoPagamento|     MesesCobrados|label|
++-------+-----+------------------+-------+-----------+------------------+------------+------------------------+--------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+---------------+------------------+-----+
+|  count|10348|             10348|  10348|      10348|             10348|       10348|                   10348|   10348|          10348|       10348|            10348|         10348|  10348|          10348|       10348|       10348|          10348|             10348|10348|
+|   mean| null|0.1409934286818709|   null|       null|27.518554310011595|        null|                    null|    null|           null|        null|             null|          null|   null|           null|        null|        null|           null| 67.72477324116379| null|
+| stddev| null|0.3480315890924261|   null|       null| 24.09778298180764|        null|                    null|    null|           null|        null|             null|          null|   null|           null|        null|        null|           null|28.859250112596182| null|
+|    min|  Nao|                 0|    Nao|        Nao|                 0|         Nao|                     Nao|     DSL|            Nao|         Nao|              Nao|           Nao|    Nao|            Nao|    DoisAnos|         Nao|         Boleto|             18.25|  Nao|
+|    max|  Sim|                 1|    Sim|        Sim|                72|         Sim|                     Sim|     Nao|            Sim|         Sim|              Sim|           Sim|    Sim|            Sim|       UmAno|         Sim|  DebitoEmConta|            118.75|  Sim|
++-------+-----+------------------+-------+-----------+------------------+------------+------------------------+--------+---------------+------------+-----------------+--------------+-------+---------------+------------+------------+---------------+------------------+-----+
+
+val listcols = df.columns.diff(Array("MesesDeContrato","MesesCobrados"))
+listcols: Array[String] = Array(Churn, Mais65anos, Conjuge, Dependentes, TelefoneFixo, MaisDeUmaLinhaTelefonica, Internet, SegurancaOnline, BackupOnline, SeguroDispositivo, SuporteTecnico, TVaCabo, StreamingFilmes, TipoContrato, ContaCorreio, MetodoPagamento)
+
+spark.conf.set("spark.sql.shuffle.partitions",10)
+
+listcols.map( colname => {
+   val freq = df.select(colname).distinct.count
+   println(colname + ": " + freq) 
+})
+Churn: 2
+Mais65anos: 2
+Conjuge: 2
+Dependentes: 2
+TelefoneFixo: 2
+MaisDeUmaLinhaTelefonica: 3
+Internet: 3
+SegurancaOnline: 3
+BackupOnline: 3
+SeguroDispositivo: 3
+SuporteTecnico: 3
+TVaCabo: 3
+StreamingFilmes: 3
+TipoContrato: 3
+ContaCorreio: 2
+MetodoPagamento: 4
+
+listcols.map( colname => {
+     |    val freq = df.select(colname).distinct.count
+     |    println("Frequency distribuition for " + colname)
+     |    df.groupBy(colname).count.orderBy(desc("count")).show
+     | })
+Frequency distribuition for Churn
++-----+-----+
+|Churn|count|
++-----+-----+
+|  Sim| 5174|
+|  Nao| 5174|
++-----+-----+
+
+Frequency distribuition for Mais65anos
++----------+-----+
+|Mais65anos|count|
++----------+-----+
+|         0| 8889|
+|         1| 1459|
++----------+-----+
+
+Frequency distribuition for Conjuge
++-------+-----+
+|Conjuge|count|
++-------+-----+
+|    Nao| 5867|
+|    Sim| 4481|
++-------+-----+
+
+Frequency distribuition for Dependentes
++-----------+-----+
+|Dependentes|count|
++-----------+-----+
+|        Nao| 7871|
+|        Sim| 2477|
++-----------+-----+
+
+Frequency distribuition for TelefoneFixo
++------------+-----+
+|TelefoneFixo|count|
++------------+-----+
+|         Sim| 9363|
+|         Nao|  985|
++------------+-----+
+
+Frequency distribuition for MaisDeUmaLinhaTelefonica
++------------------------+-----+
+|MaisDeUmaLinhaTelefonica|count|
++------------------------+-----+
+|                     Nao| 4848|
+|                     Sim| 4515|
+|    SemServicoTelefonico|  985|
++------------------------+-----+
+
+Frequency distribuition for Internet
++-----------+-----+
+|   Internet|count|
++-----------+-----+
+|FibraOptica| 5401|
+|        DSL| 3206|
+|        Nao| 1741|
++-----------+-----+
+
+Frequency distribuition for SegurancaOnline
++------------------+-----+
+|   SegurancaOnline|count|
++------------------+-----+
+|               Nao| 6284|
+|               Sim| 2323|
+|SemServicoInternet| 1741|
++------------------+-----+
+
+Frequency distribuition for BackupOnline
++------------------+-----+
+|      BackupOnline|count|
++------------------+-----+
+|               Nao| 5297|
+|               Sim| 3310|
+|SemServicoInternet| 1741|
++------------------+-----+
+
+Frequency distribuition for SeguroDispositivo
++------------------+-----+
+| SeguroDispositivo|count|
++------------------+-----+
+|               Nao| 5291|
+|               Sim| 3316|
+|SemServicoInternet| 1741|
++------------------+-----+
+
+Frequency distribuition for SuporteTecnico
++------------------+-----+
+|    SuporteTecnico|count|
++------------------+-----+
+|               Nao| 6202|
+|               Sim| 2405|
+|SemServicoInternet| 1741|
++------------------+-----+
+
+Frequency distribuition for TVaCabo
++------------------+-----+
+|           TVaCabo|count|
++------------------+-----+
+|               Nao| 4459|
+|               Sim| 4148|
+|SemServicoInternet| 1741|
++------------------+-----+
+
+Frequency distribuition for StreamingFilmes
++------------------+-----+
+|   StreamingFilmes|count|
++------------------+-----+
+|               Nao| 4445|
+|               Sim| 4162|
+|SemServicoInternet| 1741|
++------------------+-----+
+
+Frequency distribuition for TipoContrato
++------------+-----+
+|TipoContrato|count|
++------------+-----+
+| Mensalmente| 6926|
+|    DoisAnos| 1750|
+|       UmAno| 1672|
++------------+-----+
+
+Frequency distribuition for ContaCorreio
++------------+-----+
+|ContaCorreio|count|
++------------+-----+
+|         Sim| 6843|
+|         Nao| 3505|
++------------+-----+
+
+Frequency distribuition for MetodoPagamento
++----------------+-----+
+| MetodoPagamento|count|
++----------------+-----+
+|BoletoEletronico| 4714|
+|          Boleto| 2051|
+|   DebitoEmConta| 1822|
+|   CartaoCredito| 1761|
++----------------+-----+
+
+// groups users who has only phone, only internet, or both phone and internet 
+
+df.groupBy("TelefoneFixo","Internet").count.show
++------------+-----------+-----+                                                
+|TelefoneFixo|   Internet|count|
++------------+-----------+-----+
+|         Sim|        Nao| 1741|
+|         Sim|        DSL| 2221|
+|         Nao|        DSL|  985|
+|         Sim|FibraOptica| 5401|
++------------+-----------+-----+
+
+
+df.groupBy('TelefoneFixo,'MaisDeUmaLinhaTelefonica).count.show
++------------+------------------------+-----+
+|TelefoneFixo|MaisDeUmaLinhaTelefonica|count|
++------------+------------------------+-----+
+|         Sim|                     Sim| 4515|
+|         Sim|                     Nao| 4848|
+|         Nao|    SemServicoTelefonico|  985|
++------------+------------------------+-----+
+
+df.groupBy('Internet,'SegurancaOnline).count.show
++-----------+------------------+-----+
+|   Internet|   SegurancaOnline|count|
++-----------+------------------+-----+
+|FibraOptica|               Sim| 1006|
+|        DSL|               Nao| 1889|
+|FibraOptica|               Nao| 4395|
+|        Nao|SemServicoInternet| 1741|
+|        DSL|               Sim| 1317|
++-----------+------------------+-----+
+
+df.groupBy('Internet,'BackupOnline).count.show
++-----------+------------------+-----+
+|   Internet|      BackupOnline|count|
++-----------+------------------+-----+
+|FibraOptica|               Sim| 2069|
+|        DSL|               Nao| 1965|
+|FibraOptica|               Nao| 3332|
+|        Nao|SemServicoInternet| 1741|
+|        DSL|               Sim| 1241|
++-----------+------------------+-----+
+
+df.groupBy('Internet,'SeguroDispositivo).count.show
++-----------+------------------+-----+
+|   Internet| SeguroDispositivo|count|
++-----------+------------------+-----+
+|FibraOptica|               Sim| 2072|
+|        DSL|               Nao| 1962|
+|FibraOptica|               Nao| 3329|
+|        Nao|SemServicoInternet| 1741|
+|        DSL|               Sim| 1244|
++-----------+------------------+-----+
+
+df.groupBy('Internet,'SuporteTecnico).count.show
++-----------+------------------+-----+
+|   Internet|    SuporteTecnico|count|
++-----------+------------------+-----+
+|FibraOptica|               Sim| 1081|
+|        DSL|               Nao| 1882|
+|FibraOptica|               Nao| 4320|
+|        Nao|SemServicoInternet| 1741|
+|        DSL|               Sim| 1324|
++-----------+------------------+-----+
+
+df.groupBy('Internet,'TVaCabo).count.show
++-----------+------------------+-----+
+|   Internet|           TVaCabo|count|
++-----------+------------------+-----+
+|FibraOptica|               Sim| 2994|
+|        DSL|               Nao| 2052|
+|FibraOptica|               Nao| 2407|
+|        Nao|SemServicoInternet| 1741|
+|        DSL|               Sim| 1154|
++-----------+------------------+-----+
+
+df.groupBy('Internet,'StreamingFilmes).count.show
++-----------+------------------+-----+
+|   Internet|   StreamingFilmes|count|
++-----------+------------------+-----+
+|FibraOptica|               Sim| 2970|
+|        DSL|               Nao| 2014|
+|FibraOptica|               Nao| 2431|
+|        Nao|SemServicoInternet| 1741|
+|        DSL|               Sim| 1192|
++-----------+------------------+-----+
+
+// Examining correlation for categories variables against Churn
+
+:load chsqr_test.scala
+
+listcols.diff(Array("Churn")).map( x => chsqr_test(df1,x,"Churn") )
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 1 
+statistic = 12.86932189564217 
+pValue = 3.340126166681001E-4 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Mais65anosidx
++--------+----+---+
+|Churnidx| 0.0|1.0|
++--------+----+---+
+|     0.0|4508|666|
+|     1.0|4381|793|
++--------+----+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 381.8896154043509 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Conjugeidx
++--------+----+----+
+|Churnidx| 0.0| 1.0|
++--------+----+----+
+|     0.0|2441|2733|
+|     1.0|3426|1748|
++--------+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 631.7569120600158 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Dependentesidx
++--------+----+----+
+|Churnidx| 0.0| 1.0|
++--------+----+----+
+|     0.0|3390|1784|
+|     1.0|4481| 693|
++--------+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 1.7066103699029176 
+pValue = 0.1914257489432154 
+No presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           TelefoneFixoidx
++--------+----+---+
+|Churnidx| 0.0|1.0|
++--------+----+---+
+|     0.0|4662|512|
+|     1.0|4701|473|
++--------+----+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 2 
+statistic = 29.345693636179817 
+pValue = 4.242907786222716E-7 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           MaisDeUmaLinhaTelefonicaidx
++--------+----+----+---+
+|Churnidx| 0.0| 1.0|2.0|
++--------+----+----+---+
+|     0.0|2541|2121|512|
+|     1.0|2307|2394|473|
++--------+----+----+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 2 
+statistic = 1438.8674401898497 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Internetidx
++--------+----+----+----+
+|Churnidx| 0.0| 1.0| 2.0|
++--------+----+----+----+
+|     0.0|1799|1962|1413|
+|     1.0|3602|1244| 328|
++--------+----+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 2 
+statistic = 1998.228868625019 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           SegurancaOnlineidx
++--------+----+----+----+
+|Churnidx| 0.0| 1.0| 2.0|
++--------+----+----+----+
+|     0.0|2037|1724|1413|
+|     1.0|4247| 599| 328|
++--------+----+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 2 
+statistic = 1227.7824557240144 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           BackupOnlineidx
++--------+----+----+----+
+|Churnidx| 0.0| 1.0| 2.0|
++--------+----+----+----+
+|     0.0|1855|1906|1413|
+|     1.0|3442|1404| 328|
++--------+----+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 2 
+statistic = 1172.4229446091686 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           SeguroDispositivoidx
++--------+----+----+----+
+|Churnidx| 0.0| 1.0| 2.0|
++--------+----+----+----+
+|     0.0|1884|1877|1413|
+|     1.0|3407|1439| 328|
++--------+----+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 2 
+statistic = 1889.9571487349347 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           SuporteTecnicoidx
++--------+----+----+----+
+|Churnidx| 0.0| 1.0| 2.0|
++--------+----+----+----+
+|     0.0|2027|1734|1413|
+|     1.0|4175| 671| 328|
++--------+----+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 2 
+statistic = 824.9996732133931 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           TVaCaboidx
++--------+----+----+----+
+|Churnidx| 0.0| 1.0| 2.0|
++--------+----+----+----+
+|     0.0|1868|1893|1413|
+|     1.0|2591|2255| 328|
++--------+----+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 2 
+statistic = 829.8653085339834 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           StreamingFilmesidx
++--------+----+----+----+
+|Churnidx| 0.0| 1.0| 2.0|
++--------+----+----+----+
+|     0.0|1847|1914|1413|
+|     1.0|2598|2248| 328|
++--------+----+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 2 
+statistic = 2785.287459746418 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           TipoContratoidx
++--------+----+----+----+
+|Churnidx| 0.0| 1.0| 2.0|
++--------+----+----+----+
+|     0.0|2220|1647|1307|
+|     1.0|4706| 103| 365|
++--------+----+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 1 
+statistic = 730.2582143669416 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           ContaCorreioidx
++--------+----+----+
+|Churnidx| 0.0| 1.0|
++--------+----+----+
+|     0.0|2771|2403|
+|     1.0|4072|1102|
++--------+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 3 
+statistic = 1799.7113321136203 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           MetodoPagamentoidx
++--------+----+----+----+----+
+|Churnidx| 0.0| 1.0| 2.0| 3.0|
++--------+----+----+----+----+
+|     0.0|1294|1304|1286|1290|
+|     1.0|3420| 747| 536| 471|
++--------+----+----+----+----+
+
+// Conclusion: all category features has significant influence on the Churn except TelefoneFixoidx  ( pvalue < 0.05 )
+
+
+// Examining correlation for continuous variables against income
+
+:load anova_table.scala
+
+Array("MesesDeContrato","MesesCobrados").map( x => anova_table(df,"Churn",x))
+MesesDeContrato:
+ss_total=6008535.437572629, ss_within=4963068.086973377, ss_between=1045467.3505993464
+df_total=10347, df_within=10346, df_between=1
+sum_sq=1045467.3505993464, df=1, F=2179.3787672771978, PR(>F)=0.0
+
+MesesCobrados:
+ss_total=8617564.312634122, ss_within=8185772.568948896, ss_between=431791.7436851578
+df_total=10347, df_within=10346, df_between=1
+sum_sq=431791.7436851578, df=1, F=545.7416929847923, PR(>F)=0.0
+
+// Conclusion: all continuous features have significant influence on the Churn ( pvalue < 0.05 )

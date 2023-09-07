@@ -1,0 +1,438 @@
+val df = spark.read.format("csv").option("header","true").option("inferSchema","true").load("staging/ObesityDataSet_raw_and_data_sinthetic.csv")
+
+df.printSchema
+root
+ |-- Gender: string (nullable = true)
+ |-- Age: double (nullable = true)
+ |-- Height: double (nullable = true)
+ |-- Weight: double (nullable = true)
+ |-- family_history_with_overweight: string (nullable = true)
+ |-- FAVC: string (nullable = true)
+ |-- FCVC: double (nullable = true)
+ |-- NCP: double (nullable = true)
+ |-- CAEC: string (nullable = true)
+ |-- SMOKE: string (nullable = true)
+ |-- CH2O: double (nullable = true)
+ |-- SCC: string (nullable = true)
+ |-- FAF: double (nullable = true)
+ |-- TUE: double (nullable = true)
+ |-- CALC: string (nullable = true)
+ |-- MTRANS: string (nullable = true)
+ |-- NObeyesdad: string (nullable = true)
+
+df.show(10)
++------+----+------+------+------------------------------+----+----+---+---------+-----+----+---+---+---+----------+--------------------+-------------------+
+|Gender| Age|Height|Weight|family_history_with_overweight|FAVC|FCVC|NCP|     CAEC|SMOKE|CH2O|SCC|FAF|TUE|      CALC|              MTRANS|         NObeyesdad|
++------+----+------+------+------------------------------+----+----+---+---------+-----+----+---+---+---+----------+--------------------+-------------------+
+|Female|21.0|  1.62|  64.0|                           yes|  no| 2.0|3.0|Sometimes|   no| 2.0| no|0.0|1.0|        no|Public_Transporta...|      Normal_Weight|
+|Female|21.0|  1.52|  56.0|                           yes|  no| 3.0|3.0|Sometimes|  yes| 3.0|yes|3.0|0.0| Sometimes|Public_Transporta...|      Normal_Weight|
+|  Male|23.0|   1.8|  77.0|                           yes|  no| 2.0|3.0|Sometimes|   no| 2.0| no|2.0|1.0|Frequently|Public_Transporta...|      Normal_Weight|
+|  Male|27.0|   1.8|  87.0|                            no|  no| 3.0|3.0|Sometimes|   no| 2.0| no|2.0|0.0|Frequently|             Walking| Overweight_Level_I|
+|  Male|22.0|  1.78|  89.8|                            no|  no| 2.0|1.0|Sometimes|   no| 2.0| no|0.0|0.0| Sometimes|Public_Transporta...|Overweight_Level_II|
+|  Male|29.0|  1.62|  53.0|                            no| yes| 2.0|3.0|Sometimes|   no| 2.0| no|0.0|0.0| Sometimes|          Automobile|      Normal_Weight|
+|Female|23.0|   1.5|  55.0|                           yes| yes| 3.0|3.0|Sometimes|   no| 2.0| no|1.0|0.0| Sometimes|           Motorbike|      Normal_Weight|
+|  Male|22.0|  1.64|  53.0|                            no|  no| 2.0|3.0|Sometimes|   no| 2.0| no|3.0|0.0| Sometimes|Public_Transporta...|      Normal_Weight|
+|  Male|24.0|  1.78|  64.0|                           yes| yes| 3.0|3.0|Sometimes|   no| 2.0| no|1.0|1.0|Frequently|Public_Transporta...|      Normal_Weight|
+|  Male|22.0|  1.72|  68.0|                           yes| yes| 2.0|3.0|Sometimes|   no| 2.0| no|1.0|1.0|        no|Public_Transporta...|      Normal_Weight|
++------+----+------+------+------------------------------+----+----+---+---------+-----+----+---+---+---+----------+--------------------+-------------------+
+only showing top 10 rows
+
+df.describe().show
++-------+------+-----------------+-------------------+------------------+------------------------------+----+------------------+------------------+------+-----+------------------+----+------------------+------------------+------+----------+-------------------+
+|summary|Gender|              Age|             Height|            Weight|family_history_with_overweight|FAVC|              FCVC|               NCP|  CAEC|SMOKE|              CH2O| SCC|               FAF|               TUE|  CALC|    MTRANS|         NObeyesdad|
++-------+------+-----------------+-------------------+------------------+------------------------------+----+------------------+------------------+------+-----+------------------+----+------------------+------------------+------+----------+-------------------+
+|  count|  2111|             2111|               2111|              2111|                          2111|2111|              2111|              2111|  2111| 2111|              2111|2111|              2111|              2111|  2111|      2111|               2111|
+|   mean|  null|24.31259990857412| 1.7016773533870178| 86.58605812648037|                          null|null|2.4190430615821916| 2.685628049739461|  null| null|   2.0080114040739|null| 1.010297695878732|0.6578659237328296|  null|      null|               null|
+| stddev|  null|6.345968273732226|0.09330481986792012|26.191171745204706|                          null|null|0.5339265785032998|0.7780386488418611|  null| null|0.6129534517968718|null|0.8505924308366988|0.6089272596763785|  null|      null|               null|
+|    min|Female|             14.0|               1.45|              39.0|                            no|  no|               1.0|               1.0|Always|   no|               1.0|  no|               0.0|               0.0|Always|Automobile|Insufficient_Weight|
+|    max|  Male|             61.0|               1.98|             173.0|                           yes| yes|               3.0|               4.0|    no|  yes|               3.0| yes|               3.0|               2.0|    no|   Walking|Overweight_Level_II|
++-------+------+-----------------+-------------------+------------------+------------------------------+----+------------------+------------------+------+-----+------------------+----+------------------+------------------+------+----------+-------------------+
+
+val listcols = df.columns.diff(Array("Age","Height","Weight"))
+listcols: Array[String] = Array(Gender, family_history_with_overweight, FAVC, FCVC, NCP, CAEC, SMOKE, CH2O, SCC, FAF, TUE, CALC, MTRANS, NObeyesdad)
+
+spark.conf.set("spark.sql.shuffle.partitions",10)
+
+listcols.map( colname => {
+   val freq = df.select(colname).distinct.count
+   println(colname + ": " + freq) 
+})
+Gender: 2
+family_history_with_overweight: 2
+FAVC: 2
+FCVC: 810
+NCP: 635
+CAEC: 4
+SMOKE: 2
+CH2O: 1268
+SCC: 2
+FAF: 1190
+TUE: 1129
+CALC: 4
+MTRANS: 5
+NObeyesdad: 7
+
+val listcols = df.columns.diff(Array("Age","Height","Weight","FCVC","NCP","CH2O","FAF","TUE"))
+
+listcols.map( colname => {
+   val freq = df.select(colname).distinct.count
+   println("Frequency distribuition for " + colname)
+   df.groupBy(colname).count.orderBy(desc("count")).show
+})
+Frequency distribuition for Gender
++------+-----+
+|Gender|count|
++------+-----+
+|  Male| 1068|
+|Female| 1043|
++------+-----+
+
+Frequency distribuition for family_history_with_overweight
++------------------------------+-----+
+|family_history_with_overweight|count|
++------------------------------+-----+
+|                           yes| 1726|
+|                            no|  385|
++------------------------------+-----+
+
+Frequency distribuition for FAVC
++----+-----+
+|FAVC|count|
++----+-----+
+| yes| 1866|
+|  no|  245|
++----+-----+
+
+Frequency distribuition for CAEC
++----------+-----+
+|      CAEC|count|
++----------+-----+
+| Sometimes| 1765|
+|Frequently|  242|
+|    Always|   53|
+|        no|   51|
++----------+-----+
+
+Frequency distribuition for SMOKE
++-----+-----+
+|SMOKE|count|
++-----+-----+
+|   no| 2067|
+|  yes|   44|
++-----+-----+
+
+Frequency distribuition for SCC
++---+-----+
+|SCC|count|
++---+-----+
+| no| 2015|
+|yes|   96|
++---+-----+
+
+Frequency distribuition for CALC
++----------+-----+
+|      CALC|count|
++----------+-----+
+| Sometimes| 1401|
+|        no|  639|
+|Frequently|   70|
+|    Always|    1|
++----------+-----+
+
+Frequency distribuition for MTRANS
++--------------------+-----+
+|              MTRANS|count|
++--------------------+-----+
+|Public_Transporta...| 1580|
+|          Automobile|  457|
+|             Walking|   56|
+|           Motorbike|   11|
+|                Bike|    7|
++--------------------+-----+
+
+Frequency distribuition for NObeyesdad
++-------------------+-----+
+|         NObeyesdad|count|
++-------------------+-----+
+|     Obesity_Type_I|  351|
+|   Obesity_Type_III|  324|
+|    Obesity_Type_II|  297|
+| Overweight_Level_I|  290|
+|Overweight_Level_II|  290|
+|      Normal_Weight|  287|
+|Insufficient_Weight|  272|
++-------------------+-----+
+
+
+// Examining correlation for categories variables against NObeyesdad
+
+:load chsqr_test.scala
+
+listcols.diff(Array("NObeyesdad")).map( x => chsqr_test(df,x,"NObeyesdad") )
+Chi squared test summary:                                                       
+method: pearson
+degrees of freedom = 6 
+statistic = 657.746227342968 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           Genderidx
++-------------+---+---+
+|NObeyesdadidx|0.0|1.0|
++-------------+---+---+
+|          4.0|145|145|
+|          2.0|295|  2|
+|          3.0|187|103|
+|          0.0|195|156|
+|          5.0|146|141|
+|          6.0| 99|173|
+|          1.0|  1|323|
++-------------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 6 
+statistic = 621.9794353945298 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           family_history_with_overweightidx
++-------------+---+----+
+|NObeyesdadidx|0.0| 1.0|
++-------------+---+----+
+|          4.0|209|  81|
+|          2.0|296|   1|
+|          3.0|272|  18|
+|          0.0|344|   7|
+|          5.0|155| 132|
+|          6.0|126| 146|
+|          1.0|324|null|
++-------------+---+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 6 
+statistic = 233.34130356133423 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           FAVCidx
++-------------+---+---+
+|NObeyesdadidx|0.0|1.0|
++-------------+---+---+
+|          4.0|268| 22|
+|          2.0|290|  7|
+|          3.0|216| 74|
+|          0.0|340| 11|
+|          5.0|208| 79|
+|          6.0|221| 51|
+|          1.0|323|  1|
++-------------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 18 
+statistic = 802.9772817566468 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           CAECidx
++-------------+---+---+----+----+
+|NObeyesdadidx|0.0|1.0| 2.0| 3.0|
++-------------+---+---+----+----+
+|          4.0|236| 14|   5|  35|
+|          2.0|293|  1|   2|   1|
+|          3.0|270| 16|   3|   1|
+|          5.0|159| 83|  35|  10|
+|          0.0|338|  6|   6|   1|
+|          6.0|146|121|   2|   3|
+|          1.0|323|  1|null|null|
++-------------+---+---+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 6 
+statistic = 32.13783205600178 
+pValue = 1.5354243135146106E-5 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           SMOKEidx
++-------------+---+---+
+|NObeyesdadidx|0.0|1.0|
++-------------+---+---+
+|          4.0|287|  3|
+|          2.0|282| 15|
+|          3.0|285|  5|
+|          0.0|345|  6|
+|          5.0|274| 13|
+|          6.0|271|  1|
+|          1.0|323|  1|
++-------------+---+---+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 6 
+statistic = 123.0238986891244 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           SCCidx
++-------------+---+----+
+|NObeyesdadidx|0.0| 1.0|
++-------------+---+----+
+|          4.0|253|  37|
+|          2.0|296|   1|
+|          3.0|286|   4|
+|          0.0|349|   2|
+|          5.0|257|  30|
+|          6.0|250|  22|
+|          1.0|324|null|
++-------------+---+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 18 
+statistic = 338.5775202939281 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           CALCidx
++-------------+---+---+----+----+
+|NObeyesdadidx|0.0|1.0| 2.0| 3.0|
++-------------+---+---+----+----+
+|          4.0|224| 50|  16|null|
+|          2.0|224| 71|   2|null|
+|          3.0|143|128|  19|null|
+|          5.0|161|107|  18|   1|
+|          0.0|172|165|  14|null|
+|          6.0|154|117|   1|null|
+|          1.0|323|  1|null|null|
++-------------+---+---+----+----+
+
+Chi squared test summary:
+method: pearson
+degrees of freedom = 24 
+statistic = 292.59394813168007 
+pValue = 0.0 
+Very strong presumption against null hypothesis: the occurrence of the outcomes is statistically independent..
+           MTRANSidx
++-------------+---+---+----+----+----+
+|NObeyesdadidx|0.0|1.0| 2.0| 3.0| 4.0|
++-------------+---+---+----+----+----+
+|          4.0|212| 66|   9|   1|   2|
+|          2.0|200| 95|   1|null|   1|
+|          3.0|189| 94|   6|   1|null|
+|          5.0|200| 45|  32|   6|   4|
+|          0.0|236|110|   2|   3|null|
+|          6.0|220| 46|   6|null|null|
+|          1.0|323|  1|null|null|null|
++-------------+---+---+----+----+----+
+
+// Conclusion: all category features has significant influence on NObeyesdad ( pvalue < 0.05 )
+
+
+// Examining correlation for continuous variables against income
+
+:load anova_table.scala
+
+Array("Age","Height","Weight","FCVC","NCP","CH2O","FAF","TUE").map( x => anova_table(df,"NObeyesdad",x))
+Age:
+ss_total=84972.47112886608, ss_within=69518.3522508867, ss_between=15454.11887797896
+df_total=2110, df_within=2104, df_between=6
+sum_sq=15454.11887797896, df=6, F=77.95415423043441, PR(>F)=0.0
+
+Height:
+ss_total=18.369215656334347, ss_within=16.554840715199546, ss_between=1.8143749411347374
+df_total=2110, df_within=2104, df_between=6
+sum_sq=1.8143749411347374, df=6, F=38.43231255659828, PR(>F)=0.0
+
+Weight:
+ss_total=1447412.4772861656, ss_within=219041.37039309525, ss_between=1228371.1068930933
+df_total=2110, df_within=2104, df_between=6
+sum_sq=1228371.1068930933, df=6, F=1966.5180176275185, PR(>F)=0.0
+
+FCVC:
+ss_total=601.5137175000326, ss_within=455.5916897630193, ss_between=145.92202773700993
+df_total=2110, df_within=2104, df_between=6
+sum_sq=145.92202773700993, df=6, F=112.31546186980438, PR(>F)=0.0
+
+NCP:
+ss_total=1277.2761334834154, ss_within=1186.5533205844613, ss_between=90.72281289895705
+df_total=2110, df_within=2104, df_between=6
+sum_sq=90.72281289895705, df=6, F=26.81166184274851, PR(>F)=0.0
+
+CH2O:
+ss_total=792.7521808870629, ss_within=757.8056515698443, ss_between=34.94652931722238
+df_total=2110, df_within=2104, df_between=6
+sum_sq=34.94652931722238, df=6, F=16.17114219437812, PR(>F)=0.0
+
+FAF:
+ss_total=1526.600789967012, ss_within=1454.0995504670814, ss_between=72.50123949991969
+df_total=2110, df_within=2104, df_between=6
+sum_sq=72.50123949991969, df=6, F=17.48420042938048, PR(>F)=0.0
+
+TUE:
+ss_total=782.3719799874292, ss_within=765.1844482175358, ss_between=17.18753176989777
+df_total=2110, df_within=2104, df_between=6
+sum_sq=17.18753176989777, df=6, F=7.876655737080571, PR(>F)=2.06878162378743E-8
+
+// Conclusion: all continuous features have significant influence on NObeyesdad  ( pvalue < 0.05 )
+
+
+// calculate pearson correlation to check multicolinearity
+
+import org.apache.spark.ml.feature.{VectorAssembler}
+val va = new VectorAssembler().setOutputCol("features").setInputCols(Array("Age","Height","Weight","FCVC","NCP","CH2O","FAF","TUE"))
+val df1 = va.transform(df)
+
+df1.printSchema
+root
+ |-- Gender: string (nullable = true)
+ |-- Age: double (nullable = true)
+ |-- Height: double (nullable = true)
+ |-- Weight: double (nullable = true)
+ |-- family_history_with_overweight: string (nullable = true)
+ |-- FAVC: string (nullable = true)
+ |-- FCVC: double (nullable = true)
+ |-- NCP: double (nullable = true)
+ |-- CAEC: string (nullable = true)
+ |-- SMOKE: string (nullable = true)
+ |-- CH2O: double (nullable = true)
+ |-- SCC: string (nullable = true)
+ |-- FAF: double (nullable = true)
+ |-- TUE: double (nullable = true)
+ |-- CALC: string (nullable = true)
+ |-- MTRANS: string (nullable = true)
+ |-- NObeyesdad: string (nullable = true)
+ |-- features: vector (nullable = true)
+
+import org.apache.spark.ml.stat.Correlation
+import org.apache.spark.ml.linalg.Matrix
+import org.apache.spark.sql.Row
+
+val corr = Correlation.corr(df1, "features", "pearson").head match {
+   case Row(coeff: Matrix) => coeff
+}
+corr: org.apache.spark.ml.linalg.Matrix =
+1.0                    -0.025958134319671363  ... (8 total)
+-0.025958134319671363  1.0                    ...
+0.20256010359866441    0.46313611661578274    ...
+0.016290886053410954   -0.03812105839587924   ...
+-0.04394372656119378   0.24367172595810485    ...
+-0.045303857801979416  0.21337591711045203    ...
+-0.14493832661742284   0.29470899846604487    ...
+-0.29693059206832584   0.051911666347991284   ...
+
+
+corr.toDense.rowIter.foreach( x => {
+  val size = x.size
+  for ( i <- Range(0,size)) { 
+    val elem = x(i)
+    print(f"$elem%.3f\t") 
+  }
+  println
+})
+// "Age","Height","Weight","FCVC","NCP","CH2O", "FAF", "TUE"
+1.000   -0.026  0.203   0.016   -0.044  -0.045  -0.145  -0.297
+-0.026  1.000   0.463   -0.038  0.244   0.213   0.295   0.052
+0.203   0.463   1.000   0.216   0.107   0.201   -0.051  -0.072
+0.016   -0.038  0.216   1.000   0.042   0.068   0.020   -0.101
+-0.044  0.244   0.107   0.042   1.000   0.057   0.130   0.036
+-0.045  0.213   0.201   0.068   0.057   1.000   0.167   0.012
+-0.145  0.295   -0.051  0.020   0.130   0.167   1.000   0.059
+-0.297  0.052   -0.072  -0.101  0.036   0.012   0.059   1.000
+
+// there is NO evidence of multicolinearity
