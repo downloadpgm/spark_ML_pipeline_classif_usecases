@@ -1,0 +1,76 @@
+---- Feature extraction & Data Munging --------------
+
+val rdd = sc.textFile("breast-cancer/breast-cancer-wisconsin.data").map(x => x.split(","))
+
+rdd.map( x => (x(6),1)).reduceByKey(_+_).take(20)
+// res5: Array[(String, Int)] = Array((4,19), (8,21), (7,8), (5,30), (6,4), (2,30), (9,9), (3,28), (?,16), (1,402), (10,132))
+
+val rdd1 = rdd.filter( x => x(6) != "?").map(x => x.map( y => y.toDouble ))
+
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
+
+val data = rdd1.map( r => {
+  val arr_size = r.size - 1
+  val l = if (r(arr_size) == 2) 0 else 1
+  val f = r.slice(1,arr_size)
+  LabeledPoint(l,Vectors.dense(f))
+})
+
+data.cache
+
+val sets = data.randomSplit(Array(0.8,0.2))
+val trainSet = sets(0)
+val testSet = sets(1)
+
+trainSet.cache
+
+---- MLlib logistic regression --------------
+
+import org.apache.spark.mllib.classification.LogisticRegressionWithSGD
+val numIterations = 100
+val model = LogisticRegressionWithSGD.train(trainSet, numIterations)
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+validPredicts.take(10)
+res3: Array[(Double, Double)] = Array((0.0,0.0), (0.0,0.0), (0.0,1.0), (0.0,0.0), (0.0,0.0), (0.0,0.0), (1.0,1.0), (1.0,1.0), (0.0,0.0), (1.0,1.0))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 120
+validPredicts.count                            // 142
+model.getClass.getSimpleName
+metrics.areaUnderPR   // 0.6977620072465742
+metrics.areaUnderROC  // 0.8465845464725643
+
+---- MLlib SVM regression --------------
+
+import org.apache.spark.mllib.classification.SVMWithSGD
+val numIterations = 100
+val model = SVMWithSGD.train(trainSet, numIterations)
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 122
+validPredicts.count                            // 142
+model.getClass.getSimpleName
+metrics.areaUnderPR   // 0.7189991009889123
+metrics.areaUnderROC  // 0.8624860022396417
+
+---- MLlib Naive Bayes regression --------------
+
+import org.apache.spark.mllib.classification.NaiveBayes
+val model = NaiveBayes.train(trainSet)
+
+val validPredicts = testSet.map(x => (model.predict(x.features),x.label))
+
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+val metrics = new BinaryClassificationMetrics(validPredicts)
+validPredicts.filter(x => x._1 == x._2).count  // 127
+validPredicts.count                            // 142
+model.getClass.getSimpleName
+metrics.areaUnderPR   //  0.7959244830686245
+metrics.areaUnderROC  //  0.8834266517357222
